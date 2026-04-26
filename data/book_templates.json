@@ -1,0 +1,32 @@
+[
+    {
+        "id": 1,
+        "title": "The Very Hungry Caterpillar",
+        "language": "English",
+        "total_pages": 26
+    },
+    {
+        "id": 2,
+        "title": "Charlotte's Web",
+        "language": "English",
+        "total_pages": 184
+    },
+    {
+        "id": 3,
+        "title": "Matilda",
+        "language": "English",
+        "total_pages": 240
+    },
+    {
+        "id": 4,
+        "title": "Küçük Prens",
+        "language": "Turkish",
+        "total_pages": 112
+    },
+    {
+        "id": 5,
+        "title": "Şeker Portakalı",
+        "language": "Turkish",
+        "total_pages": 184
+    }
+]

@@ -1,0 +1,193 @@
+import streamlit as st
+from datetime import date
+from streamlit_sortables import sort_items
+
+from utils.data_helpers import save_data, get_kid
+from utils.task_helpers import TASK_STATUSES
+
+
+def kanban_page(data):
+    st.header("Daily Kanban Board")
+    st.caption("Drag tasks between Backlog, In Progress and Done.")
+
+    if not data["kids"]:
+        st.info("Add children first in Admin.")
+        return
+
+    selected_date = st.date_input(
+        "Choose task date",
+        value=date.today()
+    )
+
+    kid_options = {
+        kid["name"]: kid["id"]
+        for kid in data["kids"]
+    }
+
+    selected_child = st.selectbox(
+        "Choose child",
+        ["All children"] + list(kid_options.keys())
+    )
+
+    daily_tasks = [
+        task for task in data["tasks"]
+        if task.get("due_date") == selected_date.isoformat()
+    ]
+
+    if selected_child == "All children":
+        filtered_tasks = daily_tasks
+    else:
+        selected_child_id = kid_options[selected_child]
+        filtered_tasks = [
+            task for task in daily_tasks
+            if task["kid_id"] == selected_child_id
+        ]
+
+    if not filtered_tasks:
+        st.info("No tasks for this date.")
+        return
+
+    st.write(f"Showing tasks for: **{selected_date.isoformat()}**")
+
+    item_to_task_id = {}
+    containers = []
+
+    for status in TASK_STATUSES:
+        items = []
+
+        for task in filtered_tasks:
+            if task["status"] == status:
+                kid = get_kid(data, task["kid_id"])
+                kid_name = kid["name"] if kid else "Unknown"
+
+                item_label = (
+                    f"#{task['id']} | {task['title']} | "
+                    f"{kid_name} | {task['points']} points"
+                )
+
+                items.append(item_label)
+                item_to_task_id[item_label] = task["id"]
+
+        containers.append(
+            {
+                "header": status,
+                "items": items
+            }
+        )
+
+    custom_style = """
+    .sortable-component {
+        display: flex;
+        gap: 20px;
+        width: 100%;
+        align-items: flex-start;
+    }
+
+    .sortable-container {
+        flex: 1;
+        min-height: 380px;
+        background-color: #f4f5f7;
+        border-radius: 12px;
+        padding: 12px;
+        border: 1px solid #ddd;
+    }
+
+    .sortable-container-header {
+        font-weight: 700;
+        font-size: 18px;
+        margin-bottom: 12px;
+        color: #172b4d;
+    }
+
+    .sortable-container-body {
+        min-height: 300px;
+    }
+
+    .sortable-item {
+        background-color: white !important;
+        color: #172b4d !important;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 10px;
+        border-left: 6px solid #2684ff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+        font-size: 15px;
+        font-weight: 500;
+        cursor: grab;
+    }
+
+    .sortable-item:active {
+        cursor: grabbing;
+    }
+    """
+
+    sorted_containers = sort_items(
+        containers,
+        multi_containers=True,
+        custom_style=custom_style,
+        key=f"kanban_sortable_{selected_date}_{selected_child}"
+    )
+
+    changed = update_task_statuses_from_board(
+        data,
+        sorted_containers,
+        item_to_task_id
+    )
+
+    if changed:
+        save_data(data)
+        st.success("Board updated automatically.")
+        st.rerun()
+
+
+def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
+    """
+    Checks the dragged board layout.
+    If a task has moved to a different column, it updates the task status.
+    """
+    changed = False
+
+    for container in sorted_containers:
+        new_status = container["header"]
+
+        for item_label in container["items"]:
+            task_id = item_to_task_id.get(item_label)
+
+            if task_id is None:
+                continue
+
+            for task in data["tasks"]:
+                if task["id"] == task_id:
+                    old_status = task["status"]
+
+                    if old_status != new_status:
+                        task["status"] = new_status
+                        changed = True
+
+                        if old_status != "Done" and new_status == "Done":
+                            mark_task_done(task)
+
+                        elif old_status == "Done" and new_status != "Done":
+                            remove_done_information(task)
+
+                    break
+
+    return changed
+
+
+def mark_task_done(task):
+    """
+    Adds completion date and weekly points information.
+    """
+    task["completed_date"] = date.today().isoformat()
+
+    year, week, _ = date.today().isocalendar()
+    task["completed_week"] = f"{year}-W{week}"
+
+
+def remove_done_information(task):
+    """
+    Removes completion information if task is moved out of Done.
+    """
+    task.pop("completed_date", None)
+    task.pop("completed_week", None)
