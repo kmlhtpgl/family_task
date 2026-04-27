@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.data_helpers import load_data
+from utils.db_helpers import get_all_data
 
 from app_pages.dashboard import dashboard_page
 from app_pages.kanban import kanban_page
@@ -17,7 +17,7 @@ st.set_page_config(
 st.title("✅ Family Task Tracker")
 st.caption("A simple Jira-style task and reading tracker for your family.")
 
-data = load_data()
+data = get_all_data()
 
 st.sidebar.header("Menu")
 

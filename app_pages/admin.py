@@ -1,19 +1,15 @@
 import streamlit as st
 from datetime import date, datetime, timedelta
 
-from utils.book_template_helpers import (
-    load_book_templates,
-    save_book_templates,
-    next_book_template_id,
-    DEFAULT_BOOK_TEMPLATES
-)
-
-from utils.data_helpers import save_data, next_id, PHOTO_DIR
 from utils.task_helpers import TASK_STATUSES
-from utils.template_helpers import (
-    load_task_templates,
-    save_task_templates,
-    next_template_id
+from utils.db_helpers import (
+    add_kid,
+    add_tasks,
+    add_books,
+    add_task_template,
+    replace_task_templates,
+    add_book_template,
+    replace_book_templates
 )
 
 
@@ -21,50 +17,51 @@ def admin_page(data):
     st.header("Admin Panel")
     st.caption("Add children, task templates, book templates, tasks and books.")
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
         [
             "Add Child",
             "Task List",
             "Assign Task",
             "Book List",
             "Assign Book",
-            "Add Book Manually",
             "Settings"
         ]
     )
 
     with tab1:
-        add_child_tab(data)
+        add_child_tab()
 
     with tab2:
-        task_list_tab()
+        task_list_tab(data)
 
     with tab3:
         assign_task_tab(data)
 
     with tab4:
-        book_list_tab()
+        book_list_tab(data)
 
     with tab5:
         assign_book_tab(data)
 
     with tab6:
-        add_book_tab(data)
-
-    with tab7:
-        settings_tab(data)
+        settings_tab()
 
 
-def add_child_tab(data):
+# -----------------------
+# Add Child
+# -----------------------
+
+def add_child_tab():
     st.subheader("Add Child")
+
+    st.warning(
+        "For now, photos are not saved safely in Supabase Storage. "
+        "We can add proper photo storage in the next step."
+    )
 
     with st.form("add_child_form"):
         name = st.text_input("Child name")
         age = st.number_input("Age", min_value=1, max_value=18, value=6)
-        photo = st.file_uploader(
-            "Profile photo",
-            type=["png", "jpg", "jpeg"]
-        )
 
         submitted = st.form_submit_button("Add Child")
 
@@ -73,48 +70,29 @@ def add_child_tab(data):
                 st.error("Please enter the child’s name.")
                 return
 
-            child_id = next_id(data["kids"])
-            photo_path = None
-
-            if photo:
-                extension = photo.name.split(".")[-1]
-                photo_path = PHOTO_DIR / f"child_{child_id}.{extension}"
-
-                with open(photo_path, "wb") as file:
-                    file.write(photo.getbuffer())
-
-            new_child = {
-                "id": child_id,
-                "name": name.strip(),
-                "age": age,
-                "photo_path": str(photo_path) if photo_path else None,
-                "created_at": datetime.now().isoformat()
-            }
-
-            data["kids"].append(new_child)
-            save_data(data)
+            add_kid(
+                name=name.strip(),
+                age=int(age),
+                photo_path=None
+            )
 
             st.success("Child added successfully.")
             st.rerun()
 
-    st.subheader("Existing Children")
 
-    if not data["kids"]:
-        st.caption("No children added yet.")
-    else:
-        for kid in data["kids"]:
-            st.write(f"- {kid['name']} — age {kid.get('age', 'N/A')}")
+# -----------------------
+# Task List
+# -----------------------
 
-
-def task_list_tab():
+def task_list_tab(data):
     st.subheader("Task List")
 
     st.info(
-        "This task list is saved in data/task_templates.json. "
-        "You can edit it here or quickly edit it in VSCode."
+        "This task list is now saved in Supabase. "
+        "It is no longer dependent on the local JSON file."
     )
 
-    templates = load_task_templates()
+    templates = data["task_templates"]
 
     st.write("### Add New Task Quickly")
 
@@ -134,14 +112,10 @@ def task_list_tab():
                 st.error("Please enter a task name.")
                 return
 
-            new_template = {
-                "id": next_template_id(templates),
-                "title": title.strip(),
-                "default_points": int(default_points)
-            }
-
-            templates.append(new_template)
-            save_task_templates(templates)
+            add_task_template(
+                title=title.strip(),
+                default_points=int(default_points)
+            )
 
             st.success("Task added to the task list.")
             st.rerun()
@@ -176,32 +150,16 @@ def task_list_tab():
         key="task_template_editor"
     )
 
-    col1, col2 = st.columns(2)
+    if st.button("Save Edited Task List"):
+        cleaned_templates = clean_task_templates(edited_templates)
+        replace_task_templates(cleaned_templates)
 
-    with col1:
-        if st.button("Save Edited Task List"):
-            cleaned_templates = clean_task_templates(edited_templates)
-            save_task_templates(cleaned_templates)
-
-            st.success("Task list saved.")
-            st.rerun()
-
-    with col2:
-        if st.button("Reset to Default Task List"):
-            from utils.template_helpers import DEFAULT_TASK_TEMPLATES
-            save_task_templates(DEFAULT_TASK_TEMPLATES)
-
-            st.warning("Task list reset to default.")
-            st.rerun()
+        st.success("Task list saved in Supabase.")
+        st.rerun()
 
 
 def clean_task_templates(templates):
-    """
-    Cleans edited task templates before saving.
-    This prevents empty task names and missing IDs.
-    """
     cleaned = []
-    next_id_number = 1
 
     for template in templates:
         title = str(template.get("title", "")).strip()
@@ -213,16 +171,17 @@ def clean_task_templates(templates):
 
         cleaned.append(
             {
-                "id": next_id_number,
                 "title": title,
                 "default_points": default_points
             }
         )
 
-        next_id_number += 1
-
     return cleaned
 
+
+# -----------------------
+# Assign Task
+# -----------------------
 
 def assign_task_tab(data):
     st.subheader("Assign Task")
@@ -231,7 +190,7 @@ def assign_task_tab(data):
         st.info("Add children first.")
         return
 
-    task_templates = load_task_templates()
+    task_templates = data["task_templates"]
 
     if not task_templates:
         st.info("Add tasks to the Task List first.")
@@ -350,19 +309,17 @@ def assign_task_tab(data):
             else:
                 selected_kid_ids = [kid_options[assign_to]]
 
-            task_count = 0
+            new_tasks = []
 
             for due_date in selected_dates:
                 for kid_id in selected_kid_ids:
                     new_task = {
-                        "id": next_id(data["tasks"]),
                         "title": selected_template["title"],
                         "kid_id": kid_id,
                         "due_date": due_date.isoformat(),
                         "points": int(points),
                         "status": status,
-                        "repeat_type": repeat_type,
-                        "created_at": datetime.now().isoformat()
+                        "repeat_type": repeat_type
                     }
 
                     if status == "Done":
@@ -370,29 +327,15 @@ def assign_task_tab(data):
                         new_task["completed_date"] = due_date.isoformat()
                         new_task["completed_week"] = f"{year}-W{week}"
 
-                    data["tasks"].append(new_task)
-                    task_count += 1
+                    new_tasks.append(new_task)
 
-            save_data(data)
+            add_tasks(new_tasks)
 
-            if assign_to == "All children":
-                st.success(
-                    f"Task assigned to all children. "
-                    f"{task_count} tasks created."
-                )
-            else:
-                st.success(
-                    f"Task assigned to {assign_to}. "
-                    f"{task_count} tasks created."
-                )
-
+            st.success(f"{len(new_tasks)} task(s) created in Supabase.")
             st.rerun()
 
 
 def generate_daily_dates(start_date, end_date):
-    """
-    Creates a list of dates from start date to end date.
-    """
     if end_date < start_date:
         return []
 
@@ -407,9 +350,6 @@ def generate_daily_dates(start_date, end_date):
 
 
 def generate_weekday_dates(start_date, end_date, selected_weekdays):
-    """
-    Creates dates only for selected weekdays.
-    """
     if end_date < start_date:
         return []
 
@@ -439,15 +379,20 @@ def generate_weekday_dates(start_date, end_date, selected_weekdays):
 
     return dates
 
-def book_list_tab():
+
+# -----------------------
+# Book List
+# -----------------------
+
+def book_list_tab(data):
     st.subheader("Book List")
 
     st.info(
-        "This book list is saved in data/book_templates.json. "
-        "You can edit it here or quickly edit it in VSCode."
+        "This book list is now saved in Supabase. "
+        "It is no longer dependent on the local JSON file."
     )
 
-    book_templates = load_book_templates()
+    book_templates = data["book_templates"]
 
     st.write("### Add New Book Quickly")
 
@@ -475,15 +420,11 @@ def book_list_tab():
                 st.error("Please enter the book name.")
                 return
 
-            new_template = {
-                "id": next_book_template_id(book_templates),
-                "title": title.strip(),
-                "language": language,
-                "total_pages": int(total_pages)
-            }
-
-            book_templates.append(new_template)
-            save_book_templates(book_templates)
+            add_book_template(
+                title=title.strip(),
+                language=language,
+                total_pages=int(total_pages)
+            )
 
             st.success("Book added to the book list.")
             st.rerun()
@@ -523,31 +464,16 @@ def book_list_tab():
         key="book_template_editor"
     )
 
-    col1, col2 = st.columns(2)
+    if st.button("Save Edited Book List"):
+        cleaned_books = clean_book_templates(edited_books)
+        replace_book_templates(cleaned_books)
 
-    with col1:
-        if st.button("Save Edited Book List"):
-            cleaned_books = clean_book_templates(edited_books)
-            save_book_templates(cleaned_books)
-
-            st.success("Book list saved.")
-            st.rerun()
-
-    with col2:
-        if st.button("Reset to Default Book List"):
-            save_book_templates(DEFAULT_BOOK_TEMPLATES)
-
-            st.warning("Book list reset to default.")
-            st.rerun()
+        st.success("Book list saved in Supabase.")
+        st.rerun()
 
 
 def clean_book_templates(book_templates):
-    """
-    Cleans edited book templates before saving.
-    This prevents empty book names and missing IDs.
-    """
     cleaned = []
-    next_id_number = 1
 
     for book in book_templates:
         title = str(book.get("title", "")).strip()
@@ -564,17 +490,18 @@ def clean_book_templates(book_templates):
 
         cleaned.append(
             {
-                "id": next_id_number,
                 "title": title,
                 "language": language,
                 "total_pages": total_pages
             }
         )
 
-        next_id_number += 1
-
     return cleaned
 
+
+# -----------------------
+# Assign Book
+# -----------------------
 
 def assign_book_tab(data):
     st.subheader("Assign Book")
@@ -583,7 +510,7 @@ def assign_book_tab(data):
         st.info("Add children first.")
         return
 
-    book_templates = load_book_templates()
+    book_templates = data["book_templates"]
 
     if not book_templates:
         st.info("Add books to the Book List first.")
@@ -624,115 +551,39 @@ def assign_book_tab(data):
             else:
                 selected_kid_ids = [kid_options[assign_to]]
 
-            book_count = 0
+            new_books = []
 
             for kid_id in selected_kid_ids:
                 new_book = {
-                    "id": next_id(data["books"]),
                     "title": selected_book["title"],
                     "kid_id": kid_id,
                     "language": selected_book["language"],
                     "total_pages": int(selected_book["total_pages"]),
                     "current_page": 0,
-                    "status": "In Progress",
-                    "assigned_at": datetime.now().isoformat()
+                    "status": "In Progress"
                 }
 
-                data["books"].append(new_book)
-                book_count += 1
+                new_books.append(new_book)
 
-            save_data(data)
+            add_books(new_books)
 
-            if assign_to == "All children":
-                st.success(
-                    f"Book assigned to all children. "
-                    f"{book_count} books created."
-                )
-            else:
-                st.success(
-                    f"Book assigned to {assign_to}."
-                )
-
+            st.success(f"{len(new_books)} book(s) assigned in Supabase.")
             st.rerun()
 
 
-def add_book_tab(data):
-    st.subheader("Add Book")
+# -----------------------
+# Settings
+# -----------------------
 
-    if not data["kids"]:
-        st.info("Add children first.")
-        return
-
-    kid_options = {
-        kid["name"]: kid["id"]
-        for kid in data["kids"]
-    }
-
-    with st.form("add_book_form"):
-        book_title = st.text_input("Book name")
-
-        child_name = st.selectbox(
-            "Child",
-            list(kid_options.keys()),
-            key="book_child"
-        )
-
-        language = st.selectbox(
-            "Language",
-            ["English", "Turkish"]
-        )
-
-        total_pages = st.number_input(
-            "Total pages",
-            min_value=1,
-            max_value=5000,
-            value=100
-        )
-
-        submitted = st.form_submit_button("Add Book")
-
-        if submitted:
-            if not book_title.strip():
-                st.error("Please enter the book name.")
-                return
-
-            new_book = {
-                "id": next_id(data["books"]),
-                "title": book_title.strip(),
-                "kid_id": kid_options[child_name],
-                "language": language,
-                "total_pages": int(total_pages),
-                "current_page": 0,
-                "status": "In Progress",
-                "created_at": datetime.now().isoformat()
-            }
-
-            data["books"].append(new_book)
-            save_data(data)
-
-            st.success("Book added successfully.")
-            st.rerun()
-
-
-def settings_tab(data):
+def settings_tab():
     st.subheader("Settings")
 
-    points = st.number_input(
-        "Default points when a task is completed",
-        min_value=1,
-        max_value=100,
-        value=data["settings"].get("points_for_done", 10)
+    st.info(
+        "Main family data is now saved in Supabase. "
+        "The old JSON files are no longer used for children, tasks, books, task lists or book lists."
     )
 
-    if st.button("Save Settings"):
-        data["settings"]["points_for_done"] = int(points)
-        save_data(data)
-
-        st.success("Settings saved.")
-        st.rerun()
-
     st.warning(
-        "Main family data is saved in data/family_task_data.json. "
-        "Task list is saved separately in data/task_templates.json."
-        "Book list is saved in data/book_templates.json."
+        "Profile photos are not fully moved to Supabase Storage yet. "
+        "That can be the next improvement."
     )

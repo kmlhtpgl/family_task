@@ -2,8 +2,9 @@ import streamlit as st
 from datetime import date
 from streamlit_sortables import sort_items
 
-from utils.data_helpers import save_data, get_kid
+from utils.data_helpers import get_kid
 from utils.task_helpers import TASK_STATUSES
+from utils.db_helpers import update_task
 
 
 def kanban_page(data):
@@ -135,16 +136,11 @@ def kanban_page(data):
     )
 
     if changed:
-        save_data(data)
         st.success("Board updated automatically.")
         st.rerun()
 
 
 def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
-    """
-    Checks the dragged board layout.
-    If a task has moved to a different column, it updates the task status.
-    """
     changed = False
 
     for container in sorted_containers:
@@ -161,33 +157,24 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
                     old_status = task["status"]
 
                     if old_status != new_status:
-                        task["status"] = new_status
-                        changed = True
+                        updates = {
+                            "status": new_status
+                        }
 
                         if old_status != "Done" and new_status == "Done":
-                            mark_task_done(task)
+                            today = date.today()
+                            year, week, _ = today.isocalendar()
+
+                            updates["completed_date"] = today.isoformat()
+                            updates["completed_week"] = f"{year}-W{week}"
 
                         elif old_status == "Done" and new_status != "Done":
-                            remove_done_information(task)
+                            updates["completed_date"] = None
+                            updates["completed_week"] = None
+
+                        update_task(task_id, updates)
+                        changed = True
 
                     break
 
     return changed
-
-
-def mark_task_done(task):
-    """
-    Adds completion date and weekly points information.
-    """
-    task["completed_date"] = date.today().isoformat()
-
-    year, week, _ = date.today().isocalendar()
-    task["completed_week"] = f"{year}-W{week}"
-
-
-def remove_done_information(task):
-    """
-    Removes completion information if task is moved out of Done.
-    """
-    task.pop("completed_date", None)
-    task.pop("completed_week", None)

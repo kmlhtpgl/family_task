@@ -1,7 +1,9 @@
 import streamlit as st
+from datetime import date
 
-from utils.data_helpers import save_data, get_kid, today_string, current_week_key
-from utils.task_helpers import get_today_tasks, get_weekly_leaderboard, move_task, TASK_STATUSES
+from utils.data_helpers import get_kid, today_string, current_week_key
+from utils.task_helpers import get_today_tasks, get_weekly_leaderboard, TASK_STATUSES
+from utils.db_helpers import update_task
 
 
 def dashboard_page(data):
@@ -49,15 +51,27 @@ def show_today_tasks(data):
             )
 
             if new_status != task["status"]:
-                moved = move_task(task, new_status)
+                updates = {
+                    "status": new_status
+                }
 
-                if moved:
-                    save_data(data)
+                if task["status"] != "Done" and new_status == "Done":
+                    today = date.today()
+                    year, week, _ = today.isocalendar()
 
-                    if new_status == "Done":
-                        st.success(f"Well done! {task['points']} points added.")
+                    updates["completed_date"] = today.isoformat()
+                    updates["completed_week"] = f"{year}-W{week}"
 
-                    st.rerun()
+                elif task["status"] == "Done" and new_status != "Done":
+                    updates["completed_date"] = None
+                    updates["completed_week"] = None
+
+                update_task(task["id"], updates)
+
+                if new_status == "Done":
+                    st.success(f"Well done! {task['points']} points added.")
+
+                st.rerun()
 
 
 def show_weekly_leaderboard(data):

@@ -1,14 +1,13 @@
 import streamlit as st
 
-from utils.data_helpers import save_data
 from utils.book_helpers import (
     calculate_book_progress,
-    update_book_page,
-    mark_book_finished,
     get_books_in_progress,
     get_finished_books,
     split_books_by_language
 )
+from utils.db_helpers import update_book
+from utils.data_helpers import today_string
 
 
 def reading_library_page(data):
@@ -59,8 +58,15 @@ def show_books_in_progress(data, kid_id):
             )
 
             if current_page != book.get("current_page", 0):
-                update_book_page(book, current_page)
-                save_data(data)
+                updates = {
+                    "current_page": int(current_page)
+                }
+
+                if current_page >= book["total_pages"]:
+                    updates["status"] = "Finished"
+                    updates["finished_date"] = today_string()
+
+                update_book(book["id"], updates)
                 st.rerun()
 
             progress = calculate_book_progress(book)
@@ -68,8 +74,13 @@ def show_books_in_progress(data, kid_id):
             st.write(f"Progress: **{round(progress * 100)}%**")
 
             if st.button("Mark as finished", key=f"finish_book_{book['id']}"):
-                mark_book_finished(book)
-                save_data(data)
+                updates = {
+                    "current_page": int(book["total_pages"]),
+                    "status": "Finished",
+                    "finished_date": today_string()
+                }
+
+                update_book(book["id"], updates)
                 st.rerun()
 
 
