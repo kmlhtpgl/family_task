@@ -197,3 +197,15 @@ def replace_book_templates(templates):
         return supabase.table("book_templates").insert(templates).execute().data
 
     return []
+
+def delete_book(book_id):
+    supabase = get_supabase_client()
+
+    return (
+        supabase
+        .table("books")
+        .delete()
+        .eq("id", book_id)
+        .execute()
+        .data
+    )

@@ -6,7 +6,7 @@ from utils.book_helpers import (
     get_finished_books,
     split_books_by_language
 )
-from utils.db_helpers import update_book
+from utils.db_helpers import update_book, delete_book
 from utils.data_helpers import today_string
 
 
@@ -82,6 +82,25 @@ def show_books_in_progress(data, kid_id):
 
                 update_book(book["id"], updates)
                 st.rerun()
+            
+            col1, col2 = st.columns(2)
+
+            with col1:
+                if st.button("Mark as finished", key=f"finish_book_{book['id']}"):
+                    updates = {
+                        "current_page": int(book["total_pages"]),
+                        "status": "Finished",
+                        "finished_date": today_string()
+                    }
+
+                    update_book(book["id"], updates)
+                    st.rerun()
+
+            with col2:
+                if st.button("Remove book", key=f"remove_reading_book_{book['id']}"):
+                    delete_book(book["id"])
+                    st.warning("Book removed from reading list.")
+                    st.rerun()
 
 
 def show_finished_books(data, kid_id):

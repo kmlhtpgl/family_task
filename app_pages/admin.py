@@ -7,8 +7,10 @@ from utils.db_helpers import (
     add_tasks,
     add_books,
     add_task_template,
+    delete_task_template,
     replace_task_templates,
     add_book_template,
+    delete_book_template,
     replace_book_templates
 )
 
@@ -88,8 +90,8 @@ def task_list_tab(data):
     st.subheader("Task List")
 
     st.info(
-        "This task list is now saved in Supabase. "
-        "It is no longer dependent on the local JSON file."
+        "This task list is saved in Supabase. "
+        "You can add, edit or remove tasks here."
     )
 
     templates = data["task_templates"]
@@ -155,6 +157,27 @@ def task_list_tab(data):
         replace_task_templates(cleaned_templates)
 
         st.success("Task list saved in Supabase.")
+        st.rerun()
+
+    st.divider()
+    st.write("### Remove Task from List")
+
+    task_options = {
+        f"{template['title']} — {template['default_points']} points": template["id"]
+        for template in templates
+    }
+
+    selected_task_label = st.selectbox(
+        "Choose task to remove",
+        list(task_options.keys()),
+        key="remove_task_template_select"
+    )
+
+    if st.button("Remove Selected Task"):
+        selected_task_id = task_options[selected_task_label]
+        delete_task_template(selected_task_id)
+
+        st.warning("Task removed from the task list.")
         st.rerun()
 
 
@@ -388,8 +411,8 @@ def book_list_tab(data):
     st.subheader("Book List")
 
     st.info(
-        "This book list is now saved in Supabase. "
-        "It is no longer dependent on the local JSON file."
+        "This book list is saved in Supabase. "
+        "You can add, edit or remove books here."
     )
 
     book_templates = data["book_templates"]
@@ -471,6 +494,26 @@ def book_list_tab(data):
         st.success("Book list saved in Supabase.")
         st.rerun()
 
+    st.divider()
+    st.write("### Remove Book from List")
+
+    book_options = {
+        f"{book['title']} — {book['language']} — {book['total_pages']} pages": book["id"]
+        for book in book_templates
+    }
+
+    selected_book_label = st.selectbox(
+        "Choose book to remove",
+        list(book_options.keys()),
+        key="remove_book_template_select"
+    )
+
+    if st.button("Remove Selected Book"):
+        selected_book_id = book_options[selected_book_label]
+        delete_book_template(selected_book_id)
+
+        st.warning("Book removed from the book list.")
+        st.rerun()
 
 def clean_book_templates(book_templates):
     cleaned = []
