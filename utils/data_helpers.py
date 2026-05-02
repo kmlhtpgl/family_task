@@ -13,6 +13,7 @@ DATA_FILE = DATA_DIR / "family_task_data.json"
 
 
 DEFAULT_DATA = {
+    "parents": [],
     "kids": [],
     "tasks": [],
     "books": [],
@@ -38,6 +39,9 @@ def load_data():
             data = json.load(file)
 
         # This keeps old data files working when we add new features.
+        if "parents" not in data:
+            data["parents"] = []
+
         if "kids" not in data:
             data["kids"] = []
 
@@ -97,6 +101,17 @@ def current_week_key():
     """
     year, week, _ = date.today().isocalendar()
     return f"{year}-W{week}"
+
+
+def get_parent(data, parent_id):
+    """
+    Finds one parent by ID.
+    """
+    for parent in data["parents"]:
+        if parent["id"] == parent_id:
+            return parent
+
+    return None
 
 
 def get_kid(data, kid_id):
