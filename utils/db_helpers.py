@@ -4,6 +4,7 @@ from utils.supabase_client import get_supabase_client
 def get_all_data():
     supabase = get_supabase_client()
 
+    parents = supabase.table("parents").select("*").order("id").execute().data
     kids = supabase.table("kids").select("*").order("id").execute().data
     tasks = supabase.table("tasks").select("*").order("id").execute().data
     books = supabase.table("books").select("*").order("id").execute().data
@@ -11,6 +12,7 @@ def get_all_data():
     book_templates = supabase.table("book_templates").select("*").order("id").execute().data
 
     return {
+        "parents": parents,
         "kids": kids,
         "tasks": tasks,
         "books": books,
@@ -20,6 +22,48 @@ def get_all_data():
             "points_for_done": 10
         }
     }
+
+
+# -----------------------
+# Parents
+# -----------------------
+
+def add_parent(name, email=None, phone=None):
+    supabase = get_supabase_client()
+
+    new_parent = {
+        "name": name,
+        "email": email,
+        "phone": phone
+    }
+
+    return supabase.table("parents").insert(new_parent).execute().data
+
+
+def update_parent(parent_id, updates):
+    supabase = get_supabase_client()
+
+    return (
+        supabase
+        .table("parents")
+        .update(updates)
+        .eq("id", parent_id)
+        .execute()
+        .data
+    )
+
+
+def delete_parent(parent_id):
+    supabase = get_supabase_client()
+
+    return (
+        supabase
+        .table("parents")
+        .delete()
+        .eq("id", parent_id)
+        .execute()
+        .data
+    )
 
 
 # -----------------------
