@@ -48,7 +48,7 @@ def kanban_page(data):
         st.info("No tasks for this date.")
         return
 
-    st.write(f"Showing tasks for: **{selected_date.isoformat()}**")
+    st.write(f"{task['title']} | {task['points']} points")
 
     item_to_task_id = {}
     containers = []
@@ -82,13 +82,13 @@ def kanban_page(data):
         gap: 20px;
         width: 100%;
         height: 100%;
-        align-items: stretch;
+        align-items: stretch;  /* Forces all columns to have equal height */
     }
 
     .sortable-container {
         flex: 1;
         min-width: 0;
-        min-height: 720px;  /* Keep the min-height of each column equal */
+        min-height: 720px;  /* Keep columns the same height */
         background-color: #f4f5f7;
         border-radius: 12px;
         padding: 12px;
@@ -108,8 +108,7 @@ def kanban_page(data):
 
     .sortable-container-body {
         flex: 1;
-        height: 100%;  /* This ensures that items inside fill the column */
-        min-height: 620px;
+        height: 100%;  /* Ensures items fill the column equally */
     }
 
     .sortable-item {
@@ -129,7 +128,6 @@ def kanban_page(data):
         cursor: grabbing;
     }
     """
-
     sorted_containers = sort_items(
         containers,
         multi_containers=True,
