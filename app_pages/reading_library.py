@@ -11,7 +11,7 @@ from utils.data_helpers import today_string
 
 
 def reading_library_page(data):
-    st.header("Reading Library")
+    st.header("📚 Reading Library")
 
     if not data["kids"]:
         st.info("Add children first in Admin.")
@@ -35,7 +35,7 @@ def reading_library_page(data):
 
 
 def show_books_in_progress(data, kid_id):
-    st.subheader("Books in Progress")
+    st.subheader("📖 Books in Progress")
 
     books = get_books_in_progress(data, kid_id)
 
@@ -73,20 +73,11 @@ def show_books_in_progress(data, kid_id):
             st.progress(progress)
             st.write(f"Progress: **{round(progress * 100)}%**")
 
-            if st.button("Mark as finished", key=f"finish_book_{book['id']}"):
-                updates = {
-                    "current_page": int(book["total_pages"]),
-                    "status": "Finished",
-                    "finished_date": today_string()
-                }
-
-                update_book(book["id"], updates)
-                st.rerun()
-            
+            # Action buttons
             col1, col2 = st.columns(2)
 
             with col1:
-                if st.button("Mark as finished", key=f"finish_book_{book['id']}"):
+                if st.button("✅ Mark as finished", key=f"finish_book_{book['id']}"):
                     updates = {
                         "current_page": int(book["total_pages"]),
                         "status": "Finished",
@@ -97,14 +88,14 @@ def show_books_in_progress(data, kid_id):
                     st.rerun()
 
             with col2:
-                if st.button("Remove book", key=f"remove_reading_book_{book['id']}"):
+                if st.button("🗑️ Remove book", key=f"remove_reading_book_{book['id']}"):
                     delete_book(book["id"])
                     st.warning("Book removed from reading list.")
                     st.rerun()
 
 
 def show_finished_books(data, kid_id):
-    st.subheader("Finished Books")
+    st.subheader("✨ Finished Books")
 
     finished_books = get_finished_books(data, kid_id)
     english_books, turkish_books = split_books_by_language(finished_books)
@@ -112,7 +103,7 @@ def show_finished_books(data, kid_id):
     col1, col2 = st.columns(2)
 
     with col1:
-        st.write("### English")
+        st.write("### 🇬🇧 English")
 
         if english_books:
             for book in english_books:
@@ -121,7 +112,7 @@ def show_finished_books(data, kid_id):
             st.caption("No English books finished yet.")
 
     with col2:
-        st.write("### Turkish")
+        st.write("### 🇹🇷 Turkish")
 
         if turkish_books:
             for book in turkish_books:
