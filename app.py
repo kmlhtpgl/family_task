@@ -1,5 +1,6 @@
 import streamlit as st
 from utils.db_helpers import get_all_data
+from utils.styles import apply_custom_styles
 from app_pages.dashboard import dashboard_page
 from app_pages.kanban import kanban_page
 from app_pages.kids_profiles import kids_profiles_page
@@ -13,50 +14,165 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for modern styling
+# Apply modern custom styling
+apply_custom_styles()
+
+# Custom CSS for main layout
 st.markdown("""
     <style>
+    /* Google Fonts Import */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Inter:wght@300;400;600;700&display=swap');
+    
+    * {
+        font-family: 'Inter', 'Poppins', sans-serif;
+    }
+    
+    /* Main background gradient */
+    .stApp {
+        background: linear-gradient(135deg, #F0F7FF 0%, #FFE8F0 50%, #E8F5E9 100%);
+        min-height: 100vh;
+    }
+    
     /* Main header styling */
     .main-header {
-        background: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 100%);
-        padding: 30px;
-        border-radius: 10px;
+        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E72 25%, #FFD93D 50%, #4ECDC4 75%, #45B7D1 100%);
+        padding: 40px;
+        border-radius: 20px;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        animation: slideDown 0.6s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     .main-header h1 {
         color: white;
-        font-size: 2.5em;
+        font-size: 3em;
         margin: 0;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+        font-weight: 700;
+        font-family: 'Poppins', sans-serif;
+        letter-spacing: 1px;
     }
     
     .main-header p {
-        color: rgba(255,255,255,0.9);
-        font-size: 1.1em;
-        margin: 10px 0 0 0;
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 1.3em;
+        margin: 15px 0 0 0;
+        font-weight: 500;
+        letter-spacing: 0.5px;
     }
     
     /* Sidebar styling */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #262730 0%, #1a1f2e 100%);
+        background: linear-gradient(180deg, rgba(255, 107, 107, 0.1) 0%, rgba(78, 205, 196, 0.1) 100%);
+        border-right: 3px solid #FF6B6B;
     }
     
-    /* Radio button styling */
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        padding: 20px;
+    }
+    
+    /* Navigation styling */
     .stRadio > label {
-        font-size: 1.1em;
-        font-weight: 500;
+        font-size: 1.15em;
+        font-weight: 600;
+        color: #2C3E50;
+        padding: 12px 15px;
+        background: linear-gradient(90deg, rgba(255, 107, 107, 0.05), rgba(78, 205, 196, 0.05));
+        border-radius: 10px;
+        margin: 8px 0;
+        transition: all 0.3s ease;
+        cursor: pointer;
     }
     
-    /* General text styling */
+    .stRadio > label:hover {
+        background: linear-gradient(90deg, rgba(255, 107, 107, 0.15), rgba(78, 205, 196, 0.15));
+        transform: translateX(5px);
+    }
+    
+    /* Section headers */
     h1, h2, h3 {
         color: #FF6B6B;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+    
+    h1 { font-size: 2.5em; }
+    h2 { font-size: 2em; }
+    h3 { font-size: 1.5em; }
+    
+    /* Text styling */
+    body, p {
+        color: #2C3E50;
+        font-family: 'Inter', sans-serif;
+        line-height: 1.6;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 25px;
+        font-weight: 600;
+        font-size: 1em;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+    }
+    
+    /* Input field styling */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div > select {
+        border: 2px solid #4ECDC4 !important;
+        border-radius: 10px !important;
+        padding: 10px 15px !important;
+        font-family: 'Inter', sans-serif !important;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background: linear-gradient(90deg, rgba(255, 107, 107, 0.1), rgba(78, 205, 196, 0.1));
+        border-radius: 10px;
+        color: #2C3E50;
+        font-weight: 600;
+    }
+    
+    /* Divider */
+    hr {
+        border: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #FF6B6B, #FFD93D, #4ECDC4);
+    }
+    
+    /* Caption and small text */
+    .caption {
+        color: #666;
+        font-size: 0.95em;
+        font-weight: 500;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Header with gradient
+# Header with gradient animation
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     st.markdown("""
@@ -68,7 +184,7 @@ with col2:
 
 data = get_all_data()
 
-# Sidebar with enhanced styling
+# Sidebar navigation
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📋 NAVIGATION")
 st.sidebar.markdown("---")
@@ -86,9 +202,9 @@ page = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Made with ❤️ for your family")
+st.sidebar.caption("💖 Made with love for your family")
 
-# Route to pages
+# Route to pages based on selection
 if "Dashboard" in page:
     dashboard_page(data)
 
