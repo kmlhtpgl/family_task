@@ -17,7 +17,7 @@ st.set_page_config(
 # Apply modern custom styling
 apply_custom_styles()
 
-# Custom CSS for main layout
+# Custom CSS for main layout with beautiful color transitions
 st.markdown("""
     <style>
     /* Google Fonts Import */
@@ -27,27 +27,46 @@ st.markdown("""
         font-family: 'Inter', 'Poppins', sans-serif;
     }
     
-    /* Main background gradient */
+    /* Main background with smooth gradient transition */
     .stApp {
-        background: linear-gradient(135deg, #F0F7FF 0%, #FFE8F0 50%, #E8F5E9 100%);
+        background: linear-gradient(135deg, #FFF5F7 0%, #F0F8FF 50%, #F0FFF4 100%);
         min-height: 100vh;
     }
     
-    /* Main header styling */
+    /* Main header with beautiful 2-color transition */
     .main-header {
-        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E72 25%, #FFD93D 50%, #4ECDC4 75%, #45B7D1 100%);
-        padding: 40px;
-        border-radius: 20px;
+        background: linear-gradient(90deg, #FF8A80 0%, #4ECDC4 100%);
+        padding: 50px 40px;
+        border-radius: 25px;
         text-align: center;
         margin-bottom: 30px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        animation: slideDown 0.6s ease-out;
+        box-shadow: 0 15px 40px rgba(255, 138, 128, 0.2);
+        animation: slideDown 0.7s ease-out;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Animated background shine effect */
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+        animation: shine 3s infinite;
+    }
+    
+    @keyframes shine {
+        0% { transform: translateX(-100%) translateY(-100%); }
+        100% { transform: translateX(100%) translateY(100%); }
     }
     
     @keyframes slideDown {
         from {
             opacity: 0;
-            transform: translateY(-20px);
+            transform: translateY(-30px);
         }
         to {
             opacity: 1;
@@ -57,53 +76,60 @@ st.markdown("""
     
     .main-header h1 {
         color: white;
-        font-size: 3em;
+        font-size: 3.5em;
         margin: 0;
-        text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.15);
         font-weight: 700;
         font-family: 'Poppins', sans-serif;
-        letter-spacing: 1px;
+        letter-spacing: 2px;
+        position: relative;
+        z-index: 1;
     }
     
     .main-header p {
         color: rgba(255, 255, 255, 0.95);
-        font-size: 1.3em;
-        margin: 15px 0 0 0;
+        font-size: 1.4em;
+        margin: 20px 0 0 0;
         font-weight: 500;
         letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
     }
     
-    /* Sidebar styling */
+    /* Sidebar styling with gradient border */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, rgba(255, 107, 107, 0.1) 0%, rgba(78, 205, 196, 0.1) 100%);
-        border-right: 3px solid #FF6B6B;
+        background: linear-gradient(180deg, rgba(255, 138, 128, 0.05) 0%, rgba(78, 205, 196, 0.05) 100%);
+        border-right: 4px solid;
+        border-image: linear-gradient(180deg, #FF8A80, #4ECDC4) 1;
     }
     
     [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
         padding: 20px;
     }
     
-    /* Navigation styling */
+    /* Navigation styling with hover effect */
     .stRadio > label {
         font-size: 1.15em;
         font-weight: 600;
         color: #2C3E50;
         padding: 12px 15px;
-        background: linear-gradient(90deg, rgba(255, 107, 107, 0.05), rgba(78, 205, 196, 0.05));
+        background: linear-gradient(90deg, rgba(255, 138, 128, 0.05), rgba(78, 205, 196, 0.05));
         border-radius: 10px;
         margin: 8px 0;
         transition: all 0.3s ease;
         cursor: pointer;
+        border-left: 3px solid transparent;
     }
     
     .stRadio > label:hover {
-        background: linear-gradient(90deg, rgba(255, 107, 107, 0.15), rgba(78, 205, 196, 0.15));
+        background: linear-gradient(90deg, rgba(255, 138, 128, 0.15), rgba(78, 205, 196, 0.15));
+        border-left: 3px solid #FF8A80;
         transform: translateX(5px);
     }
     
-    /* Section headers */
+    /* Section headers with color transition */
     h1, h2, h3 {
-        color: #FF6B6B;
+        color: #FF8A80;
         font-family: 'Poppins', sans-serif;
         font-weight: 700;
         letter-spacing: 0.5px;
@@ -120,22 +146,22 @@ st.markdown("""
         line-height: 1.6;
     }
     
-    /* Button styling */
+    /* Button styling with coral-to-teal gradient */
     .stButton > button {
-        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%);
+        background: linear-gradient(135deg, #FF8A80 0%, #4ECDC4 100%);
         color: white;
         border: none;
-        border-radius: 10px;
+        border-radius: 12px;
         padding: 12px 25px;
         font-weight: 600;
         font-size: 1em;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        box-shadow: 0 4px 15px rgba(255, 138, 128, 0.3);
     }
     
     .stButton > button:hover {
         transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+        box-shadow: 0 8px 25px rgba(255, 138, 128, 0.4);
     }
     
     /* Input field styling */
@@ -150,17 +176,17 @@ st.markdown("""
     
     /* Expander styling */
     .streamlit-expanderHeader {
-        background: linear-gradient(90deg, rgba(255, 107, 107, 0.1), rgba(78, 205, 196, 0.1));
+        background: linear-gradient(90deg, rgba(255, 138, 128, 0.1), rgba(78, 205, 196, 0.1));
         border-radius: 10px;
         color: #2C3E50;
         font-weight: 600;
     }
     
-    /* Divider */
+    /* Divider with gradient */
     hr {
         border: 0;
         height: 3px;
-        background: linear-gradient(90deg, #FF6B6B, #FFD93D, #4ECDC4);
+        background: linear-gradient(90deg, #FF8A80, #4ECDC4);
     }
     
     /* Caption and small text */
@@ -172,7 +198,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Header with gradient animation
+# Header with beautiful 2-color gradient transition
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     st.markdown("""
