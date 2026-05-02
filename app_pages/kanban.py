@@ -48,7 +48,7 @@ def kanban_page(data):
         st.info("No tasks for this date.")
         return
 
-    st.write(f"{task['title']} | {task['points']} points")
+    st.write(f"Showing tasks for: **{selected_date.isoformat()}**")
 
     item_to_task_id = {}
     containers = []
