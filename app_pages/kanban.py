@@ -78,15 +78,14 @@ def kanban_page(data):
 
     custom_style = """
     .sortable-component {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        display: flex;
         gap: 20px;
         width: 100%;
-        align-items: start;
     }
 
     .sortable-container {
         flex: 1;
+        min-width: 0;
         min-height: 720px;
         background-color: #f4f5f7;
         border-radius: 12px;
@@ -94,7 +93,6 @@ def kanban_page(data):
         border: 1px solid #ddd;
         display: flex;
         flex-direction: column;
-        align-self: start;
     }
 
     .sortable-container-header {
