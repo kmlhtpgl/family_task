@@ -81,12 +81,14 @@ def kanban_page(data):
         display: flex;
         gap: 20px;
         width: 100%;
+        height: 100%;
+        align-items: stretch;
     }
 
     .sortable-container {
         flex: 1;
         min-width: 0;
-        min-height: 720px;
+        min-height: 720px;  /* Keep the min-height of each column equal */
         background-color: #f4f5f7;
         border-radius: 12px;
         padding: 12px;
@@ -106,6 +108,7 @@ def kanban_page(data):
 
     .sortable-container-body {
         flex: 1;
+        height: 100%;  /* This ensures that items inside fill the column */
         min-height: 620px;
     }
 
