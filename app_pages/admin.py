@@ -4,6 +4,9 @@ from datetime import date, datetime, timedelta
 from utils.task_helpers import TASK_STATUSES
 from utils.db_helpers import (
     add_kid,
+    add_parent,
+    update_parent,
+    delete_parent,
     add_tasks,
     add_books,
     add_task_template,
@@ -16,37 +19,124 @@ from utils.db_helpers import (
 
 
 def admin_page(data):
-    st.header("Admin Panel")
-    st.caption("Add children, task templates, book templates, tasks and books.")
+    st.header("⚙️ Admin Panel")
+    st.caption("Manage your family: parents, children, tasks, books, and more.")
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
         [
-            "Add Child",
-            "Task List",
-            "Assign Task",
-            "Book List",
-            "Assign Book",
-            "Settings"
+            "👨‍👩‍👧‍👦 Parents",
+            "👧 Children",
+            "📋 Task List",
+            "🎯 Assign Task",
+            "📚 Book List",
+            "📖 Assign Book",
+            "⚙️ Settings"
         ]
     )
 
     with tab1:
-        add_child_tab()
+        parents_tab(data)
 
     with tab2:
-        task_list_tab(data)
+        add_child_tab()
 
     with tab3:
-        assign_task_tab(data)
+        task_list_tab(data)
 
     with tab4:
-        book_list_tab(data)
+        assign_task_tab(data)
 
     with tab5:
-        assign_book_tab(data)
+        book_list_tab(data)
 
     with tab6:
+        assign_book_tab(data)
+
+    with tab7:
         settings_tab()
+
+
+# -----------------------
+# Parents Management
+# -----------------------
+
+def parents_tab(data):
+    st.subheader("👨‍👩‍👧‍👦 Parents Management")
+    st.caption("Add and manage parent profiles for task and book assignments.")
+
+    # Add Parent Form
+    st.write("### Add New Parent")
+    with st.form("add_parent_form"):
+        name = st.text_input("Parent name")
+        email = st.text_input("Email (optional)")
+        phone = st.text_input("Phone (optional)")
+
+        submitted = st.form_submit_button("Add Parent")
+
+        if submitted:
+            if not name.strip():
+                st.error("Please enter the parent's name.")
+                return
+
+            add_parent(
+                name=name.strip(),
+                email=email.strip() if email else None,
+                phone=phone.strip() if phone else None
+            )
+
+            st.success("Parent added successfully! ✅")
+            st.rerun()
+
+    st.divider()
+
+    # Display Parents
+    st.write("### Parents List")
+    parents = data["parents"]
+
+    if not parents:
+        st.caption("No parents added yet.")
+        return
+
+    # Display as table
+    for parent in parents:
+        with st.container(border=True):
+            col1, col2, col3 = st.columns([2, 1, 1])
+            
+            with col1:
+                st.write(f"**👤 {parent['name']}**")
+                if parent.get("email"):
+                    st.caption(f"📧 {parent['email']}")
+                if parent.get("phone"):
+                    st.caption(f"📞 {parent['phone']}")
+            
+            with col2:
+                if st.button("✏️ Edit", key=f"edit_parent_{parent['id']}"):
+                    st.session_state.editing_parent_id = parent['id']
+                    st.rerun()
+            
+            with col3:
+                if st.button("🗑️ Delete", key=f"delete_parent_{parent['id']}"):
+                    delete_parent(parent['id'])
+                    st.warning(f"Parent '{parent['name']}' removed.")
+                    st.rerun()
+
+        # Edit form if selected
+        if st.session_state.get("editing_parent_id") == parent["id"]:
+            st.write("#### Edit Parent")
+            with st.form(f"edit_parent_form_{parent['id']}"):
+                new_name = st.text_input("Parent name", value=parent['name'])
+                new_email = st.text_input("Email", value=parent.get("email", ""))
+                new_phone = st.text_input("Phone", value=parent.get("phone", ""))
+
+                if st.form_submit_button("Save Changes"):
+                    update_parent(parent['id'], {
+                        "name": new_name.strip(),
+                        "email": new_email.strip() if new_email else None,
+                        "phone": new_phone.strip() if new_phone else None
+                    })
+                    st.success("Parent updated! ✅")
+                    st.session_state.editing_parent_id = None
+                    st.rerun()
 
 
 # -----------------------
@@ -54,7 +144,7 @@ def admin_page(data):
 # -----------------------
 
 def add_child_tab():
-    st.subheader("Add Child")
+    st.subheader("👧 Add Child")
 
     st.warning(
         "For now, photos are not saved safely in Supabase Storage. "
@@ -69,7 +159,7 @@ def add_child_tab():
 
         if submitted:
             if not name.strip():
-                st.error("Please enter the child’s name.")
+                st.error("Please enter the child's name.")
                 return
 
             add_kid(
@@ -87,7 +177,7 @@ def add_child_tab():
 # -----------------------
 
 def task_list_tab(data):
-    st.subheader("Task List")
+    st.subheader("📋 Task List")
 
     st.info(
         "This task list is saved in Supabase. "
@@ -207,7 +297,7 @@ def clean_task_templates(templates):
 # -----------------------
 
 def assign_task_tab(data):
-    st.subheader("Assign Task")
+    st.subheader("🎯 Assign Task")
 
     if not data["kids"]:
         st.info("Add children first.")
@@ -224,6 +314,11 @@ def assign_task_tab(data):
         for kid in data["kids"]
     }
 
+    parent_options = {
+        parent["name"]: parent["id"]
+        for parent in data["parents"]
+    }
+
     task_options = {
         template["title"]: template
         for template in task_templates
@@ -236,8 +331,14 @@ def assign_task_tab(data):
         )
 
         assign_to = st.selectbox(
-            "Assign to",
+            "Assign to child",
             ["All children"] + list(kid_options.keys())
+        )
+
+        assigned_parent = st.selectbox(
+            "Assign parent to oversee (optional)",
+            ["None"] + list(parent_options.keys()),
+            help="Select a parent who will be notified about this task"
         )
 
         repeat_type = st.radio(
@@ -332,6 +433,8 @@ def assign_task_tab(data):
             else:
                 selected_kid_ids = [kid_options[assign_to]]
 
+            parent_id = None if assigned_parent == "None" else parent_options[assigned_parent]
+
             new_tasks = []
 
             for due_date in selected_dates:
@@ -339,6 +442,7 @@ def assign_task_tab(data):
                     new_task = {
                         "title": selected_template["title"],
                         "kid_id": kid_id,
+                        "parent_id": parent_id,
                         "due_date": due_date.isoformat(),
                         "points": int(points),
                         "status": status,
@@ -408,7 +512,7 @@ def generate_weekday_dates(start_date, end_date, selected_weekdays):
 # -----------------------
 
 def book_list_tab(data):
-    st.subheader("Book List")
+    st.subheader("📚 Book List")
 
     st.info(
         "This book list is saved in Supabase. "
@@ -547,7 +651,7 @@ def clean_book_templates(book_templates):
 # -----------------------
 
 def assign_book_tab(data):
-    st.subheader("Assign Book")
+    st.subheader("📖 Assign Book")
 
     if not data["kids"]:
         st.info("Add children first.")
@@ -564,6 +668,11 @@ def assign_book_tab(data):
         for kid in data["kids"]
     }
 
+    parent_options = {
+        parent["name"]: parent["id"]
+        for parent in data["parents"]
+    }
+
     book_options = {
         f"{book['title']} ({book['language']}, {book['total_pages']} pages)": book
         for book in book_templates
@@ -576,9 +685,16 @@ def assign_book_tab(data):
         )
 
         assign_to = st.selectbox(
-            "Assign to",
+            "Assign to child",
             ["All children"] + list(kid_options.keys()),
             key="assign_book_to"
+        )
+
+        assigned_parent = st.selectbox(
+            "Assign parent to oversee (optional)",
+            ["None"] + list(parent_options.keys()),
+            key="assign_book_parent",
+            help="Select a parent who will monitor the reading progress"
         )
 
         selected_book = book_options[selected_book_label]
@@ -594,12 +710,15 @@ def assign_book_tab(data):
             else:
                 selected_kid_ids = [kid_options[assign_to]]
 
+            parent_id = None if assigned_parent == "None" else parent_options[assigned_parent]
+
             new_books = []
 
             for kid_id in selected_kid_ids:
                 new_book = {
                     "title": selected_book["title"],
                     "kid_id": kid_id,
+                    "parent_id": parent_id,
                     "language": selected_book["language"],
                     "total_pages": int(selected_book["total_pages"]),
                     "current_page": 0,
@@ -619,7 +738,7 @@ def assign_book_tab(data):
 # -----------------------
 
 def settings_tab():
-    st.subheader("Settings")
+    st.subheader("⚙️ Settings")
 
     st.info(
         "Main family data is now saved in Supabase. "
@@ -630,3 +749,5 @@ def settings_tab():
         "Profile photos are not fully moved to Supabase Storage yet. "
         "That can be the next improvement."
     )
+
+    st.success("✅ Parent profiles are now available!")
