@@ -81,16 +81,18 @@ def kanban_page(data):
         display: flex;
         gap: 20px;
         width: 100%;
-        align-items: flex-start;
+        align-items: stretch;
     }
 
     .sortable-container {
         flex: 1;
-        min-height: 380px;
+        min-height: 720px;
         background-color: #f4f5f7;
         border-radius: 12px;
         padding: 12px;
         border: 1px solid #ddd;
+        display: flex;
+        flex-direction: column;
     }
 
     .sortable-container-header {
@@ -98,10 +100,13 @@ def kanban_page(data):
         font-size: 18px;
         margin-bottom: 12px;
         color: #172b4d;
+        background-color: white;
+        padding: 8px;
     }
 
     .sortable-container-body {
-        min-height: 300px;
+        flex: 1;
+        min-height: 620px;
     }
 
     .sortable-item {
