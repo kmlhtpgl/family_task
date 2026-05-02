@@ -1,9 +1,8 @@
 [theme]
-# Modern vibrant color scheme
 primaryColor = "#FF6B6B"
-backgroundColor = "#0F1419"
-secondaryBackgroundColor = "#262730"
-textColor = "#FAFAFA"
+backgroundColor = "#F0F7FF"
+secondaryBackgroundColor = "#E8F4F8"
+textColor = "#2C3E50"
 font = "sans serif"
 
 [client]
