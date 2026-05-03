@@ -331,7 +331,7 @@ def assign_task_tab(data):
         )
 
         assign_to = st.selectbox(
-            "Assign to child",
+            "Assign",
             ["All children"] + list(kid_options.keys()) + list(parent_options.keys())
         )
 
@@ -424,10 +424,10 @@ def assign_task_tab(data):
 
             if assign_to == "All children":
                 selected_kid_ids = list(kid_options.values())
-            else:
+            elif assign_to in kid_options:
                 selected_kid_ids = [kid_options[assign_to]]
-
-            parent_id = None if assigned_parent == "None" else parent_options[assigned_parent]
+            else:
+                selected_kid_ids = [parent_options[assign_to]]
 
             new_tasks = []
 
@@ -679,7 +679,7 @@ def assign_book_tab(data):
         )
 
         assign_to = st.selectbox(
-            "Assign to child",
+            "Assign",
             ["All children"] + list(kid_options.keys()),
             key="assign_book_to"
         )
