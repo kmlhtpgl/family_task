@@ -25,9 +25,14 @@ def kanban_page(data):
         for kid in data["kids"]
     }
 
+    parent_options = {
+        parent["name"]: parent["id"]
+        for parent in data["parents"]
+    }
+
     selected_child = st.selectbox(
         "Choose child",
-        ["All children"] + list(kid_options.keys())
+        ["All children"] + list(kid_options.keys()) +list(parent_options.keys())
     )
 
     daily_tasks = [
@@ -37,12 +42,18 @@ def kanban_page(data):
 
     if selected_child == "All children":
         filtered_tasks = daily_tasks
-    else:
+    elif:
         selected_child_id = kid_options[selected_child]
         filtered_tasks = [
             task for task in daily_tasks
             if task["kid_id"] == selected_child_id
         ]
+    else:
+        selected_child_id = parent_options[selected_child]
+        filtered_tasks = [
+            task for task in daily_tasks
+            if task["parent_id"] == selected_child_id
+        ]    
 
     if not filtered_tasks:
         st.info("No tasks for this date.")
