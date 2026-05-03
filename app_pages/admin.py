@@ -434,7 +434,6 @@ def assign_task_tab(data):
                     new_task = {
                         "title": selected_template["title"],
                         "kid_id": kid_id,
-                        "parent_id": parent_id,
                         "due_date": due_date.isoformat(),
                         "points": int(points),
                         "status": status,
