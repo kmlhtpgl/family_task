@@ -42,8 +42,7 @@ def kanban_page(data):
 
     if selected_child == "All children":
         filtered_tasks = daily_tasks
-    elif:
-        selected_child_id = kid_options[selected_child]
+    elif selected_child_id == kid_options[selected_child]: 
         filtered_tasks = [
             task for task in daily_tasks
             if task["kid_id"] == selected_child_id
