@@ -427,8 +427,6 @@ def assign_task_tab(data):
             else:
                 selected_kid_ids = [kid_options[assign_to]]
 
-            parent_id = None if assigned_parent == "None" else parent_options[assigned_parent]
-
             new_tasks = []
 
             for due_date in selected_dates:
