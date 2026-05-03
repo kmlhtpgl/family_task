@@ -424,10 +424,10 @@ def assign_task_tab(data):
 
             if assign_to == "All children":
                 selected_kid_ids = list(kid_options.values())
-            elif assign_to in kid_options:
-                selected_kid_ids = [kid_options[assign_to]]
             else:
-                selected_kid_ids = [parent_options[assign_to]]
+                selected_kid_ids = [kid_options[assign_to]]
+
+            parent_id = None if assigned_parent == "None" else parent_options[assigned_parent]
 
             new_tasks = []
 
