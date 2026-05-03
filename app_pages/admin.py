@@ -332,13 +332,7 @@ def assign_task_tab(data):
 
         assign_to = st.selectbox(
             "Assign to child",
-            ["All children"] + list(kid_options.keys())
-        )
-
-        assigned_parent = st.selectbox(
-            "Assign parent to oversee (optional)",
-            ["None"] + list(parent_options.keys()),
-            help="Select a parent who will be notified about this task"
+            ["All children"] + list(kid_options.keys()) + list(parent_options.keys())
         )
 
         repeat_type = st.radio(
