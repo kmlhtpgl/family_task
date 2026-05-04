@@ -1,5 +1,4 @@
 import streamlit as st
-from pathlib import Path
 
 from utils.task_helpers import get_total_points_for_kid
 from utils.book_helpers import get_finished_books, split_books_by_language
@@ -56,7 +55,7 @@ def show_kid_profile(data, kid):
 def show_profile_photo(kid):
     photo_path = kid.get("photo_path")
 
-    if photo_path and Path(photo_path).exists():
+    if photo_path:
         st.image(photo_path, width=180)
     else:
         st.write("👤 No profile photo yet")

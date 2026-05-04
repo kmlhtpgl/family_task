@@ -28,13 +28,14 @@ def get_all_data():
 # Parents
 # -----------------------
 
-def add_parent(name, email=None, phone=None):
+def add_parent(name, email=None, phone=None, photo_url=None):
     supabase = get_supabase_client()
 
     new_parent = {
         "name": name,
         "email": email,
-        "phone": phone
+        "phone": phone,
+        "photo_url": photo_url
     }
 
     return supabase.table("parents").insert(new_parent).execute().data
@@ -80,6 +81,32 @@ def add_kid(name, age, photo_path=None):
     }
 
     return supabase.table("kids").insert(new_kid).execute().data
+
+
+def update_kid(kid_id, updates):
+    supabase = get_supabase_client()
+
+    return (
+        supabase
+        .table("kids")
+        .update(updates)
+        .eq("id", kid_id)
+        .execute()
+        .data
+    )
+
+
+def delete_kid(kid_id):
+    supabase = get_supabase_client()
+
+    return (
+        supabase
+        .table("kids")
+        .delete()
+        .eq("id", kid_id)
+        .execute()
+        .data
+    )
 
 
 # -----------------------

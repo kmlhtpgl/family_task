@@ -11,8 +11,8 @@ def kanban_page(data):
     st.header("🎯 Daily Kanban Board")
     st.caption("Drag tasks between Backlog, In Progress and Done.")
 
-    if not data["kids"]:
-        st.info("Add children first in Admin.")
+    if not data["kids"] and not data.get("parents"):
+        st.info("Add children or parents first in Admin.")
         return
 
     selected_date = st.date_input(
@@ -30,9 +30,20 @@ def kanban_page(data):
         for parent in data.get("parents", [])
     }
 
-    selected_child = st.selectbox(
-        "Choose child or parent",
-        ["All children"] + list(kid_options.keys()) + list(parent_options.keys())
+    filter_labels = ["All tasks"]
+
+    if kid_options:
+        filter_labels.append("👧 All children")
+
+    if parent_options:
+        filter_labels.append("👨‍👩‍👧 All parents")
+
+    filter_labels.extend([f"👧 {name}" for name in kid_options.keys()])
+    filter_labels.extend([f"👨‍👩‍👧 {name}" for name in parent_options.keys()])
+
+    selected_filter = st.selectbox(
+        "Filter tasks",
+        filter_labels
     )
 
     daily_tasks = [
@@ -40,33 +51,46 @@ def kanban_page(data):
         if task.get("due_date") == selected_date.isoformat()
     ]
 
-    # Initialize selected_child_id first
-    selected_child_id = None
-    
-    if selected_child == "All children":
-        filtered_tasks = daily_tasks
-    elif selected_child in kid_options:
-        # It's a child
-        selected_child_id = kid_options[selected_child]
+    filtered_tasks = daily_tasks
+
+    if selected_filter == "All tasks":
+        pass
+
+    elif selected_filter == "👧 All children":
         filtered_tasks = [
             task for task in daily_tasks
-            if task["kid_id"] == selected_child_id
+            if task.get("kid_id") is not None
         ]
-    elif selected_child in parent_options:
-        # It's a parent
-        selected_child_id = parent_options[selected_child]
+
+    elif selected_filter == "👨‍👩‍👧 All parents":
         filtered_tasks = [
             task for task in daily_tasks
-            if task.get("parent_id") == selected_child_id
+            if task.get("parent_id") is not None
         ]
-    else:
-        filtered_tasks = daily_tasks
+
+    elif selected_filter.startswith("👧 ") and "All children" not in selected_filter:
+        kid_name = selected_filter.replace("👧 ", "")
+
+        if kid_name in kid_options:
+            filtered_tasks = [
+                task for task in daily_tasks
+                if task.get("kid_id") == kid_options[kid_name]
+            ]
+
+    elif selected_filter.startswith("👨‍👩‍👧 ") and "All parents" not in selected_filter:
+        parent_name = selected_filter.replace("👨‍👩‍👧 ", "")
+
+        if parent_name in parent_options:
+            filtered_tasks = [
+                task for task in daily_tasks
+                if task.get("parent_id") == parent_options[parent_name]
+            ]
 
     if not filtered_tasks:
         st.info("No tasks for this date.")
         return
 
-    st.write(f"Showing tasks for: **{selected_date.isoformat()}**")
+    st.write(f"Showing tasks for: **{selected_date.isoformat()}** ({len(filtered_tasks)} tasks)")
 
     item_to_task_id = {}
     containers = []
@@ -76,12 +100,11 @@ def kanban_page(data):
 
         for task in filtered_tasks:
             if task["status"] == status:
-                kid = get_kid(data, task["kid_id"])
-                kid_name = kid["name"] if kid else "Unknown"
+                assignee_label = get_assignee_label(data, task)
 
                 item_label = (
                     f"#{task['id']} | {task['title']} | "
-                    f"{kid_name} | {task['points']} points"
+                    f"{assignee_label} | {task['points']} points"
                 )
 
                 items.append(item_label)
@@ -100,13 +123,13 @@ def kanban_page(data):
         gap: 20px;
         width: 100%;
         height: 100%;
-        align-items: stretch;  /* Forces all columns to have equal height */
+        align-items: stretch;
     }
 
     .sortable-container {
         flex: 1;
         min-width: 0;
-        min-height: 720px;  /* Keep columns the same height */
+        min-height: 720px;
         background: linear-gradient(135deg, rgba(255, 138, 128, 0.05), rgba(78, 205, 196, 0.05));
         border-radius: 12px;
         padding: 12px;
@@ -127,7 +150,7 @@ def kanban_page(data):
 
     .sortable-container-body {
         flex: 1;
-        height: 100%;  /* Ensures items fill the column equally */
+        height: 100%;
     }
 
     .sortable-item {
@@ -157,7 +180,7 @@ def kanban_page(data):
         containers,
         multi_containers=True,
         custom_style=custom_style,
-        key=f"kanban_sortable_{selected_date}_{selected_child}"
+        key=f"kanban_sortable_{selected_date}_{selected_filter}"
     )
 
     changed = update_task_statuses_from_board(
@@ -209,3 +232,18 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
                     break
 
     return changed
+
+
+def get_assignee_label(data, task):
+    if task.get("kid_id"):
+        kid = get_kid(data, task["kid_id"])
+        return f"👧 {kid['name']}" if kid else "👧 Unknown"
+
+    if task.get("parent_id"):
+        for parent in data.get("parents", []):
+            if parent["id"] == task["parent_id"]:
+                return f"👨‍👩‍👧 {parent['name']}"
+
+        return "👨‍👩‍👧 Unknown"
+
+    return "Unknown"

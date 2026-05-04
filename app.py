@@ -4,6 +4,7 @@ from utils.styles import apply_custom_styles
 from app_pages.dashboard import dashboard_page
 from app_pages.kanban import kanban_page
 from app_pages.kids_profiles import kids_profiles_page
+from app_pages.parents_profiles import parents_profiles_page
 from app_pages.reading_library import reading_library_page
 from app_pages.admin import admin_page
 
@@ -220,6 +221,7 @@ page = st.sidebar.radio(
     [
         "📊 Dashboard",
         "🎯 Kanban Board",
+        "👨‍👩‍👧‍👦 Parents Profiles",
         "👨‍👩‍👧‍👦 Kids Profiles",
         "📚 Reading Library",
         "⚙️ Admin"
@@ -236,6 +238,9 @@ if "Dashboard" in page:
 
 elif "Kanban" in page:
     kanban_page(data)
+
+elif "Parents" in page:
+    parents_profiles_page(data)
 
 elif "Kids" in page:
     kids_profiles_page(data)

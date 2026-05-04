@@ -4,6 +4,8 @@ from datetime import date, datetime, timedelta
 from utils.task_helpers import TASK_STATUSES
 from utils.db_helpers import (
     add_kid,
+    update_kid,
+    delete_kid,
     add_parent,
     update_parent,
     delete_parent,
@@ -16,6 +18,7 @@ from utils.db_helpers import (
     delete_book_template,
     replace_book_templates
 )
+from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 
 
 def admin_page(data):
@@ -38,7 +41,7 @@ def admin_page(data):
         parents_tab(data)
 
     with tab2:
-        add_child_tab()
+        add_child_tab(data)
 
     with tab3:
         task_list_tab(data)
@@ -67,9 +70,19 @@ def parents_tab(data):
     # Add Parent Form
     st.write("### Add New Parent")
     with st.form("add_parent_form"):
-        name = st.text_input("Parent name")
-        email = st.text_input("Email (optional)")
-        phone = st.text_input("Phone (optional)")
+        col1, col2 = st.columns([1, 2])
+
+        with col1:
+            uploaded_photo = st.file_uploader(
+                "Profile photo",
+                type=["jpg", "jpeg", "png"],
+                key="new_parent_photo"
+            )
+
+        with col2:
+            name = st.text_input("Parent name")
+            email = st.text_input("Email (optional)")
+            phone = st.text_input("Phone (optional)")
 
         submitted = st.form_submit_button("Add Parent")
 
@@ -78,10 +91,23 @@ def parents_tab(data):
                 st.error("Please enter the parent's name.")
                 return
 
+            photo_url = None
+
+            if uploaded_photo:
+                try:
+                    photo_url = upload_profile_photo(
+                        uploaded_photo.getvalue(),
+                        uploaded_photo.name
+                    )
+                    st.success("Photo uploaded!")
+                except Exception as e:
+                    st.error(f"Failed to upload photo: {e}")
+
             add_parent(
                 name=name.strip(),
                 email=email.strip() if email else None,
-                phone=phone.strip() if phone else None
+                phone=phone.strip() if phone else None,
+                photo_url=photo_url
             )
 
             st.success("Parent added successfully! ✅")
@@ -97,25 +123,33 @@ def parents_tab(data):
         st.caption("No parents added yet.")
         return
 
-    # Display as table
     for parent in parents:
         with st.container(border=True):
-            col1, col2, col3 = st.columns([2, 1, 1])
-            
+            col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
+
             with col1:
+                if parent.get("photo_url"):
+                    st.image(parent["photo_url"], width=80)
+                else:
+                    st.write("👤")
+
+            with col2:
                 st.write(f"**👤 {parent['name']}**")
                 if parent.get("email"):
                     st.caption(f"📧 {parent['email']}")
                 if parent.get("phone"):
                     st.caption(f"📞 {parent['phone']}")
-            
-            with col2:
+
+            with col3:
                 if st.button("✏️ Edit", key=f"edit_parent_{parent['id']}"):
                     st.session_state.editing_parent_id = parent['id']
                     st.rerun()
-            
-            with col3:
+
+            with col4:
                 if st.button("🗑️ Delete", key=f"delete_parent_{parent['id']}"):
+                    if parent.get("photo_url"):
+                        delete_profile_photo(parent["photo_url"])
+
                     delete_parent(parent['id'])
                     st.warning(f"Parent '{parent['name']}' removed.")
                     st.rerun()
@@ -124,16 +158,50 @@ def parents_tab(data):
         if st.session_state.get("editing_parent_id") == parent["id"]:
             st.write("#### Edit Parent")
             with st.form(f"edit_parent_form_{parent['id']}"):
-                new_name = st.text_input("Parent name", value=parent['name'])
-                new_email = st.text_input("Email", value=parent.get("email", ""))
-                new_phone = st.text_input("Phone", value=parent.get("phone", ""))
+                col1, col2 = st.columns([1, 2])
+
+                with col1:
+                    uploaded_photo = st.file_uploader(
+                        "New photo (optional)",
+                        type=["jpg", "jpeg", "png"],
+                        key=f"edit_parent_photo_{parent['id']}"
+                    )
+
+                    if parent.get("photo_url"):
+                        st.image(parent["photo_url"], width=80)
+
+                        if st.button("🗑️ Remove photo", key=f"remove_parent_photo_{parent['id']}"):
+                            delete_profile_photo(parent["photo_url"])
+                            update_parent(parent['id'], {"photo_url": None})
+                            st.success("Photo removed.")
+                            st.session_state.editing_parent_id = None
+                            st.rerun()
+
+                with col2:
+                    new_name = st.text_input("Parent name", value=parent['name'])
+                    new_email = st.text_input("Email", value=parent.get("email", ""))
+                    new_phone = st.text_input("Phone", value=parent.get("phone", ""))
 
                 if st.form_submit_button("Save Changes"):
-                    update_parent(parent['id'], {
+                    updates = {
                         "name": new_name.strip(),
                         "email": new_email.strip() if new_email else None,
                         "phone": new_phone.strip() if new_phone else None
-                    })
+                    }
+
+                    if uploaded_photo:
+                        try:
+                            if parent.get("photo_url"):
+                                delete_profile_photo(parent["photo_url"])
+
+                            updates["photo_url"] = upload_profile_photo(
+                                uploaded_photo.getvalue(),
+                                uploaded_photo.name
+                            )
+                        except Exception as e:
+                            st.error(f"Failed to upload photo: {e}")
+
+                    update_parent(parent['id'], updates)
                     st.success("Parent updated! ✅")
                     st.session_state.editing_parent_id = None
                     st.rerun()
@@ -143,17 +211,24 @@ def parents_tab(data):
 # Add Child
 # -----------------------
 
-def add_child_tab():
-    st.subheader("👧 Add Child")
+def add_child_tab(data):
+    st.subheader("👧 Children Management")
 
-    st.warning(
-        "For now, photos are not saved safely in Supabase Storage. "
-        "We can add proper photo storage in the next step."
-    )
-
+    # Add Child Form
+    st.write("### Add New Child")
     with st.form("add_child_form"):
-        name = st.text_input("Child name")
-        age = st.number_input("Age", min_value=1, max_value=18, value=6)
+        col1, col2 = st.columns([1, 2])
+
+        with col1:
+            uploaded_photo = st.file_uploader(
+                "Profile photo",
+                type=["jpg", "jpeg", "png"],
+                key="new_kid_photo"
+            )
+
+        with col2:
+            name = st.text_input("Child name")
+            age = st.number_input("Age", min_value=1, max_value=18, value=6)
 
         submitted = st.form_submit_button("Add Child")
 
@@ -162,14 +237,114 @@ def add_child_tab():
                 st.error("Please enter the child's name.")
                 return
 
+            photo_url = None
+
+            if uploaded_photo:
+                try:
+                    photo_url = upload_profile_photo(
+                        uploaded_photo.getvalue(),
+                        uploaded_photo.name
+                    )
+                    st.success("Photo uploaded!")
+                except Exception as e:
+                    st.error(f"Failed to upload photo: {e}")
+
             add_kid(
                 name=name.strip(),
                 age=int(age),
-                photo_path=None
+                photo_path=photo_url
             )
 
             st.success("Child added successfully.")
             st.rerun()
+
+    st.divider()
+
+    # Display Children
+    st.write("### Children List")
+    kids = data.get("kids", [])
+
+    if not kids:
+        st.caption("No children added yet.")
+        return
+
+    for kid in kids:
+        with st.container(border=True):
+            col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
+
+            with col1:
+                if kid.get("photo_path"):
+                    st.image(kid["photo_path"], width=80)
+                else:
+                    st.write("👤")
+
+            with col2:
+                st.write(f"**{kid['name']}**")
+                st.caption(f"Age: {kid.get('age', 'Not set')}")
+
+            with col3:
+                if st.button("✏️ Edit", key=f"edit_kid_{kid['id']}"):
+                    st.session_state.editing_kid_id = kid['id']
+                    st.rerun()
+
+            with col4:
+                if st.button("🗑️ Delete", key=f"delete_kid_{kid['id']}"):
+                    if kid.get("photo_path"):
+                        delete_profile_photo(kid["photo_path"])
+
+                    delete_kid(kid['id'])
+                    st.warning(f"Child '{kid['name']}' removed.")
+                    st.rerun()
+
+        # Edit form if selected
+        if st.session_state.get("editing_kid_id") == kid["id"]:
+            st.write("#### Edit Child")
+            with st.form(f"edit_kid_form_{kid['id']}"):
+                col1, col2 = st.columns([1, 2])
+
+                with col1:
+                    uploaded_photo = st.file_uploader(
+                        "New photo (optional)",
+                        type=["jpg", "jpeg", "png"],
+                        key=f"edit_kid_photo_{kid['id']}"
+                    )
+
+                    if kid.get("photo_path"):
+                        st.image(kid["photo_path"], width=80)
+
+                        if st.button("🗑️ Remove photo", key=f"remove_kid_photo_{kid['id']}"):
+                            delete_profile_photo(kid["photo_path"])
+                            update_kid(kid['id'], {"photo_path": None})
+                            st.success("Photo removed.")
+                            st.session_state.editing_kid_id = None
+                            st.rerun()
+
+                with col2:
+                    new_name = st.text_input("Child name", value=kid['name'])
+                    new_age = st.number_input("Age", min_value=1, max_value=18, value=kid.get('age', 6))
+
+                if st.form_submit_button("Save Changes"):
+                    updates = {
+                        "name": new_name.strip(),
+                        "age": int(new_age)
+                    }
+
+                    if uploaded_photo:
+                        try:
+                            if kid.get("photo_path"):
+                                delete_profile_photo(kid["photo_path"])
+
+                            updates["photo_path"] = upload_profile_photo(
+                                uploaded_photo.getvalue(),
+                                uploaded_photo.name
+                            )
+                        except Exception as e:
+                            st.error(f"Failed to upload photo: {e}")
+
+                    update_kid(kid['id'], updates)
+                    st.success("Child updated! ✅")
+                    st.session_state.editing_kid_id = None
+                    st.rerun()
 
 
 # -----------------------
@@ -743,12 +918,7 @@ def settings_tab():
 
     st.info(
         "Main family data is now saved in Supabase. "
-        "The old JSON files are no longer used for children, tasks, books, task lists or book lists."
+        "Profile photos are stored in Supabase Storage."
     )
 
-    st.warning(
-        "Profile photos are not fully moved to Supabase Storage yet. "
-        "That can be the next improvement."
-    )
-
-    st.success("✅ Parent profiles are now available!")
+    st.success("✅ Parent and child profiles with photos are fully available!")
