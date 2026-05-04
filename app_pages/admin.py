@@ -129,12 +129,18 @@ def parents_tab(data):
 
             with col1:
                 if parent.get("photo_url"):
-                    st.image(parent["photo_url"], width=80)
+                    st.markdown(
+                        f'<img src="{parent["photo_url"]}" class="avatar-circle" width="80" height="80" />',
+                        unsafe_allow_html=True
+                    )
                 else:
-                    st.write("👤")
+                    st.markdown(
+                        '<div class="avatar-circle" style="width:80px;height:80px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);display:flex;align-items:center;justify-content:center;font-size:30px;color:white;">👤</div>',
+                        unsafe_allow_html=True
+                    )
 
             with col2:
-                st.write(f"**👤 {parent['name']}**")
+                st.write(f"**{parent['name']}**")
                 if parent.get("email"):
                     st.caption(f"📧 {parent['email']}")
                 if parent.get("phone"):
@@ -168,7 +174,10 @@ def parents_tab(data):
                     )
 
                     if parent.get("photo_url"):
-                        st.image(parent["photo_url"], width=80)
+                        st.markdown(
+                            f'<img src="{parent["photo_url"]}" class="avatar-circle" width="80" height="80" />',
+                            unsafe_allow_html=True
+                        )
 
                         if st.button("🗑️ Remove photo", key=f"remove_parent_photo_{parent['id']}"):
                             delete_profile_photo(parent["photo_url"])
@@ -274,9 +283,15 @@ def add_child_tab(data):
 
             with col1:
                 if kid.get("photo_path"):
-                    st.image(kid["photo_path"], width=80)
+                    st.markdown(
+                        f'<img src="{kid["photo_path"]}" class="avatar-circle" width="80" height="80" />',
+                        unsafe_allow_html=True
+                    )
                 else:
-                    st.write("👤")
+                    st.markdown(
+                        '<div class="avatar-circle" style="width:80px;height:80px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);display:flex;align-items:center;justify-content:center;font-size:30px;color:white;">👤</div>',
+                        unsafe_allow_html=True
+                    )
 
             with col2:
                 st.write(f"**{kid['name']}**")
@@ -310,7 +325,10 @@ def add_child_tab(data):
                     )
 
                     if kid.get("photo_path"):
-                        st.image(kid["photo_path"], width=80)
+                        st.markdown(
+                            f'<img src="{kid["photo_path"]}" class="avatar-circle" width="80" height="80" />',
+                            unsafe_allow_html=True
+                        )
 
                         if st.button("🗑️ Remove photo", key=f"remove_kid_photo_{kid['id']}"):
                             delete_profile_photo(kid["photo_path"])

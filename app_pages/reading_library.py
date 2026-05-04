@@ -63,17 +63,33 @@ def show_books_in_progress(data, reader_id, is_parent=False):
         return
 
     for book in books:
-        with st.container(border=True):
-            st.write(f"### {book['title']}")
-            st.write(f"Language: **{book['language']}**")
-            st.write(f"Total pages: **{book['total_pages']}**")
+        with st.container():
+            progress = calculate_book_progress(book)
+            progress_pct = round(progress * 100)
+
+            language_flag = "🇬🇧" if book["language"] == "English" else "🇹🇷"
+
+            st.markdown(
+                f'<div class="task-item">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                f'<h4 style="margin:0;">{book["title"]}</h4>'
+                f'<span style="color:#666;">{language_flag} {book["total_pages"]} pages</span>'
+                f'</div>'
+                f'<div style="margin-top:10px;">'
+                f'<span style="font-size:0.9em;color:#666;">{book.get("current_page", 0)} / {book["total_pages"]} pages ({progress_pct}%)</span>'
+                f'</div>'
+                f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
 
             current_page = st.number_input(
                 "Current page",
                 min_value=0,
                 max_value=int(book["total_pages"]),
                 value=int(book.get("current_page", 0)),
-                key=f"book_page_{book['id']}"
+                key=f"book_page_{book['id']}",
+                label_visibility="collapsed"
             )
 
             if current_page != book.get("current_page", 0):
@@ -86,11 +102,8 @@ def show_books_in_progress(data, reader_id, is_parent=False):
                     updates["finished_date"] = today_string()
 
                 update_book(book["id"], updates)
+                st.success(f"📖 Updated: {book['title']} ({progress_pct}%)")
                 st.rerun()
-
-            progress = calculate_book_progress(book)
-            st.progress(progress)
-            st.write(f"Progress: **{round(progress * 100)}%**")
 
             col1, col2 = st.columns(2)
 
@@ -129,7 +142,13 @@ def show_finished_books(data, reader_id, is_parent=False):
 
         if english_books:
             for book in english_books:
-                st.write(f"✅ {book['title']} — {book['total_pages']} pages")
+                st.markdown(
+                    f'<div class="task-item" style="border-left-color:#4CAF50;">'
+                    f'<span>✅ {book["title"]}</span>'
+                    f'<span style="color:#666;">{book["total_pages"]} pages</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
         else:
             st.caption("No English books finished yet.")
 
@@ -138,6 +157,12 @@ def show_finished_books(data, reader_id, is_parent=False):
 
         if turkish_books:
             for book in turkish_books:
-                st.write(f"✅ {book['title']} — {book['total_pages']} pages")
+                st.markdown(
+                    f'<div class="task-item" style="border-left-color:#4CAF50;">'
+                    f'<span>✅ {book["title"]}</span>'
+                    f'<span style="color:#666;">{book["total_pages"]} pages</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
         else:
             st.caption("No Turkish books finished yet.")

@@ -2,6 +2,8 @@ import streamlit as st
 
 from utils.task_helpers import get_total_points_for_parent, get_weekly_points_for_parent
 from utils.book_helpers import get_finished_books_for_parent, split_books_by_language
+from utils.achievement_helpers import get_parent_achievements
+from utils.styles import avatar_image, achievement_badge
 
 
 def parents_profiles_page(data):
@@ -41,7 +43,7 @@ def show_parent_profile(data, parent):
     col1, col2 = st.columns([1, 2])
 
     with col1:
-        show_profile_photo(parent)
+        avatar_image(parent.get("photo_url"), width=150)
 
         st.subheader(parent["name"])
 
@@ -54,25 +56,29 @@ def show_parent_profile(data, parent):
         total_points = get_total_points_for_parent(data, parent["id"])
         weekly_points = get_weekly_points_for_parent(data, parent["id"])
 
-        st.metric("Total Points", total_points)
-        st.metric("This Week", weekly_points)
+        st.markdown(
+            f'<div class="metric-card"><h3>⭐ Total Points</h3><div class="value">{total_points}</div><div class="label">{weekly_points} this week</div></div>',
+            unsafe_allow_html=True
+        )
+
+        st.divider()
+        st.write("### 🏆 Achievements")
+
+        achievements = get_parent_achievements(data, parent["id"])
+
+        if achievements:
+            for ach in achievements:
+                achievement_badge(ach["icon"], ach["label"])
+        else:
+            st.caption("Complete tasks and read books to earn badges!")
 
     with col2:
         show_parent_tasks(data, parent)
         show_parent_books(data, parent)
 
 
-def show_profile_photo(parent):
-    photo_url = parent.get("photo_url")
-
-    if photo_url:
-        st.image(photo_url, width=180)
-    else:
-        st.write("👤 No profile photo yet")
-
-
 def show_parent_tasks(data, parent):
-    st.subheader("Assigned Tasks")
+    st.subheader("📋 Assigned Tasks")
 
     assigned_tasks = [
         task for task in data["tasks"]
@@ -83,9 +89,12 @@ def show_parent_tasks(data, parent):
         st.caption("No tasks assigned yet.")
         return
 
+    active = [t for t in assigned_tasks if t["status"] != "Done"]
+    done = [t for t in assigned_tasks if t["status"] == "Done"]
+
     tasks_by_date = {}
 
-    for task in assigned_tasks:
+    for task in active:
         due = task.get("due_date", "No date")
 
         if due not in tasks_by_date:
@@ -93,25 +102,41 @@ def show_parent_tasks(data, parent):
 
         tasks_by_date[due].append(task)
 
-    for due_date, tasks in sorted(tasks_by_date.items()):
-        st.write(f"### 📅 {due_date}")
+    if tasks_by_date:
+        for due_date, tasks in sorted(tasks_by_date.items()):
+            st.write(f"### 📅 {due_date}")
 
-        for task in tasks:
-            status_emoji = {
-                "Backlog": "📋",
-                "In Progress": "⏳",
-                "Done": "✅"
-            }.get(task.get("status", ""), "❓")
+            for task in tasks:
+                status_class = task["status"].lower().replace(" ", "-")
+                st.markdown(
+                    f'<div class="task-item">'
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                    f'<span>{task["title"]}</span>'
+                    f'<span class="status-badge status-{status_class}">{task["status"]}</span>'
+                    f'<span>{task["points"]} pts</span>'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
-            st.write(
-                f"{status_emoji} **{task['title']}** — "
-                f"{task['status']} — "
-                f"{task['points']} points"
+    if done:
+        st.write(f"**✅ Completed ({len(done)})**")
+
+        for task in done[:5]:
+            st.markdown(
+                f'<div class="task-item" style="border-left-color:#4CAF50;">'
+                f'<span>✅ {task["title"]}</span>'
+                f'<span style="color:#4CAF50;font-weight:600;">+{task["points"]} pts</span>'
+                f'</div>',
+                unsafe_allow_html=True
             )
+
+        if len(done) > 5:
+            st.caption(f"...and {len(done) - 5} more")
 
 
 def show_parent_books(data, parent):
-    st.subheader("Reading List")
+    st.subheader("📚 Reading List")
 
     assigned_books = [
         book for book in data["books"]
@@ -125,13 +150,24 @@ def show_parent_books(data, parent):
     in_progress = [b for b in assigned_books if b.get("status") != "Finished"]
     finished = [b for b in assigned_books if b.get("status") == "Finished"]
 
-    st.write("### 📖 In Progress")
-
     if in_progress:
+        st.write("### 📖 In Progress")
+
         for book in in_progress:
-            st.write(f"📖 **{book['title']}** — {book['language']} ({book.get('current_page', 0)}/{book['total_pages']} pages)")
-    else:
-        st.caption("No books in progress.")
+            progress = book.get("current_page", 0) / book["total_pages"] if book["total_pages"] > 0 else 0
+            progress_pct = round(progress * 100)
+
+            st.markdown(
+                f'<div class="task-item">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                f'<span>{book["title"]}</span>'
+                f'<span>{book["language"]}</span>'
+                f'<span>{progress_pct}%</span>'
+                f'</div>'
+                f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
 
     st.write("### ✨ Finished")
 

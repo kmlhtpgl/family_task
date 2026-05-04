@@ -62,9 +62,14 @@ def kanban_page(data):
             if task["status"] == status:
                 assignee_label = get_assignee_label(data, task)
 
+                status_emoji = {
+                    "Backlog": "📋",
+                    "In Progress": "⏳",
+                    "Done": "✅"
+                }.get(status, "❓")
+
                 item_label = (
-                    f"#{task['id']} | {task['title']} | "
-                    f"{assignee_label} | {task['points']} points"
+                    f"{status_emoji} {task['title']} | {assignee_label} | {task['points']} pts"
                 )
 
                 items.append(item_label)
@@ -72,7 +77,7 @@ def kanban_page(data):
 
         containers.append(
             {
-                "header": status,
+                "header": f"{status} ({len(items)})",
                 "items": items
             }
         )
@@ -90,46 +95,72 @@ def kanban_page(data):
         flex: 1;
         min-width: 0;
         min-height: 720px;
-        background: linear-gradient(135deg, rgba(255, 138, 128, 0.05), rgba(78, 205, 196, 0.05));
-        border-radius: 12px;
-        padding: 12px;
-        border: 2px solid #FF8A80;
+        border-radius: 15px;
+        padding: 15px;
+        border: 2px solid;
         display: flex;
         flex-direction: column;
+    }
+
+    .sortable-container[data-header="Backlog"] {
+        background: linear-gradient(135deg, rgba(158, 158, 158, 0.05), rgba(158, 158, 158, 0.02));
+        border-color: #9E9E9E;
+    }
+
+    .sortable-container[data-header*="In Progress"] {
+        background: linear-gradient(135deg, rgba(255, 152, 0, 0.05), rgba(255, 152, 0, 0.02));
+        border-color: #FF9800;
+    }
+
+    .sortable-container[data-header*="Done"] {
+        background: linear-gradient(135deg, rgba(76, 175, 80, 0.05), rgba(76, 175, 80, 0.02));
+        border-color: #4CAF50;
     }
 
     .sortable-container-header {
         font-weight: 700;
         font-size: 18px;
-        margin-bottom: 12px;
-        color: #FF8A80;
-        background-color: white;
-        padding: 8px;
-        border-radius: 8px;
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    .sortable-container[data-header="Backlog"] .sortable-container-header {
+        color: #9E9E9E;
+        background: rgba(158, 158, 158, 0.1);
+    }
+
+    .sortable-container[data-header*="In Progress"] .sortable-container-header {
+        color: #FF9800;
+        background: rgba(255, 152, 0, 0.1);
+    }
+
+    .sortable-container[data-header*="Done"] .sortable-container-header {
+        color: #4CAF50;
+        background: rgba(76, 175, 80, 0.1);
     }
 
     .sortable-container-body {
         flex: 1;
-        height: 100%;
     }
 
     .sortable-item {
         background: linear-gradient(135deg, #FF8A80 0%, #4ECDC4 100%);
         color: white !important;
-        border-radius: 10px;
+        border-radius: 12px;
         padding: 12px;
         margin-bottom: 10px;
-        border-left: 6px solid #FF6B6B;
-        box-shadow: 0 4px 12px rgba(255, 138, 128, 0.2);
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 600;
         cursor: grab;
         transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
     .sortable-item:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(255, 138, 128, 0.3);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
     }
 
     .sortable-item:active {
@@ -158,7 +189,10 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
     changed = False
 
     for container in sorted_containers:
-        new_status = container["header"]
+        new_status = container["header"].split(" (")[0]
+
+        if new_status not in TASK_STATUSES:
+            continue
 
         for item_label in container["items"]:
             task_id = item_to_task_id.get(item_label)
