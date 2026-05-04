@@ -29,9 +29,24 @@ st.markdown("""
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
 
+    /* Fix mobile layout - prevent overlap */
     .stApp {
         background: linear-gradient(135deg, #FFF5F7 0%, #F0F8FF 50%, #F0FFF4 100%);
         min-height: 100vh;
+        padding-top: 0 !important;
+    }
+
+    [data-testid="stHeader"] {
+        display: none !important;
+    }
+
+    .st-emotion-cache-18ni7ap {
+        padding-top: 1rem !important;
+    }
+
+    /* Ensure sidebar stays above content on mobile */
+    [data-testid="collapsedControl"] {
+        z-index: 100;
     }
 
     /* Family scene background pattern */
@@ -49,7 +64,7 @@ st.markdown("""
         background-repeat: no-repeat;
     }
 
-    /* Top navbar */
+    /* Top navbar - single HTML block, no columns */
     .top-navbar {
         display: flex;
         align-items: center;
@@ -62,6 +77,8 @@ st.markdown("""
         position: relative;
         overflow: hidden;
         height: 60px;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .top-navbar::before {
@@ -96,6 +113,7 @@ st.markdown("""
         align-items: center;
         justify-content: center;
         border-radius: 12px;
+        flex-shrink: 0;
     }
 
     .navbar-brand h1 {
@@ -106,6 +124,7 @@ st.markdown("""
         font-family: 'Poppins', sans-serif;
         letter-spacing: 1px;
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        white-space: nowrap;
     }
 
     .navbar-brand span {
@@ -120,6 +139,7 @@ st.markdown("""
         align-items: center;
         gap: 15px;
         z-index: 1;
+        flex-shrink: 0;
     }
 
     .navbar-actions .nav-date {
@@ -128,12 +148,20 @@ st.markdown("""
         font-weight: 500;
     }
 
-    .stToggle {
-        z-index: 10;
+    .nav-dark-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        border-radius: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 1.2em;
+        transition: all 0.3s ease;
+        color: white;
     }
 
-    .stToggle label {
-        display: none !important;
+    .nav-dark-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
     }
 
     [data-testid="stSidebar"] {
@@ -344,15 +372,26 @@ st.markdown("""
         transition: width 0.3s ease;
     }
 
+    /* Mobile responsive fixes */
     @media (max-width: 768px) {
         .top-navbar {
             padding: 10px 15px;
             border-radius: 12px;
-            height: 50px;
+            height: auto;
+            min-height: 50px;
+            flex-wrap: wrap;
+        }
+
+        .navbar-brand {
+            gap: 8px;
         }
 
         .navbar-brand h1 {
-            font-size: 1.1em;
+            font-size: 1em;
+        }
+
+        .navbar-brand span {
+            display: none;
         }
 
         .navbar-brand .logo {
@@ -363,6 +402,25 @@ st.markdown("""
 
         .navbar-actions .nav-date {
             display: none;
+        }
+
+        /* Prevent sidebar from overlapping content */
+        [data-testid="stSidebar"] {
+            position: fixed !important;
+            z-index: 999 !important;
+        }
+
+        .st-emotion-cache-18ni7ap {
+            padding-top: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .main .block-container {
+            padding-top: 1rem !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            max-width: 100% !important;
         }
 
         .metric-card {
@@ -377,41 +435,45 @@ st.markdown("""
             width: 200px;
             height: 200px;
         }
+
+        /* Stack columns on mobile */
+        .stColumns > div {
+            flex: 1 1 100% !important;
+            max-width: 100% !important;
+        }
     }
     </style>
 
     <div class="family-bg"></div>
 """, unsafe_allow_html=True)
 
-# Modern navbar
-dark_col1, dark_col2 = st.columns([6, 1])
-
-with dark_col1:
-    st.markdown("""
-        <div class="top-navbar">
-            <div class="navbar-brand">
-                <div class="logo">🏠</div>
-                <h1>Family Task Tracker <span>✨ Your family's adventure</span></h1>
-            </div>
-            <div class="navbar-actions">
-                <div class="nav-date" id="current-date"></div>
-            </div>
+# Modern navbar with dark mode button
+st.markdown(f"""
+    <div class="top-navbar">
+        <div class="navbar-brand">
+            <div class="logo">🏠</div>
+            <h1>Family Task Tracker <span>✨ Your family's adventure</span></h1>
         </div>
-        <script>
-            document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {
-                weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-            });
-        </script>
-    """, unsafe_allow_html=True)
+        <div class="navbar-actions">
+            <div class="nav-date" id="current-date"></div>
+            <button class="nav-dark-btn" onclick="document.getElementById('dark-toggle-input').click()" title="Toggle dark mode">
+                {"🌙" if st.session_state.dark_mode else "☀️"}
+            </button>
+        </div>
+    </div>
+    <script>
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {{
+            weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
+        }});
+    </script>
+""", unsafe_allow_html=True)
 
-with dark_col2:
-    st.markdown("<div style='height:60px;display:flex;align-items:center;justify-content:center;'>", unsafe_allow_html=True)
-    dark_toggle = st.toggle("🌙", value=st.session_state.dark_mode, label_visibility="collapsed")
-    st.markdown("</div>", unsafe_allow_html=True)
+# Hidden toggle for dark mode (triggered by navbar button)
+dark_toggle = st.toggle("🌙 Dark mode", value=st.session_state.dark_mode, key="dark-toggle-input", label_visibility="collapsed")
 
-    if dark_toggle != st.session_state.dark_mode:
-        st.session_state.dark_mode = dark_toggle
-        st.rerun()
+if dark_toggle != st.session_state.dark_mode:
+    st.session_state.dark_mode = dark_toggle
+    st.rerun()
 
 data = get_all_data()
 
