@@ -27,37 +27,46 @@ def admin_page(data):
     st.header("⚙️ Admin Panel")
     st.caption("Manage your family: parents, children, tasks, books, and more.")
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-        [
-            "👨‍👩‍👧‍👦 Parents",
-            "👧 Children",
-            "📋 Task List",
-            "🎯 Assign Task",
-            "📚 Book List",
-            "📖 Assign Book",
-            "⚙️ Settings"
-        ]
-    )
+    admin_tabs = [
+        ("parents", "👨‍👩‍👧‍👦 Parents"),
+        ("children", "👧 Children"),
+        ("task_list", "📋 Task List"),
+        ("assign_task", "🎯 Assign Task"),
+        ("book_list", "📚 Book List"),
+        ("assign_book", "📖 Assign Book"),
+        ("settings", "⚙️ Settings")
+    ]
 
-    with tab1:
+    if "admin_tab" not in st.session_state:
+        st.session_state.admin_tab = "parents"
+
+    tab_cols = st.columns(len(admin_tabs), gap="small")
+
+    for col, (tab_key, tab_label) in zip(tab_cols, admin_tabs):
+        is_active = tab_key == st.session_state.admin_tab
+        btn_type = "primary" if is_active else "secondary"
+
+        if col.button(tab_label, key=f"admin_nav_{tab_key}", use_container_width=True, type=btn_type):
+            st.session_state.admin_tab = tab_key
+            st.rerun()
+
+    st.divider()
+
+    active = st.session_state.admin_tab
+
+    if active == "parents":
         parents_tab(data)
-
-    with tab2:
+    elif active == "children":
         add_child_tab(data)
-
-    with tab3:
+    elif active == "task_list":
         task_list_tab(data)
-
-    with tab4:
+    elif active == "assign_task":
         assign_task_tab(data)
-
-    with tab5:
+    elif active == "book_list":
         book_list_tab(data)
-
-    with tab6:
+    elif active == "assign_book":
         assign_book_tab(data)
-
-    with tab7:
+    elif active == "settings":
         settings_tab()
 
 
