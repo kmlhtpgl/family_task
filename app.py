@@ -404,6 +404,56 @@ st.markdown("""
             display: none;
         }
 
+        /* Bottom mobile navigation bar */
+        .mobile-nav {
+            display: flex !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top: 2px solid #f0f0f0;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .mobile-nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 4px;
+            color: #888;
+            text-decoration: none;
+            font-size: 0.7em;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+
+        .mobile-nav-item .nav-icon {
+            font-size: 1.4em;
+            margin-bottom: 2px;
+        }
+
+        .mobile-nav-item.active {
+            color: #FF8A80;
+            background: rgba(255, 138, 128, 0.08);
+        }
+
+        .mobile-nav-item:hover {
+            color: #4ECDC4;
+            background: rgba(78, 205, 196, 0.05);
+        }
+
+        /* Add bottom padding so content isn't hidden behind nav */
+        .main .block-container {
+            padding-bottom: 70px !important;
+        }
+
         /* Prevent sidebar from overlapping content */
         [data-testid="stSidebar"] {
             position: fixed !important;
@@ -477,25 +527,83 @@ if dark_toggle != st.session_state.dark_mode:
 
 data = get_all_data()
 
-# Sidebar navigation
-st.sidebar.markdown("### 📋 NAVIGATION")
-st.sidebar.markdown("---")
+# Mobile bottom navigation bar (hidden on desktop via CSS)
+active_page = st.query_params.get("page", "")
 
-page = st.sidebar.radio(
-    "Select a page:",
-    [
-        "📊 Dashboard",
-        "🎯 Kanban Board",
-        "👨‍👩‍👧‍👦 Parents Profiles",
-        "👨‍👩‍👧‍👦 Kids Profiles",
-        "📚 Reading Library",
-        "⚙️ Admin"
-    ],
-    label_visibility="collapsed"
-)
+st.markdown(f"""
+    <div class="mobile-nav" style="display:none;">
+        <button class="mobile-nav-item {'active' if active_page == 'dashboard' else ''}" onclick="window.location.href='?page=dashboard'">
+            <span class="nav-icon">📊</span>
+            Dashboard
+        </button>
+        <button class="mobile-nav-item {'active' if active_page == 'kanban' else ''}" onclick="window.location.href='?page=kanban'">
+            <span class="nav-icon">🎯</span>
+            Kanban
+        </button>
+        <button class="mobile-nav-item {'active' if active_page == 'parents' else ''}" onclick="window.location.href='?page=parents'">
+            <span class="nav-icon">👨‍👩‍👧</span>
+            Parents
+        </button>
+        <button class="mobile-nav-item {'active' if active_page == 'kids' else ''}" onclick="window.location.href='?page=kids'">
+            <span class="nav-icon">👧</span>
+            Kids
+        </button>
+        <button class="mobile-nav-item {'active' if active_page == 'reading' else ''}" onclick="window.location.href='?page=reading'">
+            <span class="nav-icon">📚</span>
+            Reading
+        </button>
+        <button class="mobile-nav-item {'active' if active_page == 'admin' else ''}" onclick="window.location.href='?page=admin'">
+            <span class="nav-icon">⚙️</span>
+            Admin
+        </button>
+    </div>
+""", unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
-st.sidebar.caption("💖 Made with love for your family")
+# Show/hide mobile nav via JavaScript
+st.markdown("""
+    <script>
+        function checkMobile() {
+            var nav = document.querySelector('.mobile-nav');
+            if (nav) {
+                nav.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
+            }
+        }
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+    </script>
+""", unsafe_allow_html=True)
+
+# Determine page: query param (mobile nav) or sidebar (desktop)
+if active_page:
+    page_map = {
+        "dashboard": "📊 Dashboard",
+        "kanban": "🎯 Kanban Board",
+        "parents": "👨‍👩‍👧‍👦 Parents Profiles",
+        "kids": "👨‍👩‍👧‍👦 Kids Profiles",
+        "reading": "📚 Reading Library",
+        "admin": "⚙️ Admin"
+    }
+    page = page_map.get(active_page, "📊 Dashboard")
+else:
+    # Sidebar navigation (desktop)
+    st.sidebar.markdown("### 📋 NAVIGATION")
+    st.sidebar.markdown("---")
+
+    page = st.sidebar.radio(
+        "Select a page:",
+        [
+            "📊 Dashboard",
+            "🎯 Kanban Board",
+            "👨‍👩‍👧‍👦 Parents Profiles",
+            "👨‍👩‍👧‍👦 Kids Profiles",
+            "📚 Reading Library",
+            "⚙️ Admin"
+        ],
+        label_visibility="collapsed"
+    )
+
+    st.sidebar.markdown("---")
+    st.sidebar.caption("💖 Made with love for your family")
 
 # Route to pages
 if "Dashboard" in page:
