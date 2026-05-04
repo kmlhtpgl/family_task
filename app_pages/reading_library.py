@@ -3,7 +3,9 @@ import streamlit as st
 from utils.book_helpers import (
     calculate_book_progress,
     get_books_in_progress,
+    get_books_in_progress_for_parent,
     get_finished_books,
+    get_finished_books_for_parent,
     split_books_by_language
 )
 from utils.db_helpers import update_book, delete_book
@@ -13,31 +15,48 @@ from utils.data_helpers import today_string
 def reading_library_page(data):
     st.header("📚 Reading Library")
 
-    if not data["kids"]:
-        st.info("Add children first in Admin.")
+    if not data["kids"] and not data.get("parents"):
+        st.info("Add children or parents first in Admin.")
         return
 
-    kid_options = {
-        kid["name"]: kid["id"]
-        for kid in data["kids"]
-    }
+    reader_options = build_reader_options(data)
 
-    selected_name = st.selectbox(
-        "Choose child",
-        list(kid_options.keys())
+    selected_label = st.selectbox(
+        "Choose reader",
+        list(reader_options.keys())
     )
 
-    kid_id = kid_options[selected_name]
+    reader_info = reader_options[selected_label]
 
-    show_books_in_progress(data, kid_id)
-    st.divider()
-    show_finished_books(data, kid_id)
+    if reader_info["type"] == "kid":
+        show_books_in_progress(data, reader_info["id"], is_parent=False)
+        st.divider()
+        show_finished_books(data, reader_info["id"], is_parent=False)
+    else:
+        show_books_in_progress(data, reader_info["id"], is_parent=True)
+        st.divider()
+        show_finished_books(data, reader_info["id"], is_parent=True)
 
 
-def show_books_in_progress(data, kid_id):
+def build_reader_options(data):
+    options = {}
+
+    for kid in data["kids"]:
+        options[f"👧 {kid['name']}"] = {"type": "kid", "id": kid["id"]}
+
+    for parent in data.get("parents", []):
+        options[f"👨‍👩‍👧 {parent['name']}"] = {"type": "parent", "id": parent["id"]}
+
+    return options
+
+
+def show_books_in_progress(data, reader_id, is_parent=False):
     st.subheader("📖 Books in Progress")
 
-    books = get_books_in_progress(data, kid_id)
+    if is_parent:
+        books = get_books_in_progress_for_parent(data, reader_id)
+    else:
+        books = get_books_in_progress(data, reader_id)
 
     if not books:
         st.caption("No books in progress.")
@@ -73,7 +92,6 @@ def show_books_in_progress(data, kid_id):
             st.progress(progress)
             st.write(f"Progress: **{round(progress * 100)}%**")
 
-            # Action buttons
             col1, col2 = st.columns(2)
 
             with col1:
@@ -94,10 +112,14 @@ def show_books_in_progress(data, kid_id):
                     st.rerun()
 
 
-def show_finished_books(data, kid_id):
+def show_finished_books(data, reader_id, is_parent=False):
     st.subheader("✨ Finished Books")
 
-    finished_books = get_finished_books(data, kid_id)
+    if is_parent:
+        finished_books = get_finished_books_for_parent(data, reader_id)
+    else:
+        finished_books = get_finished_books(data, reader_id)
+
     english_books, turkish_books = split_books_by_language(finished_books)
 
     col1, col2 = st.columns(2)
