@@ -164,50 +164,33 @@ st.markdown("""
         transform: scale(1.1);
     }
 
-    /* Page navigation bar */
-    .page-nav {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 0;
-        margin-bottom: 20px;
-        overflow-x: auto;
-        flex-wrap: nowrap;
+    /* Page nav buttons styling */
+    .stColumn [data-testid="stButton"] button {
+        border-radius: 25px !important;
+        padding: 8px 18px !important;
+        font-weight: 600 !important;
+        font-size: 0.9em !important;
+        transition: all 0.3s ease !important;
+        white-space: nowrap !important;
+        border: 2px solid rgba(255, 138, 128, 0.2) !important;
+        background: rgba(255, 255, 255, 0.7) !important;
+        color: #555 !important;
     }
 
-    .page-nav-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 10px 20px;
-        border-radius: 25px;
-        border: 2px solid rgba(255, 138, 128, 0.2);
-        background: rgba(255, 255, 255, 0.7);
-        color: #555;
-        font-size: 0.9em;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        white-space: nowrap;
-        text-decoration: none;
+    .stColumn [data-testid="stButton"] button:hover {
+        background: rgba(255, 138, 128, 0.1) !important;
+        border-color: #FF8A80 !important;
+        color: #FF8A80 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(255, 138, 128, 0.2) !important;
     }
 
-    .page-nav-btn:hover {
-        background: rgba(255, 138, 128, 0.1);
-        border-color: #FF8A80;
-        color: #FF8A80;
-        transform: translateY(-2px);
-    }
-
-    .page-nav-btn.active {
-        background: linear-gradient(135deg, #FF8A80, #4ECDC4);
-        border-color: transparent;
-        color: white;
-        box-shadow: 0 4px 15px rgba(255, 138, 128, 0.3);
-    }
-
-    .page-nav-btn .btn-icon {
-        font-size: 1.1em;
+    .stColumn [data-testid="stButton"][aria-pressed="true"] button,
+    .stColumn [data-testid="stButton"][data-baseweb="button"][style*="primary"] button {
+        background: linear-gradient(135deg, #FF8A80, #4ECDC4) !important;
+        border-color: transparent !important;
+        color: white !important;
+        box-shadow: 0 4px 15px rgba(255, 138, 128, 0.3) !important;
     }
 
     [data-testid="stSidebar"] {
@@ -450,18 +433,13 @@ st.markdown("""
             display: none;
         }
 
-        /* Page nav on mobile - horizontal scroll */
-        .page-nav {
-            padding: 8px 0;
-            margin-bottom: 12px;
+        /* Page nav buttons on mobile */
+        .stColumn [data-testid="stButton"] button {
+            padding: 6px 12px !important;
+            font-size: 0.8em !important;
         }
 
-        .page-nav-btn {
-            padding: 8px 14px;
-            font-size: 0.8em;
-        }
-
-        /* Add bottom padding so content isn't hidden behind nav */
+        /* Add bottom padding so content isn't hidden */
         .main .block-container {
             padding-bottom: 20px !important;
         }
@@ -525,7 +503,8 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Page navigation bar
-active_page = st.query_params.get("page", "dashboard")
+if "page" not in st.session_state:
+    st.session_state.page = "dashboard"
 
 pages = [
     ("dashboard", "📊", "Dashboard"),
@@ -536,13 +515,15 @@ pages = [
     ("admin", "⚙️", "Admin"),
 ]
 
-nav_html = '<div class="page-nav">'
-for page_key, icon, label in pages:
-    active_class = "active" if page_key == active_page else ""
-    nav_html += f'<button class="page-nav-btn {active_class}" onclick="window.location.href=\'?page={page_key}\'"><span class="btn-icon">{icon}</span>{label}</button>'
-nav_html += '</div>'
+# Create navigation buttons
+cols = st.columns(len(pages), gap="small")
+for col, (page_key, icon, label) in zip(cols, pages):
+    is_active = page_key == st.session_state.page
+    btn_type = "primary" if is_active else "secondary"
 
-st.markdown(nav_html, unsafe_allow_html=True)
+    if col.button(f"{icon} {label}", key=f"nav_{page_key}", use_container_width=True, type=btn_type):
+        st.session_state.page = page_key
+        st.rerun()
 
 # Hidden toggle for dark mode (triggered by navbar button)
 dark_toggle = st.toggle("🌙 Dark mode", value=st.session_state.dark_mode, key="dark-toggle-input", label_visibility="collapsed")
@@ -553,16 +534,8 @@ if dark_toggle != st.session_state.dark_mode:
 
 data = get_all_data()
 
-# Determine page from query param
-page_map = {
-    "dashboard": "dashboard",
-    "kanban": "kanban",
-    "parents": "parents",
-    "kids": "kids",
-    "reading": "reading",
-    "admin": "admin",
-}
-page = page_map.get(active_page, "dashboard")
+# Determine page from session state
+page = st.session_state.get("page", "dashboard")
 
 # Route to pages
 if page == "dashboard":
