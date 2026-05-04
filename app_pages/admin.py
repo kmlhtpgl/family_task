@@ -91,7 +91,7 @@ def parents_tab(data):
 
     # Display Parents
     st.write("### Parents List")
-    parents = data["parents"]
+    parents = data.get("parents", [])
 
     if not parents:
         st.caption("No parents added yet.")
@@ -316,7 +316,7 @@ def assign_task_tab(data):
 
     parent_options = {
         parent["name"]: parent["id"]
-        for parent in data["parents"]
+        for parent in data.get("parents", [])
     }
 
     task_options = {
@@ -331,8 +331,15 @@ def assign_task_tab(data):
         )
 
         assign_to = st.selectbox(
-            "Assign",
-            ["All children"] + list(kid_options.keys()) + list(parent_options.keys())
+            "Assign to child",
+            ["All children"] + list(kid_options.keys())
+        )
+
+        assigned_parent = st.selectbox(
+            "Assign parent to oversee (optional)",
+            ["None"] + list(parent_options.keys()),
+            key="assign_task_parent",
+            help="Select a parent who will be notified about this task"
         )
 
         repeat_type = st.radio(
@@ -427,6 +434,8 @@ def assign_task_tab(data):
             else:
                 selected_kid_ids = [kid_options[assign_to]]
 
+            parent_id = None if assigned_parent == "None" else parent_options[assigned_parent]
+
             new_tasks = []
 
             for due_date in selected_dates:
@@ -434,6 +443,7 @@ def assign_task_tab(data):
                     new_task = {
                         "title": selected_template["title"],
                         "kid_id": kid_id,
+                        "parent_id": parent_id,
                         "due_date": due_date.isoformat(),
                         "points": int(points),
                         "status": status,
@@ -661,7 +671,7 @@ def assign_book_tab(data):
 
     parent_options = {
         parent["name"]: parent["id"]
-        for parent in data["parents"]
+        for parent in data.get("parents", [])
     }
 
     book_options = {
@@ -676,7 +686,7 @@ def assign_book_tab(data):
         )
 
         assign_to = st.selectbox(
-            "Assign",
+            "Assign to child",
             ["All children"] + list(kid_options.keys()),
             key="assign_book_to"
         )
