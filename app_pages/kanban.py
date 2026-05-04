@@ -8,7 +8,7 @@ from utils.db_helpers import update_task
 
 
 def kanban_page(data):
-    st.header("Daily Kanban Board")
+    st.header("🎯 Daily Kanban Board")
     st.caption("Drag tasks between Backlog, In Progress and Done.")
 
     if not data["kids"]:
@@ -27,12 +27,12 @@ def kanban_page(data):
 
     parent_options = {
         parent["name"]: parent["id"]
-        for parent in data["parents"]
+        for parent in data.get("parents", [])
     }
 
     selected_child = st.selectbox(
-        "Choose child",
-        ["All children"] + list(kid_options.keys()) +list(parent_options.keys())
+        "Choose child or parent",
+        ["All children"] + list(kid_options.keys()) + list(parent_options.keys())
     )
 
     daily_tasks = [
@@ -40,19 +40,27 @@ def kanban_page(data):
         if task.get("due_date") == selected_date.isoformat()
     ]
 
+    # Initialize selected_child_id first
+    selected_child_id = None
+    
     if selected_child == "All children":
         filtered_tasks = daily_tasks
-    elif selected_child_id == kid_options[selected_child]: 
+    elif selected_child in kid_options:
+        # It's a child
+        selected_child_id = kid_options[selected_child]
         filtered_tasks = [
             task for task in daily_tasks
             if task["kid_id"] == selected_child_id
         ]
-    else:
+    elif selected_child in parent_options:
+        # It's a parent
         selected_child_id = parent_options[selected_child]
         filtered_tasks = [
             task for task in daily_tasks
-            if task["parent_id"] == selected_child_id
-        ]    
+            if task.get("parent_id") == selected_child_id
+        ]
+    else:
+        filtered_tasks = daily_tasks
 
     if not filtered_tasks:
         st.info("No tasks for this date.")
@@ -99,10 +107,10 @@ def kanban_page(data):
         flex: 1;
         min-width: 0;
         min-height: 720px;  /* Keep columns the same height */
-        background-color: #f4f5f7;
+        background: linear-gradient(135deg, rgba(255, 138, 128, 0.05), rgba(78, 205, 196, 0.05));
         border-radius: 12px;
         padding: 12px;
-        border: 1px solid #ddd;
+        border: 2px solid #FF8A80;
         display: flex;
         flex-direction: column;
     }
@@ -111,9 +119,10 @@ def kanban_page(data):
         font-weight: 700;
         font-size: 18px;
         margin-bottom: 12px;
-        color: #172b4d;
+        color: #FF8A80;
         background-color: white;
         padding: 8px;
+        border-radius: 8px;
     }
 
     .sortable-container-body {
@@ -122,16 +131,22 @@ def kanban_page(data):
     }
 
     .sortable-item {
-        background-color: white !important;
-        color: #172b4d !important;
+        background: linear-gradient(135deg, #FF8A80 0%, #4ECDC4 100%);
+        color: white !important;
         border-radius: 10px;
         padding: 12px;
         margin-bottom: 10px;
-        border-left: 6px solid #2684ff;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+        border-left: 6px solid #FF6B6B;
+        box-shadow: 0 4px 12px rgba(255, 138, 128, 0.2);
         font-size: 15px;
-        font-weight: 500;
+        font-weight: 600;
         cursor: grab;
+        transition: all 0.3s ease;
+    }
+
+    .sortable-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(255, 138, 128, 0.3);
     }
 
     .sortable-item:active {
