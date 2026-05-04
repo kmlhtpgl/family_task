@@ -12,9 +12,11 @@ from utils.db_helpers import (
     add_tasks,
     add_books,
     add_task_template,
+    update_task_template,
     delete_task_template,
     replace_task_templates,
     add_book_template,
+    replace_book_template,
     delete_book_template,
     replace_book_templates
 )
@@ -372,14 +374,11 @@ def add_child_tab(data):
 def task_list_tab(data):
     st.subheader("📋 Task List")
 
-    st.info(
-        "This task list is saved in Supabase. "
-        "You can add, edit or remove tasks here."
-    )
+    st.info("Add, edit or remove tasks from your task library.")
 
     templates = data["task_templates"]
 
-    st.write("### Add New Task Quickly")
+    st.write("### ➕ Add New Task")
 
     with st.form("add_task_template_form"):
         title = st.text_input("Task name")
@@ -406,61 +405,78 @@ def task_list_tab(data):
             st.rerun()
 
     st.divider()
-    st.write("### Edit Task List")
 
     if not templates:
-        st.caption("No tasks in the task list.")
+        st.caption("No tasks in the task list yet.")
         return
 
-    edited_templates = st.data_editor(
-        templates,
-        num_rows="dynamic",
-        use_container_width=True,
-        column_config={
-            "id": st.column_config.NumberColumn(
-                "ID",
-                disabled=True
-            ),
-            "title": st.column_config.TextColumn(
-                "Task Name",
-                required=True
-            ),
-            "default_points": st.column_config.NumberColumn(
-                "Points",
-                min_value=1,
-                max_value=100,
-                required=True
-            )
-        },
-        key="task_template_editor"
-    )
+    st.write("### 📝 Your Tasks")
 
-    if st.button("Save Edited Task List"):
-        cleaned_templates = clean_task_templates(edited_templates)
-        replace_task_templates(cleaned_templates)
+    for template in templates:
+        with st.container(border=True):
+            col_info, col_actions = st.columns([4, 1])
 
-        st.success("Task list saved in Supabase.")
-        st.rerun()
+            with col_info:
+                is_editing = st.session_state.get(f"edit_task_{template['id']}", False)
 
-    st.divider()
-    st.write("### Remove Task from List")
+                if not is_editing:
+                    st.markdown(
+                        f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
+                        f'<div style="width:50px;height:50px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">📋</div>'
+                        f'<div>'
+                        f'<div style="font-size:1.1em;font-weight:700;">{template["title"]}</div>'
+                        f'<div style="color:#888;font-size:0.85em;">⭐ {template["default_points"]} points</div>'
+                        f'</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    with st.form(f"edit_task_form_{template['id']}"):
+                        new_title = st.text_input("Task name", value=template["title"], key=f"tt_{template['id']}")
+                        new_points = st.number_input(
+                            "Default points",
+                            min_value=1,
+                            max_value=100,
+                            value=int(template.get("default_points", 10)),
+                            key=f"tp_{template['id']}"
+                        )
 
-    task_options = {
-        f"{template['title']} — {template['default_points']} points": template["id"]
-        for template in templates
-    }
+                        edit_cols = st.columns(2)
 
-    selected_task_label = st.selectbox(
-        "Choose task to remove",
-        list(task_options.keys()),
-        key="remove_task_template_select"
-    )
+                        with edit_cols[0]:
+                            save_clicked = st.form_submit_button("💾 Save", use_container_width=True)
 
-    if st.button("Remove Selected Task"):
-        selected_task_id = task_options[selected_task_label]
-        delete_task_template(selected_task_id)
+                        with edit_cols[1]:
+                            cancel_clicked = st.form_submit_button("Cancel", use_container_width=True)
 
-        st.warning("Task removed from the task list.")
+                        if save_clicked:
+                            if not new_title.strip():
+                                st.error("Task name is required.")
+                            else:
+                                update_task_template(template["id"], {
+                                    "title": new_title.strip(),
+                                    "default_points": int(new_points)
+                                })
+
+                                st.session_state[f"edit_task_{template['id']}"] = False
+                                st.success("Task updated!")
+                                st.rerun()
+
+                        if cancel_clicked:
+                            st.session_state[f"edit_task_{template['id']}"] = False
+                            st.rerun()
+
+                    continue
+
+            with col_actions:
+                if st.button("✏️", key=f"edit_btn_task_{template['id']}", help="Edit"):
+                    st.session_state[f"edit_task_{template['id']}"] = True
+                    st.rerun()
+
+                if st.button("🗑️", key=f"del_btn_task_{template['id']}", help="Delete"):
+                    delete_task_template(template["id"])
+                    st.warning("Task removed.")
+                    st.rerun()
         st.rerun()
 
 
@@ -712,35 +728,35 @@ def generate_weekday_dates(start_date, end_date, selected_weekdays):
 def book_list_tab(data):
     st.subheader("📚 Book List")
 
-    st.info(
-        "This book list is saved in Supabase. "
-        "You can add, edit or remove books here."
-    )
+    st.info("Add, edit or remove books from your reading library.")
 
     book_templates = data["book_templates"]
 
-    st.write("### Add New Book Quickly")
+    st.write("### ➕ Add New Book")
 
     with st.form("add_book_template_form"):
         title = st.text_input("Book name")
-
         writer = st.text_input("Writer/Author (optional)")
 
-        language = st.selectbox(
-            "Language",
-            ["English", "Turkish"],
-            key="book_template_language"
-        )
+        col_lang, col_pages = st.columns(2)
 
-        total_pages = st.number_input(
-            "Total pages",
-            min_value=1,
-            max_value=5000,
-            value=100,
-            key="book_template_total_pages"
-        )
+        with col_lang:
+            language = st.selectbox(
+                "Language",
+                ["English", "Turkish"],
+                key="book_template_language"
+            )
 
-        submitted = st.form_submit_button("Add Book to List")
+        with col_pages:
+            total_pages = st.number_input(
+                "Total pages",
+                min_value=1,
+                max_value=5000,
+                value=100,
+                key="book_template_total_pages"
+            )
+
+        submitted = st.form_submit_button("Add Book")
 
         if submitted:
             if not title.strip():
@@ -758,70 +774,97 @@ def book_list_tab(data):
             st.rerun()
 
     st.divider()
-    st.write("### Edit Book List")
 
     if not book_templates:
-        st.caption("No books in the book list.")
+        st.caption("No books in the book list yet.")
         return
 
-    edited_books = st.data_editor(
-        book_templates,
-        num_rows="dynamic",
-        use_container_width=True,
-        column_config={
-            "id": st.column_config.NumberColumn(
-                "ID",
-                disabled=True
-            ),
-            "title": st.column_config.TextColumn(
-                "Book Name",
-                required=True
-            ),
-            "writer": st.column_config.TextColumn(
-                "Writer/Author"
-            ),
-            "language": st.column_config.SelectboxColumn(
-                "Language",
-                options=["English", "Turkish"],
-                required=True
-            ),
-            "total_pages": st.column_config.NumberColumn(
-                "Total Pages",
-                min_value=1,
-                max_value=5000,
-                required=True
-            )
-        },
-        key="book_template_editor"
-    )
+    st.write("### 📖 Your Books")
 
-    if st.button("Save Edited Book List"):
-        cleaned_books = clean_book_templates(edited_books)
-        replace_book_templates(cleaned_books)
+    for book in book_templates:
+        lang_flag = "🇬🇧" if book.get("language") == "English" else "🇹🇷"
 
-        st.success("Book list saved in Supabase.")
-        st.rerun()
+        with st.container(border=True):
+            col_info, col_actions = st.columns([4, 1])
 
-    st.divider()
-    st.write("### Remove Book from List")
+            with col_info:
+                is_editing = st.session_state.get(f"edit_book_{book['id']}", False)
 
-    book_options = {
-        f"{book['title']} {'— ' + book.get('writer', 'Unknown') if book.get('writer') else ''} ({book['language']}, {book['total_pages']} pages)": book["id"]
-        for book in book_templates
-    }
+                if not is_editing:
+                    writer_line = f"✍️ {book['writer']}" if book.get("writer") else "✍️ Unknown"
 
-    selected_book_label = st.selectbox(
-        "Choose book to remove",
-        list(book_options.keys()),
-        key="remove_book_template_select"
-    )
+                    st.markdown(
+                        f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
+                        f'<div style="width:50px;height:65px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">📖</div>'
+                        f'<div>'
+                        f'<div style="font-size:1.1em;font-weight:700;">{book["title"]}</div>'
+                        f'<div style="color:#888;font-size:0.85em;">{writer_line} · {lang_flag} · {book["total_pages"]} pages</div>'
+                        f'</div>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    with st.form(f"edit_book_form_{book['id']}"):
+                        new_title = st.text_input("Book name", value=book["title"], key=f"et_{book['id']}")
+                        new_writer = st.text_input("Writer", value=book.get("writer", "") or "", key=f"ew_{book['id']}")
 
-    if st.button("Remove Selected Book"):
-        selected_book_id = book_options[selected_book_label]
-        delete_book_template(selected_book_id)
+                        new_lang = st.selectbox(
+                            "Language",
+                            ["English", "Turkish"],
+                            index=0 if book.get("language") == "English" else 1,
+                            key=f"el_{book['id']}"
+                        )
 
-        st.warning("Book removed from the book list.")
-        st.rerun()
+                        new_pages = st.number_input(
+                            "Total pages",
+                            min_value=1,
+                            max_value=5000,
+                            value=int(book.get("total_pages", 100)),
+                            key=f"ep_{book['id']}"
+                        )
+
+                        edit_cols = st.columns(2)
+
+                        with edit_cols[0]:
+                            save_clicked = st.form_submit_button("💾 Save", use_container_width=True)
+
+                        with edit_cols[1]:
+                            cancel_clicked = st.form_submit_button("Cancel", use_container_width=True)
+
+                        if save_clicked:
+                            if not new_title.strip():
+                                st.error("Book name is required.")
+                            else:
+                                cleaned = clean_book_templates([{
+                                    "id": book["id"],
+                                    "title": new_title.strip(),
+                                    "writer": new_writer.strip() if new_writer.strip() else None,
+                                    "language": new_lang,
+                                    "total_pages": int(new_pages)
+                                }])
+
+                                if cleaned:
+                                    replace_book_template(book["id"], cleaned[0])
+
+                                st.session_state[f"edit_book_{book['id']}"] = False
+                                st.success("Book updated!")
+                                st.rerun()
+
+                        if cancel_clicked:
+                            st.session_state[f"edit_book_{book['id']}"] = False
+                            st.rerun()
+
+                    continue
+
+            with col_actions:
+                if st.button("✏️", key=f"edit_btn_book_{book['id']}", help="Edit"):
+                    st.session_state[f"edit_book_{book['id']}"] = True
+                    st.rerun()
+
+                if st.button("🗑️", key=f"del_btn_book_{book['id']}", help="Delete"):
+                    delete_book_template(book["id"])
+                    st.warning("Book removed.")
+                    st.rerun()
 
 def clean_book_templates(book_templates):
     cleaned = []

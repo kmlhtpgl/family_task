@@ -205,6 +205,19 @@ def delete_task_template(template_id):
     )
 
 
+def update_task_template(template_id, updates):
+    supabase = get_supabase_client()
+
+    return (
+        supabase
+        .table("task_templates")
+        .update(updates)
+        .eq("id", template_id)
+        .execute()
+        .data
+    )
+
+
 def replace_task_templates(templates):
     """
     Deletes all task templates and inserts the edited list again.
@@ -269,6 +282,22 @@ def replace_book_templates(templates):
         return supabase.table("book_templates").insert(templates).execute().data
 
     return []
+
+
+def replace_book_template(template_id, template_data):
+    """
+    Updates a single book template by ID.
+    """
+    supabase = get_supabase_client()
+
+    return (
+        supabase
+        .table("book_templates")
+        .update(template_data)
+        .eq("id", template_id)
+        .execute()
+        .data
+    )
 
 def delete_book(book_id):
     supabase = get_supabase_client()
