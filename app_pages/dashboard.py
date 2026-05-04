@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import date
 
 from utils.data_helpers import get_kid, today_string, current_week_key
-from utils.task_helpers import get_today_tasks, get_weekly_leaderboard, TASK_STATUSES
+from utils.task_helpers import get_today_tasks, get_weekly_leaderboard, get_weekly_parent_leaderboard, TASK_STATUSES
 from utils.db_helpers import update_task
 
 
@@ -12,8 +12,8 @@ def dashboard_page(data):
     st.write(f"Today: **{today_string()}**")
     st.write(f"This week: **{current_week_key()}**")
 
-    if not data["kids"]:
-        st.info("No children added yet. Go to Admin and add your children first.")
+    if not data["kids"] and not data.get("parents"):
+        st.info("No children or parents added yet. Go to Admin to add them first.")
         return
 
     col1, col2 = st.columns([2, 1])
@@ -26,7 +26,7 @@ def dashboard_page(data):
 
 
 def show_today_tasks(data):
-    st.subheader("Today’s Tasks")
+    st.subheader("Today's Tasks")
 
     today_tasks = get_today_tasks(data)
 
@@ -35,11 +35,11 @@ def show_today_tasks(data):
         return
 
     for task in today_tasks:
-        kid = get_kid(data, task["kid_id"])
+        assignee_label = get_assignee_display(data, task)
 
         with st.container(border=True):
             st.write(f"### {task['title']}")
-            st.write(f"Child: **{kid['name'] if kid else 'Unknown'}**")
+            st.write(f"Assigned to: **{assignee_label}**")
             st.write(f"Status: **{task['status']}**")
             st.write(f"Reward: **{task['points']} points**")
 
@@ -75,22 +75,58 @@ def show_today_tasks(data):
 
 
 def show_weekly_leaderboard(data):
-    st.subheader("Weekly Leaderboard")
+    st.subheader("👧 Weekly Kids Leaderboard")
 
     leaderboard = get_weekly_leaderboard(data)
 
-    if not leaderboard:
+    if leaderboard:
+        for index, child in enumerate(leaderboard, start=1):
+            if index == 1:
+                medal = "🥇"
+            elif index == 2:
+                medal = "🥈"
+            elif index == 3:
+                medal = "🥉"
+            else:
+                medal = "⭐"
+
+            st.write(f"{medal} **{child['name']}** — {child['points']} points")
+    else:
         st.info("No points yet.")
-        return
 
-    for index, child in enumerate(leaderboard, start=1):
-        if index == 1:
-            medal = "🥇"
-        elif index == 2:
-            medal = "🥈"
-        elif index == 3:
-            medal = "🥉"
+    parents = data.get("parents", [])
+
+    if parents:
+        st.subheader("👨‍👩‍👧 Weekly Parents Leaderboard")
+
+        parent_leaderboard = get_weekly_parent_leaderboard(data)
+
+        if parent_leaderboard:
+            for index, parent in enumerate(parent_leaderboard, start=1):
+                if index == 1:
+                    medal = "🥇"
+                elif index == 2:
+                    medal = "🥈"
+                elif index == 3:
+                    medal = "🥉"
+                else:
+                    medal = "⭐"
+
+                st.write(f"{medal} **{parent['name']}** — {parent['points']} points")
         else:
-            medal = "⭐"
+            st.info("No points yet.")
 
-        st.write(f"{medal} **{child['name']}** — {child['points']} points")
+
+def get_assignee_display(data, task):
+    if task.get("kid_id"):
+        kid = get_kid(data, task["kid_id"])
+        return f"👧 {kid['name']}" if kid else "👧 Unknown"
+
+    if task.get("parent_id"):
+        for parent in data.get("parents", []):
+            if parent["id"] == task["parent_id"]:
+                return f"👨‍👩‍👧 {parent['name']}"
+
+        return "👨‍👩‍👧 Unknown"
+
+    return "Unknown"

@@ -1,7 +1,7 @@
 import streamlit as st
 
-from utils.task_helpers import get_total_points_for_kid
-from utils.book_helpers import get_finished_books, split_books_by_language
+from utils.task_helpers import get_total_points_for_parent, get_weekly_points_for_parent
+from utils.book_helpers import get_finished_books_for_parent, split_books_by_language
 
 
 def parents_profiles_page(data):
@@ -51,15 +51,11 @@ def show_parent_profile(data, parent):
         if parent.get("phone"):
             st.write(f"📞 {parent['phone']}")
 
-        assigned_tasks = [
-            task for task in data["tasks"]
-            if task.get("parent_id") == parent["id"]
-        ]
+        total_points = get_total_points_for_parent(data, parent["id"])
+        weekly_points = get_weekly_points_for_parent(data, parent["id"])
 
-        done_tasks = [t for t in assigned_tasks if t.get("status") == "Done"]
-        total_tasks = len(assigned_tasks)
-
-        st.metric("Assigned Tasks", f"{len(done_tasks)} / {total_tasks}")
+        st.metric("Total Points", total_points)
+        st.metric("This Week", weekly_points)
 
     with col2:
         show_parent_tasks(data, parent)
@@ -84,23 +80,21 @@ def show_parent_tasks(data, parent):
     ]
 
     if not assigned_tasks:
-        st.caption("No tasks assigned to oversee yet.")
+        st.caption("No tasks assigned yet.")
         return
 
-    tasks_by_kid = {}
+    tasks_by_date = {}
 
     for task in assigned_tasks:
-        kid_id = task.get("kid_id")
+        due = task.get("due_date", "No date")
 
-        if kid_id not in tasks_by_kid:
-            tasks_by_kid[kid_id] = []
+        if due not in tasks_by_date:
+            tasks_by_date[due] = []
 
-        tasks_by_kid[kid_id].append(task)
+        tasks_by_date[due].append(task)
 
-    for kid_id, tasks in tasks_by_kid.items():
-        kid_name = get_kid_name(data, kid_id)
-
-        st.write(f"### {kid_name}")
+    for due_date, tasks in sorted(tasks_by_date.items()):
+        st.write(f"### 📅 {due_date}")
 
         for task in tasks:
             status_emoji = {
@@ -117,7 +111,7 @@ def show_parent_tasks(data, parent):
 
 
 def show_parent_books(data, parent):
-    st.subheader("Assigned Books")
+    st.subheader("Reading List")
 
     assigned_books = [
         book for book in data["books"]
@@ -125,40 +119,33 @@ def show_parent_books(data, parent):
     ]
 
     if not assigned_books:
-        st.caption("No books assigned to oversee yet.")
+        st.caption("No books assigned yet.")
         return
 
-    books_by_kid = {}
+    in_progress = [b for b in assigned_books if b.get("status") != "Finished"]
+    finished = [b for b in assigned_books if b.get("status") == "Finished"]
 
-    for book in assigned_books:
-        kid_id = book.get("kid_id")
+    st.write("### 📖 In Progress")
 
-        if kid_id not in books_by_kid:
-            books_by_kid[kid_id] = []
+    if in_progress:
+        for book in in_progress:
+            st.write(f"📖 **{book['title']}** — {book['language']} ({book.get('current_page', 0)}/{book['total_pages']} pages)")
+    else:
+        st.caption("No books in progress.")
 
-        books_by_kid[kid_id].append(book)
+    st.write("### ✨ Finished")
 
-    for kid_id, books in books_by_kid.items():
-        kid_name = get_kid_name(data, kid_id)
+    if finished:
+        english_books, turkish_books = split_books_by_language(finished)
 
-        st.write(f"### {kid_name}")
+        if english_books:
+            st.write("#### 🇬🇧 English")
+            for book in english_books:
+                st.write(f"✅ {book['title']} — {book['total_pages']} pages")
 
-        for book in books:
-            status_emoji = {
-                "In Progress": "📖",
-                "Finished": "✨"
-            }.get(book.get("status", ""), "❓")
-
-            st.write(
-                f"{status_emoji} **{book['title']}** — "
-                f"{book['status']} — "
-                f"{book['language']}"
-            )
-
-
-def get_kid_name(data, kid_id):
-    for kid in data.get("kids", []):
-        if kid["id"] == kid_id:
-            return kid["name"]
-
-    return "Unknown Child"
+        if turkish_books:
+            st.write("#### 🇹🇷 Turkish")
+            for book in turkish_books:
+                st.write(f"✅ {book['title']} — {book['total_pages']} pages")
+    else:
+        st.caption("No books finished yet.")

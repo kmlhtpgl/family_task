@@ -474,8 +474,8 @@ def clean_task_templates(templates):
 def assign_task_tab(data):
     st.subheader("🎯 Assign Task")
 
-    if not data["kids"]:
-        st.info("Add children first.")
+    if not data["kids"] and not data.get("parents"):
+        st.info("Add children or parents first.")
         return
 
     task_templates = data["task_templates"]
@@ -484,16 +484,7 @@ def assign_task_tab(data):
         st.info("Add tasks to the Task List first.")
         return
 
-    kid_options = {
-        kid["name"]: kid["id"]
-        for kid in data["kids"]
-    }
-
-    parent_options = {
-        parent["name"]: parent["id"]
-        for parent in data.get("parents", [])
-    }
-
+    assignee_options = build_assignee_options(data)
     task_options = {
         template["title"]: template
         for template in task_templates
@@ -506,15 +497,9 @@ def assign_task_tab(data):
         )
 
         assign_to = st.selectbox(
-            "Assign to child",
-            ["All children"] + list(kid_options.keys())
-        )
-
-        assigned_parent = st.selectbox(
-            "Assign parent to oversee (optional)",
-            ["None"] + list(parent_options.keys()),
-            key="assign_task_parent",
-            help="Select a parent who will be notified about this task"
+            "Assign to",
+            list(assignee_options.keys()),
+            key="assign_task_to"
         )
 
         repeat_type = st.radio(
@@ -604,21 +589,16 @@ def assign_task_tab(data):
                 st.error("Please choose at least one valid date.")
                 return
 
-            if assign_to == "All children":
-                selected_kid_ids = list(kid_options.values())
-            else:
-                selected_kid_ids = [kid_options[assign_to]]
-
-            parent_id = None if assigned_parent == "None" else parent_options[assigned_parent]
+            selected_assignees = assignee_options[assign_to]
 
             new_tasks = []
 
             for due_date in selected_dates:
-                for kid_id in selected_kid_ids:
+                for assignee in selected_assignees:
                     new_task = {
                         "title": selected_template["title"],
-                        "kid_id": kid_id,
-                        "parent_id": parent_id,
+                        "kid_id": assignee.get("kid_id"),
+                        "parent_id": assignee.get("parent_id"),
                         "due_date": due_date.isoformat(),
                         "points": int(points),
                         "status": status,
@@ -636,6 +616,30 @@ def assign_task_tab(data):
 
             st.success(f"{len(new_tasks)} task(s) created in Supabase.")
             st.rerun()
+
+
+def build_assignee_options(data):
+    options = {}
+
+    kid_options = {kid["name"]: kid["id"] for kid in data["kids"]}
+    parent_options = {p["name"]: p["id"] for p in data.get("parents", [])}
+
+    all_kids = list(kid_options.keys())
+    all_parents = list(parent_options.keys())
+
+    if all_kids and all_parents:
+        options["All children"] = [{"kid_id": kid_options[n], "parent_id": None} for n in all_kids]
+        options["All parents"] = [{"kid_id": None, "parent_id": parent_options[n]} for n in all_parents]
+
+    if all_kids:
+        for name in all_kids:
+            options[f"👧 {name}"] = [{"kid_id": kid_options[name], "parent_id": None}]
+
+    if all_parents:
+        for name in all_parents:
+            options[f"👨‍👩‍👧 {name}"] = [{"kid_id": None, "parent_id": parent_options[name]}]
+
+    return options
 
 
 def generate_daily_dates(start_date, end_date):
@@ -829,8 +833,8 @@ def clean_book_templates(book_templates):
 def assign_book_tab(data):
     st.subheader("📖 Assign Book")
 
-    if not data["kids"]:
-        st.info("Add children first.")
+    if not data["kids"] and not data.get("parents"):
+        st.info("Add children or parents first.")
         return
 
     book_templates = data["book_templates"]
@@ -839,16 +843,7 @@ def assign_book_tab(data):
         st.info("Add books to the Book List first.")
         return
 
-    kid_options = {
-        kid["name"]: kid["id"]
-        for kid in data["kids"]
-    }
-
-    parent_options = {
-        parent["name"]: parent["id"]
-        for parent in data.get("parents", [])
-    }
-
+    assignee_options = build_assignee_options(data)
     book_options = {
         f"{book['title']} ({book['language']}, {book['total_pages']} pages)": book
         for book in book_templates
@@ -857,20 +852,14 @@ def assign_book_tab(data):
     with st.form("assign_book_form"):
         selected_book_label = st.selectbox(
             "Choose book from list",
-            list(book_options.keys())
+            list(book_options.keys()),
+            key="assign_book_select"
         )
 
         assign_to = st.selectbox(
-            "Assign to child",
-            ["All children"] + list(kid_options.keys()),
+            "Assign to",
+            list(assignee_options.keys()),
             key="assign_book_to"
-        )
-
-        assigned_parent = st.selectbox(
-            "Assign parent to oversee (optional)",
-            ["None"] + list(parent_options.keys()),
-            key="assign_book_parent",
-            help="Select a parent who will monitor the reading progress"
         )
 
         selected_book = book_options[selected_book_label]
@@ -881,20 +870,15 @@ def assign_book_tab(data):
         submitted = st.form_submit_button("Assign Book")
 
         if submitted:
-            if assign_to == "All children":
-                selected_kid_ids = list(kid_options.values())
-            else:
-                selected_kid_ids = [kid_options[assign_to]]
-
-            parent_id = None if assigned_parent == "None" else parent_options[assigned_parent]
+            selected_assignees = assignee_options[assign_to]
 
             new_books = []
 
-            for kid_id in selected_kid_ids:
+            for assignee in selected_assignees:
                 new_book = {
                     "title": selected_book["title"],
-                    "kid_id": kid_id,
-                    "parent_id": parent_id,
+                    "kid_id": assignee.get("kid_id"),
+                    "parent_id": assignee.get("parent_id"),
                     "language": selected_book["language"],
                     "total_pages": int(selected_book["total_pages"]),
                     "current_page": 0,

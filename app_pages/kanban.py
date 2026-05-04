@@ -20,15 +20,8 @@ def kanban_page(data):
         value=date.today()
     )
 
-    kid_options = {
-        kid["name"]: kid["id"]
-        for kid in data["kids"]
-    }
-
-    parent_options = {
-        parent["name"]: parent["id"]
-        for parent in data.get("parents", [])
-    }
+    kid_options = {kid["name"]: kid["id"] for kid in data["kids"]}
+    parent_options = {p["name"]: p["id"] for p in data.get("parents", [])}
 
     filter_labels = ["All tasks"]
 
@@ -51,40 +44,7 @@ def kanban_page(data):
         if task.get("due_date") == selected_date.isoformat()
     ]
 
-    filtered_tasks = daily_tasks
-
-    if selected_filter == "All tasks":
-        pass
-
-    elif selected_filter == "👧 All children":
-        filtered_tasks = [
-            task for task in daily_tasks
-            if task.get("kid_id") is not None
-        ]
-
-    elif selected_filter == "👨‍👩‍👧 All parents":
-        filtered_tasks = [
-            task for task in daily_tasks
-            if task.get("parent_id") is not None
-        ]
-
-    elif selected_filter.startswith("👧 ") and "All children" not in selected_filter:
-        kid_name = selected_filter.replace("👧 ", "")
-
-        if kid_name in kid_options:
-            filtered_tasks = [
-                task for task in daily_tasks
-                if task.get("kid_id") == kid_options[kid_name]
-            ]
-
-    elif selected_filter.startswith("👨‍👩‍👧 ") and "All parents" not in selected_filter:
-        parent_name = selected_filter.replace("👨‍👩‍👧 ", "")
-
-        if parent_name in parent_options:
-            filtered_tasks = [
-                task for task in daily_tasks
-                if task.get("parent_id") == parent_options[parent_name]
-            ]
+    filtered_tasks = filter_tasks(daily_tasks, selected_filter, kid_options, parent_options)
 
     if not filtered_tasks:
         st.info("No tasks for this date.")
@@ -232,6 +192,31 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
                     break
 
     return changed
+
+
+def filter_tasks(tasks, selected_filter, kid_options, parent_options):
+    if selected_filter == "All tasks":
+        return tasks
+
+    if selected_filter == "👧 All children":
+        return [t for t in tasks if t.get("kid_id") is not None]
+
+    if selected_filter == "👨‍👩‍👧 All parents":
+        return [t for t in tasks if t.get("parent_id") is not None]
+
+    if selected_filter.startswith("👧 ") and "All children" not in selected_filter:
+        kid_name = selected_filter.replace("👧 ", "")
+
+        if kid_name in kid_options:
+            return [t for t in tasks if t.get("kid_id") == kid_options[kid_name]]
+
+    if selected_filter.startswith("👨‍👩‍👧 ") and "All parents" not in selected_filter:
+        parent_name = selected_filter.replace("👨‍👩‍👧 ", "")
+
+        if parent_name in parent_options:
+            return [t for t in tasks if t.get("parent_id") == parent_options[parent_name]]
+
+    return tasks
 
 
 def get_assignee_label(data, task):

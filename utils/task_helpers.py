@@ -31,7 +31,7 @@ def move_task(task, new_status):
 
 def get_today_tasks(data):
     """
-    Returns unfinished tasks due today.
+    Returns unfinished tasks due today (kids and parents).
     """
     return [
         task for task in data["tasks"]
@@ -55,6 +55,21 @@ def get_weekly_points_for_kid(data, kid_id):
     )
 
 
+def get_weekly_points_for_parent(data, parent_id):
+    """
+    Calculates this week's points for one parent.
+    """
+    week = current_week_key()
+
+    return sum(
+        task.get("points", 0)
+        for task in data["tasks"]
+        if task.get("parent_id") == parent_id
+        and task.get("status") == "Done"
+        and task.get("completed_week") == week
+    )
+
+
 def get_total_points_for_kid(data, kid_id):
     """
     Calculates all completed task points for one child.
@@ -63,6 +78,18 @@ def get_total_points_for_kid(data, kid_id):
         task.get("points", 0)
         for task in data["tasks"]
         if task.get("kid_id") == kid_id
+        and task.get("status") == "Done"
+    )
+
+
+def get_total_points_for_parent(data, parent_id):
+    """
+    Calculates all completed task points for one parent.
+    """
+    return sum(
+        task.get("points", 0)
+        for task in data["tasks"]
+        if task.get("parent_id") == parent_id
         and task.get("status") == "Done"
     )
 
@@ -78,6 +105,23 @@ def get_weekly_leaderboard(data):
             {
                 "name": kid["name"],
                 "points": get_weekly_points_for_kid(data, kid["id"])
+            }
+        )
+
+    return sorted(scores, key=lambda item: item["points"], reverse=True)
+
+
+def get_weekly_parent_leaderboard(data):
+    """
+    Returns parents ordered by their weekly points.
+    """
+    scores = []
+
+    for parent in data.get("parents", []):
+        scores.append(
+            {
+                "name": parent["name"],
+                "points": get_weekly_points_for_parent(data, parent["id"])
             }
         )
 

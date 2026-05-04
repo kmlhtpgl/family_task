@@ -47,7 +47,17 @@ def get_books_for_kid(data, kid_id):
     """
     return [
         book for book in data["books"]
-        if book["kid_id"] == kid_id
+        if book.get("kid_id") == kid_id
+    ]
+
+
+def get_books_for_parent(data, parent_id):
+    """
+    Returns all books for one parent.
+    """
+    return [
+        book for book in data["books"]
+        if book.get("parent_id") == parent_id
     ]
 
 
@@ -57,7 +67,18 @@ def get_books_in_progress(data, kid_id):
     """
     return [
         book for book in data["books"]
-        if book["kid_id"] == kid_id
+        if book.get("kid_id") == kid_id
+        and book.get("status") != "Finished"
+    ]
+
+
+def get_books_in_progress_for_parent(data, parent_id):
+    """
+    Returns books that are not finished yet for a parent.
+    """
+    return [
+        book for book in data["books"]
+        if book.get("parent_id") == parent_id
         and book.get("status") != "Finished"
     ]
 
@@ -68,7 +89,18 @@ def get_finished_books(data, kid_id):
     """
     return [
         book for book in data["books"]
-        if book["kid_id"] == kid_id
+        if book.get("kid_id") == kid_id
+        and book.get("status") == "Finished"
+    ]
+
+
+def get_finished_books_for_parent(data, parent_id):
+    """
+    Returns finished books for one parent.
+    """
+    return [
+        book for book in data["books"]
+        if book.get("parent_id") == parent_id
         and book.get("status") == "Finished"
     ]
 
