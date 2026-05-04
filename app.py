@@ -164,6 +164,52 @@ st.markdown("""
         transform: scale(1.1);
     }
 
+    /* Page navigation bar */
+    .page-nav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 0;
+        margin-bottom: 20px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+
+    .page-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 20px;
+        border-radius: 25px;
+        border: 2px solid rgba(255, 138, 128, 0.2);
+        background: rgba(255, 255, 255, 0.7);
+        color: #555;
+        font-size: 0.9em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+        text-decoration: none;
+    }
+
+    .page-nav-btn:hover {
+        background: rgba(255, 138, 128, 0.1);
+        border-color: #FF8A80;
+        color: #FF8A80;
+        transform: translateY(-2px);
+    }
+
+    .page-nav-btn.active {
+        background: linear-gradient(135deg, #FF8A80, #4ECDC4);
+        border-color: transparent;
+        color: white;
+        box-shadow: 0 4px 15px rgba(255, 138, 128, 0.3);
+    }
+
+    .page-nav-btn .btn-icon {
+        font-size: 1.1em;
+    }
+
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, rgba(255, 138, 128, 0.05) 0%, rgba(78, 205, 196, 0.05) 100%);
         border-right: 4px solid;
@@ -404,54 +450,20 @@ st.markdown("""
             display: none;
         }
 
-        /* Bottom mobile navigation bar */
-        .mobile-nav {
-            display: flex !important;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            border-top: 2px solid #f0f0f0;
-            z-index: 1000;
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+        /* Page nav on mobile - horizontal scroll */
+        .page-nav {
+            padding: 8px 0;
+            margin-bottom: 12px;
         }
 
-        .mobile-nav-item {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 8px 4px;
-            color: #888;
-            text-decoration: none;
-            font-size: 0.7em;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            cursor: pointer;
-            border: none;
-            background: none;
-        }
-
-        .mobile-nav-item .nav-icon {
-            font-size: 1.4em;
-            margin-bottom: 2px;
-        }
-
-        .mobile-nav-item.active {
-            color: #FF8A80;
-            background: rgba(255, 138, 128, 0.08);
-        }
-
-        .mobile-nav-item:hover {
-            color: #4ECDC4;
-            background: rgba(78, 205, 196, 0.05);
+        .page-nav-btn {
+            padding: 8px 14px;
+            font-size: 0.8em;
         }
 
         /* Add bottom padding so content isn't hidden behind nav */
         .main .block-container {
-            padding-bottom: 70px !important;
+            padding-bottom: 20px !important;
         }
 
         /* Prevent sidebar from overlapping content */
@@ -485,12 +497,6 @@ st.markdown("""
             width: 200px;
             height: 200px;
         }
-
-        /* Stack columns on mobile */
-        .stColumns > div {
-            flex: 1 1 100% !important;
-            max-width: 100% !important;
-        }
     }
     </style>
 
@@ -518,6 +524,26 @@ st.markdown(f"""
     </script>
 """, unsafe_allow_html=True)
 
+# Page navigation bar
+active_page = st.query_params.get("page", "dashboard")
+
+pages = [
+    ("dashboard", "📊", "Dashboard"),
+    ("kanban", "🎯", "Kanban"),
+    ("parents", "👨‍👩‍👧", "Parents"),
+    ("kids", "👧", "Kids"),
+    ("reading", "📚", "Reading"),
+    ("admin", "⚙️", "Admin"),
+]
+
+nav_html = '<div class="page-nav">'
+for page_key, icon, label in pages:
+    active_class = "active" if page_key == active_page else ""
+    nav_html += f'<button class="page-nav-btn {active_class}" onclick="window.location.href=\'?page={page_key}\'"><span class="btn-icon">{icon}</span>{label}</button>'
+nav_html += '</div>'
+
+st.markdown(nav_html, unsafe_allow_html=True)
+
 # Hidden toggle for dark mode (triggered by navbar button)
 dark_toggle = st.toggle("🌙 Dark mode", value=st.session_state.dark_mode, key="dark-toggle-input", label_visibility="collapsed")
 
@@ -527,99 +553,32 @@ if dark_toggle != st.session_state.dark_mode:
 
 data = get_all_data()
 
-# Mobile bottom navigation bar (hidden on desktop via CSS)
-active_page = st.query_params.get("page", "")
-
-st.markdown(f"""
-    <div class="mobile-nav" style="display:none;">
-        <button class="mobile-nav-item {'active' if active_page == 'dashboard' else ''}" onclick="window.location.href='?page=dashboard'">
-            <span class="nav-icon">📊</span>
-            Dashboard
-        </button>
-        <button class="mobile-nav-item {'active' if active_page == 'kanban' else ''}" onclick="window.location.href='?page=kanban'">
-            <span class="nav-icon">🎯</span>
-            Kanban
-        </button>
-        <button class="mobile-nav-item {'active' if active_page == 'parents' else ''}" onclick="window.location.href='?page=parents'">
-            <span class="nav-icon">👨‍👩‍👧</span>
-            Parents
-        </button>
-        <button class="mobile-nav-item {'active' if active_page == 'kids' else ''}" onclick="window.location.href='?page=kids'">
-            <span class="nav-icon">👧</span>
-            Kids
-        </button>
-        <button class="mobile-nav-item {'active' if active_page == 'reading' else ''}" onclick="window.location.href='?page=reading'">
-            <span class="nav-icon">📚</span>
-            Reading
-        </button>
-        <button class="mobile-nav-item {'active' if active_page == 'admin' else ''}" onclick="window.location.href='?page=admin'">
-            <span class="nav-icon">⚙️</span>
-            Admin
-        </button>
-    </div>
-""", unsafe_allow_html=True)
-
-# Show/hide mobile nav via JavaScript
-st.markdown("""
-    <script>
-        function checkMobile() {
-            var nav = document.querySelector('.mobile-nav');
-            if (nav) {
-                nav.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
-            }
-        }
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-    </script>
-""", unsafe_allow_html=True)
-
-# Determine page: query param (mobile nav) or sidebar (desktop)
-if active_page:
-    page_map = {
-        "dashboard": "📊 Dashboard",
-        "kanban": "🎯 Kanban Board",
-        "parents": "👨‍👩‍👧‍👦 Parents Profiles",
-        "kids": "👨‍👩‍👧‍👦 Kids Profiles",
-        "reading": "📚 Reading Library",
-        "admin": "⚙️ Admin"
-    }
-    page = page_map.get(active_page, "📊 Dashboard")
-else:
-    # Sidebar navigation (desktop)
-    st.sidebar.markdown("### 📋 NAVIGATION")
-    st.sidebar.markdown("---")
-
-    page = st.sidebar.radio(
-        "Select a page:",
-        [
-            "📊 Dashboard",
-            "🎯 Kanban Board",
-            "👨‍👩‍👧‍👦 Parents Profiles",
-            "👨‍👩‍👧‍👦 Kids Profiles",
-            "📚 Reading Library",
-            "⚙️ Admin"
-        ],
-        label_visibility="collapsed"
-    )
-
-    st.sidebar.markdown("---")
-    st.sidebar.caption("💖 Made with love for your family")
+# Determine page from query param
+page_map = {
+    "dashboard": "dashboard",
+    "kanban": "kanban",
+    "parents": "parents",
+    "kids": "kids",
+    "reading": "reading",
+    "admin": "admin",
+}
+page = page_map.get(active_page, "dashboard")
 
 # Route to pages
-if "Dashboard" in page:
+if page == "dashboard":
     dashboard_page(data)
 
-elif "Kanban" in page:
+elif page == "kanban":
     kanban_page(data)
 
-elif "Parents" in page:
+elif page == "parents":
     parents_profiles_page(data)
 
-elif "Kids" in page:
+elif page == "kids":
     kids_profiles_page(data)
 
-elif "Reading" in page:
+elif page == "reading":
     reading_library_page(data)
 
-elif "Admin" in page:
+elif page == "admin":
     admin_page(data)
