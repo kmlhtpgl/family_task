@@ -224,7 +224,7 @@ def replace_task_templates(templates):
 # Book templates
 # -----------------------
 
-def add_book_template(title, language, total_pages):
+def add_book_template(title, language, total_pages, writer=None):
     supabase = get_supabase_client()
 
     return (
@@ -234,7 +234,8 @@ def add_book_template(title, language, total_pages):
             {
                 "title": title,
                 "language": language,
-                "total_pages": total_pages
+                "total_pages": total_pages,
+                "writer": writer
             }
         )
         .execute()

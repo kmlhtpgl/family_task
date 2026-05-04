@@ -68,6 +68,7 @@ def show_books_in_progress(data, reader_id, is_parent=False):
             progress_pct = round(progress * 100)
 
             language_flag = "🇬🇧" if book["language"] == "English" else "🇹🇷"
+            writer_info = f"✍️ {book.get('writer', 'Unknown')}" if book.get("writer") else ""
 
             st.markdown(
                 f'<div class="task-item">'
@@ -75,6 +76,7 @@ def show_books_in_progress(data, reader_id, is_parent=False):
                 f'<h4 style="margin:0;">{book["title"]}</h4>'
                 f'<span style="color:#666;">{language_flag} {book["total_pages"]} pages</span>'
                 f'</div>'
+                f'{"<p style=\"margin:5px 0 0 0;color:#888;font-size:0.9em;\">" + writer_info + "</p>" if writer_info else ""}'
                 f'<div style="margin-top:10px;">'
                 f'<span style="font-size:0.9em;color:#666;">{book.get("current_page", 0)} / {book["total_pages"]} pages ({progress_pct}%)</span>'
                 f'</div>'
@@ -142,9 +144,10 @@ def show_finished_books(data, reader_id, is_parent=False):
 
         if english_books:
             for book in english_books:
+                writer = f" — {book.get('writer', '')}" if book.get("writer") else ""
                 st.markdown(
                     f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                    f'<span>✅ {book["title"]}</span>'
+                    f'<span>✅ {book["title"]}{writer}</span>'
                     f'<span style="color:#666;">{book["total_pages"]} pages</span>'
                     f'</div>',
                     unsafe_allow_html=True
@@ -157,9 +160,10 @@ def show_finished_books(data, reader_id, is_parent=False):
 
         if turkish_books:
             for book in turkish_books:
+                writer = f" — {book.get('writer', '')}" if book.get("writer") else ""
                 st.markdown(
                     f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                    f'<span>✅ {book["title"]}</span>'
+                    f'<span>✅ {book["title"]}{writer}</span>'
                     f'<span style="color:#666;">{book["total_pages"]} pages</span>'
                     f'</div>',
                     unsafe_allow_html=True

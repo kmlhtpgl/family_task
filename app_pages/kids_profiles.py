@@ -133,11 +133,12 @@ def show_child_read_books(data, kid):
         for book in in_progress:
             progress = book.get("current_page", 0) / book["total_pages"] if book["total_pages"] > 0 else 0
             progress_pct = round(progress * 100)
+            writer = f" — {book.get('writer', '')}" if book.get("writer") else ""
 
             st.markdown(
                 f'<div class="task-item">'
                 f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<span>{book["title"]}</span>'
+                f'<span>{book["title"]}{writer}</span>'
                 f'<span>{book["language"]}</span>'
                 f'<span>{progress_pct}%</span>'
                 f'</div>'
@@ -150,7 +151,8 @@ def show_child_read_books(data, kid):
 
     if english_books:
         for book in english_books:
-            st.write(f"🇬🇧 {book['title']} ({book['total_pages']} pages)")
+            writer = f" — {book.get('writer', '')}" if book.get("writer") else ""
+            st.write(f"🇬🇧 {book['title']}{writer} ({book['total_pages']} pages)")
     else:
         st.caption("No English books finished yet.")
 
@@ -158,6 +160,7 @@ def show_child_read_books(data, kid):
 
     if turkish_books:
         for book in turkish_books:
-            st.write(f"🇹🇷 {book['title']} ({book['total_pages']} pages)")
+            writer = f" — {book.get('writer', '')}" if book.get("writer") else ""
+            st.write(f"🇹🇷 {book['title']}{writer} ({book['total_pages']} pages)")
     else:
         st.caption("No Turkish books finished yet.")

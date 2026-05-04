@@ -724,6 +724,8 @@ def book_list_tab(data):
     with st.form("add_book_template_form"):
         title = st.text_input("Book name")
 
+        writer = st.text_input("Writer/Author (optional)")
+
         language = st.selectbox(
             "Language",
             ["English", "Turkish"],
@@ -748,7 +750,8 @@ def book_list_tab(data):
             add_book_template(
                 title=title.strip(),
                 language=language,
-                total_pages=int(total_pages)
+                total_pages=int(total_pages),
+                writer=writer.strip() if writer else None
             )
 
             st.success("Book added to the book list.")
@@ -773,6 +776,9 @@ def book_list_tab(data):
             "title": st.column_config.TextColumn(
                 "Book Name",
                 required=True
+            ),
+            "writer": st.column_config.TextColumn(
+                "Writer/Author"
             ),
             "language": st.column_config.SelectboxColumn(
                 "Language",
@@ -800,7 +806,7 @@ def book_list_tab(data):
     st.write("### Remove Book from List")
 
     book_options = {
-        f"{book['title']} — {book['language']} — {book['total_pages']} pages": book["id"]
+        f"{book['title']} {'— ' + book.get('writer', 'Unknown') if book.get('writer') else ''} ({book['language']}, {book['total_pages']} pages)": book["id"]
         for book in book_templates
     }
 
@@ -833,9 +839,12 @@ def clean_book_templates(book_templates):
 
         total_pages = int(book.get("total_pages", 100))
 
+        writer = str(book.get("writer", "")).strip() if book.get("writer") else None
+
         cleaned.append(
             {
                 "title": title,
+                "writer": writer,
                 "language": language,
                 "total_pages": total_pages
             }
@@ -863,7 +872,7 @@ def assign_book_tab(data):
 
     assignee_options = build_assignee_options(data)
     book_options = {
-        f"{book['title']} ({book['language']}, {book['total_pages']} pages)": book
+        f"{book['title']} {'— ' + book.get('writer', 'Unknown') if book.get('writer') else ''} ({book['language']}, {book['total_pages']} pages)": book
         for book in book_templates
     }
 
@@ -881,6 +890,9 @@ def assign_book_tab(data):
         )
 
         selected_book = book_options[selected_book_label]
+
+        if selected_book.get("writer"):
+            st.write(f"✍️ **{selected_book['writer']}**")
 
         st.write(f"Language: **{selected_book['language']}**")
         st.write(f"Total pages: **{selected_book['total_pages']}**")
