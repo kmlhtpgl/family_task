@@ -387,6 +387,10 @@ def task_list_tab(data):
 
     templates = data["task_templates"]
 
+    # Initialize editing state
+    if "editing_task_id" not in st.session_state:
+        st.session_state.editing_task_id = None
+
     st.write("### ➕ Add New Task")
 
     with st.form("add_task_template_form"):
@@ -426,9 +430,7 @@ def task_list_tab(data):
             col_info, col_actions = st.columns([4, 1])
 
             with col_info:
-                is_editing = st.session_state.get(f"edit_task_{template['id']}", False)
-
-                if not is_editing:
+                if st.session_state.editing_task_id != template['id']:
                     st.markdown(
                         f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
                         f'<div style="width:50px;height:50px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">📋</div>'
@@ -440,25 +442,19 @@ def task_list_tab(data):
                         unsafe_allow_html=True
                     )
                 else:
-                    with st.form(f"edit_task_form_{template['id']}"):
-                        new_title = st.text_input("Task name", value=template["title"], key=f"tt_{template['id']}")
-                        new_points = st.number_input(
-                            "Default points",
-                            min_value=1,
-                            max_value=100,
-                            value=int(template.get("default_points", 10)),
-                            key=f"tp_{template['id']}"
-                        )
+                    # Edit form
+                    new_title = st.text_input("Task name", value=template["title"], key=f"tt_{template['id']}")
+                    new_points = st.number_input(
+                        "Default points",
+                        min_value=1,
+                        max_value=100,
+                        value=int(template.get("default_points", 10)),
+                        key=f"tp_{template['id']}"
+                    )
 
-                        edit_cols = st.columns(2)
-
-                        with edit_cols[0]:
-                            save_clicked = st.form_submit_button("💾 Save", use_container_width=True)
-
-                        with edit_cols[1]:
-                            cancel_clicked = st.form_submit_button("Cancel", use_container_width=True)
-
-                        if save_clicked:
+                    edit_cols = st.columns(2)
+                    with edit_cols[0]:
+                        if st.button("💾 Save", key=f"save_task_{template['id']}", use_container_width=True):
                             if not new_title.strip():
                                 st.error("Task name is required.")
                             else:
@@ -466,27 +462,24 @@ def task_list_tab(data):
                                     "title": new_title.strip(),
                                     "default_points": int(new_points)
                                 })
-
-                                st.session_state[f"edit_task_{template['id']}"] = False
+                                st.session_state.editing_task_id = None
                                 st.success("Task updated!")
                                 st.rerun()
 
-                        if cancel_clicked:
-                            st.session_state[f"edit_task_{template['id']}"] = False
+                    with edit_cols[1]:
+                        if st.button("Cancel", key=f"cancel_task_{template['id']}", use_container_width=True):
+                            st.session_state.editing_task_id = None
                             st.rerun()
-
-                    continue
 
             with col_actions:
                 if st.button("✏️", key=f"edit_btn_task_{template['id']}", help="Edit"):
-                    st.session_state[f"edit_task_{template['id']}"] = True
+                    st.session_state.editing_task_id = template['id']
                     st.rerun()
 
                 if st.button("🗑️", key=f"del_btn_task_{template['id']}", help="Delete"):
                     delete_task_template(template["id"])
                     st.warning("Task removed.")
                     st.rerun()
-        st.rerun()
 
 
 def clean_task_templates(templates):
