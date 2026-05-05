@@ -1,6 +1,8 @@
-from utils.supabase_client import get_supabase_client
+import streamlit as st
+from utils.supabase_client import get_supabase_client()
 
 
+@st.cache_data(ttl=60)
 def get_all_data():
     supabase = get_supabase_client()
 

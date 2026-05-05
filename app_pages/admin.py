@@ -411,6 +411,7 @@ def task_list_tab(data):
             )
 
             st.success("Task added to the task list.")
+            st.cache_data.clear()
             st.rerun()
 
     st.divider()
@@ -469,10 +470,12 @@ def task_list_tab(data):
 
                                 st.session_state[f"edit_task_{template['id']}"] = False
                                 st.success("Task updated!")
+                                st.cache_data.clear()
                                 st.rerun()
 
                         if cancel_clicked:
                             st.session_state[f"edit_task_{template['id']}"] = False
+                            st.cache_data.clear()
                             st.rerun()
 
                     continue
@@ -480,12 +483,15 @@ def task_list_tab(data):
             with col_actions:
                 if st.button("✏️", key=f"edit_btn_task_{template['id']}", help="Edit"):
                     st.session_state[f"edit_task_{template['id']}"] = True
+                    st.cache_data.clear()
                     st.rerun()
 
                 if st.button("🗑️", key=f"del_btn_task_{template['id']}", help="Delete"):
                     delete_task_template(template["id"])
                     st.warning("Task removed.")
+                    st.cache_data.clear()
                     st.rerun()
+        st.cache_data.clear()
         st.rerun()
 
 
