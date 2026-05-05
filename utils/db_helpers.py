@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.supabase_client import get_supabase_client()
+from utils.supabase_client import get_supabase_client
 
 
 @st.cache_data(ttl=60)
