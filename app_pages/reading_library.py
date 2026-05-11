@@ -148,7 +148,7 @@ def show_finished_books(data, reader_id, is_parent=False):
                 st.markdown(
                     f'<div class="task-item" style="border-left-color:#4CAF50;">'
                     f'<span>✅ {book["title"]}{writer}</span>'
-                    f'<span style="color:#666;">{book["total_pages"]} pages</span>'
+                    f' <span style="color:#666;">{book["total_pages"]} pages</span>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
@@ -164,7 +164,7 @@ def show_finished_books(data, reader_id, is_parent=False):
                 st.markdown(
                     f'<div class="task-item" style="border-left-color:#4CAF50;">'
                     f'<span>✅ {book["title"]}{writer}</span>'
-                    f'<span style="color:#666;">{book["total_pages"]} pages</span>'
+                    f' <span style="color:#666;">{book["total_pages"]} pages</span>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
