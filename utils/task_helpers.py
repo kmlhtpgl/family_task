@@ -94,6 +94,52 @@ def get_total_points_for_parent(data, parent_id):
     )
 
 
+RANKS = [
+    ("Iron", 0, 9, "🪨"),
+    ("Iron", 10, 19, "🪨"),
+    ("Iron", 20, 29, "🪨"),
+    ("Bronze", 30, 49, "🥉"),
+    ("Bronze", 50, 69, "🥉"),
+    ("Bronze", 70, 89, "🥉"),
+    ("Silver", 90, 119, "🥈"),
+    ("Silver", 120, 149, "🥈"),
+    ("Silver", 150, 179, "🥈"),
+    ("Gold", 180, 224, "🥇"),
+    ("Gold", 225, 269, "🥇"),
+    ("Gold", 270, 314, "🥇"),
+    ("Platinum", 315, 374, "💎"),
+    ("Platinum", 375, 434, "💎"),
+    ("Platinum", 435, 494, "💎"),
+    ("Diamond", 495, 569, "💠"),
+    ("Diamond", 570, 644, "💠"),
+    ("Diamond", 645, 719, "💠"),
+    ("Ascendant", 720, 809, "🌟"),
+    ("Ascendant", 810, 899, "🌟"),
+    ("Ascendant", 900, 989, "🌟"),
+    ("Immortal", 990, 1099, "🔥"),
+    ("Immortal", 1100, 1209, "🔥"),
+    ("Immortal", 1210, 1319, "🔥"),
+    ("Radiant", 1320, float("inf"), "👑"),
+]
+
+
+def get_rank(points):
+    for name, low, high, icon in RANKS:
+        if low <= points <= high:
+            tier = name
+            if name == "Radiant":
+                return tier, icon
+            if name == "Immortal":
+                sub = (points - low) // 110 + 1
+                return f"{tier} {sub}", icon
+            # Iron - Ascendant: 3 sub-ranks
+            spread = high - low + 1
+            step = spread // 3
+            sub = (points - low) // step + 1
+            return f"{tier} {sub}", icon
+    return "Unranked", "❓"
+
+
 def get_weekly_leaderboard(data):
     """
     Returns children ordered by their weekly points.

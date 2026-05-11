@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import date, timedelta
 
 from utils.data_helpers import get_kid, today_string, current_week_key
-from utils.task_helpers import get_today_tasks, get_weekly_leaderboard, get_weekly_parent_leaderboard, TASK_STATUSES
+from utils.task_helpers import get_today_tasks, get_rank, get_total_points_for_kid, get_total_points_for_parent, TASK_STATUSES
 from utils.db_helpers import update_task
 
 
@@ -78,8 +78,8 @@ def dashboard_page(data):
 
     st.divider()
 
-    # Tabs for tasks vs charts vs leaderboard
-    tab_tasks, tab_charts, tab_leaderboard = st.tabs(["📋 Tasks", "📊 Charts", "🏆 Leaderboard"])
+    # Tabs for tasks vs charts vs ranks
+    tab_tasks, tab_charts, tab_ranks = st.tabs(["📋 Tasks", "📊 Charts", "🏆 Ranks"])
 
     with tab_tasks:
         show_today_tasks(data)
@@ -87,8 +87,8 @@ def dashboard_page(data):
     with tab_charts:
         show_progress_charts(data)
 
-    with tab_leaderboard:
-        show_weekly_leaderboard(data, week_offset)
+    with tab_ranks:
+        show_rankings(data)
 
 
 def show_today_tasks(data):
@@ -239,65 +239,46 @@ def show_progress_charts(data):
             st.bar_chart(parent_df, x="Parent", y="Points", color="#4ECDC4", horizontal=True)
 
 
-def show_weekly_leaderboard(data, week_offset=0):
-    st.subheader("🧒 Kids Leaderboard")
+def show_rankings(data):
+    st.subheader("🏆 Personal Ranks")
+    st.caption("Earn points to climb the ranks — inspired by Valorant!")
 
-    leaderboard = get_weekly_leaderboard(data)
+    ranks = []
 
-    if leaderboard:
-        for index, child in enumerate(leaderboard, start=1):
-            if index == 1:
-                medal = "🥇"
-            elif index == 2:
-                medal = "🥈"
-            elif index == 3:
-                medal = "🥉"
-            else:
-                medal = "⭐"
+    for kid in data["kids"]:
+        pts = get_total_points_for_kid(data, kid["id"])
+        rank, icon = get_rank(pts)
+        ranks.append({"name": kid["name"], "points": pts, "rank": rank, "icon": icon, "is_kid": True})
 
-            st.markdown(
-                f'<div class="task-item">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<span style="font-size:1.5em;">{medal}</span>'
-                f'<strong>{child["name"]}</strong>'
-                f'<strong>{child["points"]} points</strong>'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-    else:
-        st.info("No points yet.")
+    for parent in data.get("parents", []):
+        pts = get_total_points_for_parent(data, parent["id"])
+        rank, icon = get_rank(pts)
+        ranks.append({"name": parent["name"], "points": pts, "rank": rank, "icon": icon, "is_kid": False})
 
-    parents = data.get("parents", [])
+    ranks.sort(key=lambda r: r["points"], reverse=True)
 
-    if parents:
-        st.subheader("👨‍👩‍👧 Parents Leaderboard")
+    if not ranks:
+        st.info("Complete tasks to earn points and rank up!")
+        return
 
-        parent_leaderboard = get_weekly_parent_leaderboard(data)
-
-        if parent_leaderboard:
-            for index, parent in enumerate(parent_leaderboard, start=1):
-                if index == 1:
-                    medal = "🥇"
-                elif index == 2:
-                    medal = "🥈"
-                elif index == 3:
-                    medal = "🥉"
-                else:
-                    medal = "⭐"
-
-                st.markdown(
-                    f'<div class="task-item">'
-                    f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                    f'<span style="font-size:1.5em;">{medal}</span>'
-                    f'<strong>{parent["name"]}</strong>'
-                    f'<strong>{parent["points"]} points</strong>'
-                    f'</div>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-        else:
-            st.info("No points yet.")
+    for r in ranks:
+        emoji = "🧒" if r["is_kid"] else "👨‍👩‍👧"
+        st.markdown(
+            f'<div class="task-item">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+            f'<div>'
+            f'<span style="font-size:1.2em;">{emoji}</span> '
+            f'<strong>{r["name"]}</strong>'
+            f'</div>'
+            f'<div style="text-align:right;">'
+            f'<span style="font-size:1.8em;">{r["icon"]}</span><br>'
+            f'<strong>{r["rank"]}</strong>'
+            f'<br><span style="color:#888;">{r["points"]} pts</span>'
+            f'</div>'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
 
 def get_assignee_display(data, task):

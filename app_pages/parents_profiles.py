@@ -1,6 +1,6 @@
 import streamlit as st
 
-from utils.task_helpers import get_total_points_for_parent, get_weekly_points_for_parent
+from utils.task_helpers import get_total_points_for_parent, get_weekly_points_for_parent, get_rank
 from utils.book_helpers import get_finished_books_for_parent, split_books_by_language
 from utils.achievement_helpers import get_parent_achievements
 from utils.data_helpers import today_string
@@ -56,9 +56,17 @@ def show_parent_profile(data, parent):
 
         total_points = get_total_points_for_parent(data, parent["id"])
         weekly_points = get_weekly_points_for_parent(data, parent["id"])
+        rank, icon = get_rank(total_points)
 
         st.markdown(
             f'<div class="metric-card"><h3>⭐ Total Points</h3><div class="value">{total_points}</div><div class="label">{weekly_points} this week</div></div>',
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            f'<div style="text-align:center;padding:12px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:12px;color:white;margin-top:8px;">'
+            f'<span style="font-size:2.5em;">{icon}</span><br>'
+            f'<strong style="font-size:1.2em;">{rank}</strong>'
+            f'</div>',
             unsafe_allow_html=True
         )
 
