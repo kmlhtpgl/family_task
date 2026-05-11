@@ -3,6 +3,7 @@ import streamlit as st
 from utils.task_helpers import get_total_points_for_parent, get_weekly_points_for_parent
 from utils.book_helpers import get_finished_books_for_parent, split_books_by_language
 from utils.achievement_helpers import get_parent_achievements
+from utils.data_helpers import today_string
 from utils.styles import avatar_image, achievement_badge
 
 
@@ -89,35 +90,25 @@ def show_parent_tasks(data, parent):
         st.caption("No tasks assigned yet.")
         return
 
-    active = [t for t in assigned_tasks if t["status"] != "Done"]
+    today = today_string()
+    active = [t for t in assigned_tasks if t["status"] != "Done" and t.get("due_date") == today]
     done = [t for t in assigned_tasks if t["status"] == "Done"]
 
-    tasks_by_date = {}
+    if active:
+        st.write(f"**Today's Tasks ({len(active)})**")
 
-    for task in active:
-        due = task.get("due_date", "No date")
-
-        if due not in tasks_by_date:
-            tasks_by_date[due] = []
-
-        tasks_by_date[due].append(task)
-
-    if tasks_by_date:
-        for due_date, tasks in sorted(tasks_by_date.items()):
-            st.write(f"### 📅 {due_date}")
-
-            for task in tasks:
-                status_class = task["status"].lower().replace(" ", "-")
-                st.markdown(
-                    f'<div class="task-item">'
-                    f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                    f'<span>{task["title"]}</span>'
-                    f'<span class="status-badge status-{status_class}">{task["status"]}</span>'
-                    f'<span>{task["points"]} pts</span>'
-                    f'</div>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
+        for task in active:
+            status_class = task["status"].lower().replace(" ", "-")
+            st.markdown(
+                f'<div class="task-item">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                f'<span>{task["title"]}</span>'
+                f'<span class="status-badge status-{status_class}">{task["status"]}</span>'
+                f'<span>{task["points"]} pts</span>'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
 
     if done:
         st.write(f"**✅ Completed ({len(done)})**")

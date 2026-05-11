@@ -3,6 +3,7 @@ import streamlit as st
 from utils.task_helpers import get_total_points_for_kid
 from utils.book_helpers import get_finished_books, split_books_by_language
 from utils.achievement_helpers import get_kid_achievements
+from utils.data_helpers import today_string
 from utils.styles import avatar_image, achievement_badge
 
 
@@ -80,11 +81,12 @@ def show_child_tasks(data, kid):
         st.caption("No tasks assigned yet.")
         return
 
-    active = [t for t in child_tasks if t["status"] != "Done"]
+    today = today_string()
+    active = [t for t in child_tasks if t["status"] != "Done" and t.get("due_date") == today]
     done = [t for t in child_tasks if t["status"] == "Done"]
 
     if active:
-        st.write(f"**In Progress ({len(active)})**")
+        st.write(f"**Today's Tasks ({len(active)})**")
 
         for task in active:
             status_class = task["status"].lower().replace(" ", "-")
