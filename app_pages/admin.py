@@ -673,40 +673,80 @@ def remove_assignment_tab(data):
         st.caption("No tasks assigned yet.")
         return
 
-    for task in reversed(tasks):
-        assignee = None
-        if task.get("kid_id"):
-            name = kids.get(task["kid_id"])
-            if name:
-                assignee = f"👧 {name}"
-        elif task.get("parent_id"):
-            name = parents.get(task["parent_id"])
-            if name:
-                assignee = f"👨‍👩‍👧 {name}"
+    for t in tasks:
+        t["_assignee_name"] = None
+        if t.get("kid_id"):
+            t["_assignee_name"] = kids.get(t["kid_id"])
+        elif t.get("parent_id"):
+            t["_assignee_name"] = parents.get(t["parent_id"])
 
-        assignee_line = f"**{assignee}**" if assignee else "**Unknown**"
-
-        with st.container(border=True):
-            col1, col2 = st.columns([5, 1])
-            with col1:
-                st.markdown(
-                    f'<div style="display:flex;align-items:center;gap:12px;padding:4px 0;">'
-                    f'<div style="font-size:1.1em;font-weight:700;">📋 {task["title"]}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True
+    with st.expander("🔍 Filter tasks", expanded=True):
+        fcol1, fcol2, fcol3 = st.columns(3)
+        with fcol1:
+            search_title = st.text_input("Search by task name", placeholder="Type to filter...")
+        with fcol2:
+            all_assignees = sorted(
+                set(
+                    t["_assignee_name"] for t in tasks if t["_assignee_name"]
                 )
-                st.caption(
-                    f"Assigned to: {assignee_line}  ·  "
-                    f"📅 {task.get('due_date', 'N/A')}  ·  "
-                    f"📌 {task.get('status', 'N/A')}  ·  "
-                    f"⭐ {task.get('points', 0)} pts"
-                )
+            )
+            filter_assignee = st.selectbox(
+                "Filter by assignee",
+                ["All"] + all_assignees
+            )
+        with fcol3:
+            filter_status = st.selectbox(
+                "Filter by status",
+                ["All", "Backlog", "In Progress", "Done"]
+            )
 
-            with col2:
-                if st.button("🗑️", key=f"delete_assigned_task_{task['id']}", help="Delete this task"):
-                    delete_task(task["id"])
-                    st.success(f"Task '{task['title']}' removed!")
-                    st.rerun()
+    filtered = tasks
+    if search_title:
+        filtered = [t for t in filtered if search_title.lower() in t["title"].lower()]
+    if filter_assignee != "All":
+        filtered = [t for t in filtered if t["_assignee_name"] == filter_assignee]
+    if filter_status != "All":
+        filtered = [t for t in filtered if t.get("status") == filter_status]
+
+    filtered = list(reversed(filtered))
+
+    if not filtered:
+        st.info("No tasks match the current filters.")
+        return
+
+    st.caption(f"Showing {len(filtered)} of {len(tasks)} tasks")
+
+    select_all = st.checkbox("Select all", key="select_all_remove")
+
+    selected_ids = set()
+    for task in filtered:
+        assignee = task["_assignee_name"]
+        assignee_display = f"👧 {assignee}" if task.get("kid_id") else (f"👨‍👩‍👧 {assignee}" if assignee else "Unknown")
+
+        checked = st.checkbox(
+            f"📋 **{task['title']}** — {assignee_display} — 📅 {task.get('due_date', 'N/A')} — 📌 {task.get('status', 'N/A')} — ⭐ {task.get('points', 0)} pts",
+            key=f"sel_task_{task['id']}",
+            value=select_all
+        )
+        if checked:
+            selected_ids.add(task["id"])
+
+    st.divider()
+
+    dcol1, dcol2 = st.columns([1, 5])
+    with dcol1:
+        if st.button(
+            f"🗑️ Delete Selected ({len(selected_ids)})",
+            type="primary",
+            use_container_width=True,
+            disabled=len(selected_ids) == 0
+        ):
+            for tid in selected_ids:
+                delete_task(tid)
+            st.success(f"Deleted {len(selected_ids)} task(s)!")
+            st.rerun()
+    with dcol2:
+        st.caption("Tasks are permanently deleted. This cannot be undone.")
 
 
 def build_assignee_options(data):
