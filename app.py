@@ -554,4 +554,18 @@ elif page == "reading":
     reading_library_page(data)
 
 elif page == "admin":
-    admin_page(data)
+    if "admin_authenticated" not in st.session_state:
+        st.session_state.admin_authenticated = False
+
+    if not st.session_state.admin_authenticated:
+        st.warning("🔒 Admin section is password-protected.")
+        with st.form("admin_login"):
+            pwd = st.text_input("Enter admin password", type="password")
+            if st.form_submit_button("Unlock"):
+                if pwd == st.secrets["ADMIN_PASSWORD"]:
+                    st.session_state.admin_authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Incorrect password.")
+    else:
+        admin_page(data)
