@@ -123,7 +123,7 @@ def show_books_in_progress(data, reader_id, is_parent=False):
             with col2:
                 if st.button("🗑️ Remove book", key=f"remove_reading_book_{book['id']}"):
                     delete_book(book["id"])
-                    st.warning("Book removed from reading list.")
+                    st.success("✅ Book is removed!")
                     st.rerun()
 
 

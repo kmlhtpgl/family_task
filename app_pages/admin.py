@@ -10,6 +10,7 @@ from utils.db_helpers import (
     update_parent,
     delete_parent,
     add_tasks,
+    delete_task,
     add_books,
     add_task_template,
     update_task_template,
@@ -32,6 +33,7 @@ def admin_page(data):
         ("children", "👧 Children"),
         ("task_list", "📋 Task List"),
         ("assign_task", "🎯 Assign Task"),
+        ("remove_task", "🗑️ Remove Task"),
         ("book_list", "📚 Book List"),
         ("assign_book", "📖 Assign Book"),
         ("settings", "⚙️ Settings")
@@ -62,6 +64,8 @@ def admin_page(data):
         task_list_tab(data)
     elif active == "assign_task":
         assign_task_tab(data)
+    elif active == "remove_task":
+        remove_assignment_tab(data)
     elif active == "book_list":
         book_list_tab(data)
     elif active == "assign_book":
@@ -391,30 +395,31 @@ def task_list_tab(data):
     if "editing_task_id" not in st.session_state:
         st.session_state.editing_task_id = None
 
+    if "pending_action" in st.session_state:
+        action_type, action_value = st.session_state.pending_action
+        if action_type == "task_added":
+            st.success(f"✅ Task '{action_value}' is added!")
+        elif action_type == "task_removed":
+            st.success("✅ Task is removed!")
+        del st.session_state.pending_action
+
     st.write("### ➕ Add New Task")
 
-    with st.form("add_task_template_form"):
-        title = st.text_input("Task name")
-        default_points = st.number_input(
-            "Default points",
-            min_value=1,
-            max_value=100,
-            value=10
-        )
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        title = st.text_input("Task name", placeholder="Enter task name...", label_visibility="collapsed")
+    with col2:
+        default_points = st.number_input("Points", min_value=1, max_value=100, value=10, label_visibility="collapsed")
 
-        submitted = st.form_submit_button("Add Task")
-
-        if submitted:
-            if not title.strip():
-                st.error("Please enter a task name.")
-                return
-
+    if st.button("Add Task", type="primary"):
+        if not title.strip():
+            st.error("Please enter a task name.")
+        else:
             add_task_template(
                 title=title.strip(),
                 default_points=int(default_points)
             )
-
-            st.success("Task added to the task list.")
+            st.session_state.pending_action = ("task_added", title.strip())
             st.rerun()
 
     st.divider()
@@ -478,7 +483,7 @@ def task_list_tab(data):
 
                 if st.button("🗑️", key=f"del_btn_task_{template['id']}", help="Delete"):
                     delete_task_template(template["id"])
-                    st.warning("Task removed.")
+                    st.session_state.pending_action = ("task_removed", None)
                     st.rerun()
 
 
@@ -649,9 +654,59 @@ def assign_task_tab(data):
                     new_tasks.append(new_task)
 
             add_tasks(new_tasks)
-
-            st.success(f"{len(new_tasks)} task(s) created in Supabase.")
+            st.success(f"✅ Task is added!")
             st.rerun()
+
+
+# -----------------------
+# Remove Assignment
+# -----------------------
+
+def remove_assignment_tab(data):
+    st.subheader("🗑️ Remove Task Assignment")
+
+    tasks = data.get("tasks", [])
+    kids = {k["id"]: k["name"] for k in data.get("kids", [])}
+    parents = {p["id"]: p["name"] for p in data.get("parents", [])}
+
+    if not tasks:
+        st.caption("No tasks assigned yet.")
+        return
+
+    for task in reversed(tasks):
+        assignee = None
+        if task.get("kid_id"):
+            name = kids.get(task["kid_id"])
+            if name:
+                assignee = f"👧 {name}"
+        elif task.get("parent_id"):
+            name = parents.get(task["parent_id"])
+            if name:
+                assignee = f"👨‍👩‍👧 {name}"
+
+        assignee_line = f"**{assignee}**" if assignee else "**Unknown**"
+
+        with st.container(border=True):
+            col1, col2 = st.columns([5, 1])
+            with col1:
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:12px;padding:4px 0;">'
+                    f'<div style="font-size:1.1em;font-weight:700;">📋 {task["title"]}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+                st.caption(
+                    f"Assigned to: {assignee_line}  ·  "
+                    f"📅 {task.get('due_date', 'N/A')}  ·  "
+                    f"📌 {task.get('status', 'N/A')}  ·  "
+                    f"⭐ {task.get('points', 0)} pts"
+                )
+
+            with col2:
+                if st.button("🗑️", key=f"delete_assigned_task_{task['id']}", help="Delete this task"):
+                    delete_task(task["id"])
+                    st.success(f"Task '{task['title']}' removed!")
+                    st.rerun()
 
 
 def build_assignee_options(data):
@@ -734,45 +789,39 @@ def book_list_tab(data):
 
     book_templates = data["book_templates"]
 
+    if "pending_action" in st.session_state:
+        action_type, action_value = st.session_state.pending_action
+        if action_type == "book_added":
+            st.success(f"✅ Book '{action_value}' is added!")
+        elif action_type == "book_removed":
+            st.success("✅ Book is removed!")
+        del st.session_state.pending_action
+
     st.write("### ➕ Add New Book")
 
-    with st.form("add_book_template_form"):
-        title = st.text_input("Book name")
-        writer = st.text_input("Writer/Author (optional)")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        title = st.text_input("Book name", placeholder="Enter book name...", label_visibility="collapsed")
+    with col2:
+        total_pages = st.number_input("Pages", min_value=1, max_value=5000, value=100, label_visibility="collapsed")
 
-        col_lang, col_pages = st.columns(2)
+    col_lang, col_writer = st.columns(2)
+    with col_lang:
+        language = st.selectbox("Language", ["English", "Turkish"])
+    with col_writer:
+        writer = st.text_input("Writer (optional)")
 
-        with col_lang:
-            language = st.selectbox(
-                "Language",
-                ["English", "Turkish"],
-                key="book_template_language"
-            )
-
-        with col_pages:
-            total_pages = st.number_input(
-                "Total pages",
-                min_value=1,
-                max_value=5000,
-                value=100,
-                key="book_template_total_pages"
-            )
-
-        submitted = st.form_submit_button("Add Book")
-
-        if submitted:
-            if not title.strip():
-                st.error("Please enter the book name.")
-                return
-
+    if st.button("Add Book", type="primary"):
+        if not title.strip():
+            st.error("Please enter the book name.")
+        else:
             add_book_template(
                 title=title.strip(),
                 language=language,
                 total_pages=int(total_pages),
                 writer=writer.strip() if writer else None
             )
-
-            st.success("Book added to the book list.")
+            st.session_state.pending_action = ("book_added", title.strip())
             st.rerun()
 
     st.divider()
@@ -865,7 +914,7 @@ def book_list_tab(data):
 
                 if st.button("🗑️", key=f"del_btn_book_{book['id']}", help="Delete"):
                     delete_book_template(book["id"])
-                    st.warning("Book removed.")
+                    st.session_state.pending_action = ("book_removed", None)
                     st.rerun()
 
 def clean_book_templates(book_templates):
@@ -963,8 +1012,7 @@ def assign_book_tab(data):
                 new_books.append(new_book)
 
             add_books(new_books)
-
-            st.success(f"{len(new_books)} book(s) assigned in Supabase.")
+            st.success(f"✅ Book is added!")
             st.rerun()
 
 

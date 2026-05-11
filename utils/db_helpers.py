@@ -1,29 +1,35 @@
-import streamlit as st
 from utils.supabase_client import get_supabase_client
+import time
 
 
-@st.cache_data(ttl=60)
-def get_all_data():
+def get_all_data(retries=3, delay=0.5):
     supabase = get_supabase_client()
 
-    parents = supabase.table("parents").select("*").order("id").execute().data
-    kids = supabase.table("kids").select("*").order("id").execute().data
-    tasks = supabase.table("tasks").select("*").order("id").execute().data
-    books = supabase.table("books").select("*").order("id").execute().data
-    task_templates = supabase.table("task_templates").select("*").order("id").execute().data
-    book_templates = supabase.table("book_templates").select("*").order("id").execute().data
+    for attempt in range(retries):
+        try:
+            parents = supabase.table("parents").select("*").order("id").execute().data
+            kids = supabase.table("kids").select("*").order("id").execute().data
+            tasks = supabase.table("tasks").select("*").order("id").execute().data
+            books = supabase.table("books").select("*").order("id").execute().data
+            task_templates = supabase.table("task_templates").select("*").order("id").execute().data
+            book_templates = supabase.table("book_templates").select("*").order("id").execute().data
 
-    return {
-        "parents": parents,
-        "kids": kids,
-        "tasks": tasks,
-        "books": books,
-        "task_templates": task_templates,
-        "book_templates": book_templates,
-        "settings": {
-            "points_for_done": 10
-        }
-    }
+            return {
+                "parents": parents,
+                "kids": kids,
+                "tasks": tasks,
+                "books": books,
+                "task_templates": task_templates,
+                "book_templates": book_templates,
+                "settings": {
+                    "points_for_done": 10
+                }
+            }
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
 
 # -----------------------
@@ -40,7 +46,8 @@ def add_parent(name, email=None, phone=None, photo_url=None):
         "photo_url": photo_url
     }
 
-    return supabase.table("parents").insert(new_parent).execute().data
+    result = supabase.table("parents").insert(new_parent).execute().data
+    return result
 
 
 def update_parent(parent_id, updates):
@@ -115,18 +122,53 @@ def delete_kid(kid_id):
 # Tasks
 # -----------------------
 
-def add_task(task):
+def add_task(task, retries=2, delay=0.3):
     supabase = get_supabase_client()
-    return supabase.table("tasks").insert(task).execute().data
+
+    for attempt in range(retries):
+        try:
+            return supabase.table("tasks").insert(task).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
 
-def add_tasks(tasks):
+def add_tasks(tasks, retries=2, delay=0.3):
     supabase = get_supabase_client()
 
     if not tasks:
         return []
 
-    return supabase.table("tasks").insert(tasks).execute().data
+    for attempt in range(retries):
+        try:
+            return supabase.table("tasks").insert(tasks).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def delete_task(task_id, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("tasks")
+                .delete()
+                .eq("id", task_id)
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
 
 def update_task(task_id, updates):
@@ -146,18 +188,33 @@ def update_task(task_id, updates):
 # Books assigned to children
 # -----------------------
 
-def add_book(book):
+def add_book(book, retries=2, delay=0.3):
     supabase = get_supabase_client()
-    return supabase.table("books").insert(book).execute().data
+
+    for attempt in range(retries):
+        try:
+            return supabase.table("books").insert(book).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
 
-def add_books(books):
+def add_books(books, retries=2, delay=0.3):
     supabase = get_supabase_client()
 
     if not books:
         return []
 
-    return supabase.table("books").insert(books).execute().data
+    for attempt in range(retries):
+        try:
+            return supabase.table("books").insert(books).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
 
 def update_book(book_id, updates):
@@ -177,34 +234,46 @@ def update_book(book_id, updates):
 # Task templates
 # -----------------------
 
-def add_task_template(title, default_points):
+def add_task_template(title, default_points, retries=2, delay=0.3):
     supabase = get_supabase_client()
 
-    return (
-        supabase
-        .table("task_templates")
-        .insert(
-            {
-                "title": title,
-                "default_points": default_points
-            }
-        )
-        .execute()
-        .data
-    )
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("task_templates")
+                .insert({
+                    "title": title,
+                    "default_points": default_points
+                })
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
 
-def delete_task_template(template_id):
+def delete_task_template(template_id, retries=2, delay=0.3):
     supabase = get_supabase_client()
 
-    return (
-        supabase
-        .table("task_templates")
-        .delete()
-        .eq("id", template_id)
-        .execute()
-        .data
-    )
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("task_templates")
+                .delete()
+                .eq("id", template_id)
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
 
 def update_task_template(template_id, updates):
@@ -221,10 +290,6 @@ def update_task_template(template_id, updates):
 
 
 def replace_task_templates(templates):
-    """
-    Deletes all task templates and inserts the edited list again.
-    This is simple and works well for a small family app.
-    """
     supabase = get_supabase_client()
 
     supabase.table("task_templates").delete().neq("id", 0).execute()
@@ -239,43 +304,51 @@ def replace_task_templates(templates):
 # Book templates
 # -----------------------
 
-def add_book_template(title, language, total_pages, writer=None):
+def add_book_template(title, language, total_pages, writer=None, retries=2, delay=0.3):
     supabase = get_supabase_client()
 
-    return (
-        supabase
-        .table("book_templates")
-        .insert(
-            {
-                "title": title,
-                "language": language,
-                "total_pages": total_pages,
-                "writer": writer
-            }
-        )
-        .execute()
-        .data
-    )
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("book_templates")
+                .insert({
+                    "title": title,
+                    "language": language,
+                    "total_pages": total_pages,
+                    "writer": writer
+                })
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
 
-def delete_book_template(template_id):
+def delete_book_template(template_id, retries=2, delay=0.3):
     supabase = get_supabase_client()
 
-    return (
-        supabase
-        .table("book_templates")
-        .delete()
-        .eq("id", template_id)
-        .execute()
-        .data
-    )
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("book_templates")
+                .delete()
+                .eq("id", template_id)
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
 
 def replace_book_templates(templates):
-    """
-    Deletes all book templates and inserts the edited list again.
-    This is simple and works well for a small family app.
-    """
     supabase = get_supabase_client()
 
     supabase.table("book_templates").delete().neq("id", 0).execute()
@@ -287,9 +360,6 @@ def replace_book_templates(templates):
 
 
 def replace_book_template(template_id, template_data):
-    """
-    Updates a single book template by ID.
-    """
     supabase = get_supabase_client()
 
     return (
