@@ -137,10 +137,16 @@ def show_finished_books(data, reader_id, is_parent=False):
 
     english_books, turkish_books = split_books_by_language(finished_books)
 
+    search_finished = st.text_input("🔍 Search finished books", placeholder="Type book name to filter...", label_visibility="collapsed")
+
+    if search_finished:
+        english_books = [b for b in english_books if search_finished.lower() in b["title"].lower()]
+        turkish_books = [b for b in turkish_books if search_finished.lower() in b["title"].lower()]
+
     col1, col2 = st.columns(2)
 
     with col1:
-        st.write("### 🇬🇧 English")
+        st.write(f"### 🇬🇧 English ({len(english_books)} finished)")
 
         if english_books:
             for book in english_books:
@@ -153,10 +159,10 @@ def show_finished_books(data, reader_id, is_parent=False):
                     unsafe_allow_html=True
                 )
         else:
-            st.caption("No English books finished yet.")
+            st.caption("No English books finished yet." if not search_finished else "No matches.")
 
     with col2:
-        st.write("### 🇹🇷 Turkish")
+        st.write(f"### 🇹🇷 Turkish ({len(turkish_books)} finished)")
 
         if turkish_books:
             for book in turkish_books:
@@ -169,4 +175,4 @@ def show_finished_books(data, reader_id, is_parent=False):
                     unsafe_allow_html=True
                 )
         else:
-            st.caption("No Turkish books finished yet.")
+            st.caption("No Turkish books finished yet." if not search_finished else "No matches.")
