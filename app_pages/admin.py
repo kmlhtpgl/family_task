@@ -539,6 +539,42 @@ def assign_task_tab(data):
         for template in task_templates
     }
 
+    repeat_type = st.radio(
+        "Task date option",
+        [
+            "One date only",
+            "Every day",
+            "Specific days of the week"
+        ],
+        horizontal=True
+    )
+
+    if repeat_type == "One date only":
+        single_date = st.date_input("Due date", value=date.today())
+        selected_dates = [single_date]
+
+    elif repeat_type == "Every day":
+        dcol1, dcol2 = st.columns(2)
+        with dcol1:
+            start_date = st.date_input("From date", value=date.today())
+        with dcol2:
+            end_date = st.date_input("To date", value=date.today() + timedelta(days=7))
+        selected_dates = generate_daily_dates(start_date, end_date)
+
+    elif repeat_type == "Specific days of the week":
+        dcol1, dcol2 = st.columns(2)
+        with dcol1:
+            start_date = st.date_input("From date", value=date.today())
+        with dcol2:
+            end_date = st.date_input("To date", value=date.today() + timedelta(days=30))
+
+        selected_weekdays = st.multiselect(
+            "Choose weekdays",
+            ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+            default=["Monday", "Wednesday", "Friday"]
+        )
+        selected_dates = generate_weekday_dates(start_date, end_date, selected_weekdays)
+
     with st.form("assign_task_form"):
         selected_task_title = st.selectbox(
             "Choose task from list",
@@ -551,71 +587,7 @@ def assign_task_tab(data):
             key="assign_task_to"
         )
 
-        repeat_type = st.radio(
-            "Task date option",
-            [
-                "One date only",
-                "Every day",
-                "Specific days of the week"
-            ]
-        )
-
-        selected_dates = []
-
-        if repeat_type == "One date only":
-            single_date = st.date_input(
-                "Due date",
-                value=date.today()
-            )
-            selected_dates = [single_date]
-
-        elif repeat_type == "Every day":
-            start_date = st.date_input(
-                "Start date",
-                value=date.today(),
-                key="daily_start_date"
-            )
-
-            end_date = st.date_input(
-                "End date",
-                value=date.today() + timedelta(days=7),
-                key="daily_end_date"
-            )
-
-            selected_dates = generate_daily_dates(start_date, end_date)
-
-        elif repeat_type == "Specific days of the week":
-            start_date = st.date_input(
-                "Start date",
-                value=date.today(),
-                key="weekly_start_date"
-            )
-
-            end_date = st.date_input(
-                "End date",
-                value=date.today() + timedelta(days=30),
-                key="weekly_end_date"
-            )
-
-            selected_weekdays = st.multiselect(
-                "Choose days",
-                [
-                    "Monday",
-                    "Tuesday",
-                    "Wednesday",
-                    "Thursday",
-                    "Friday",
-                    "Saturday",
-                    "Sunday"
-                ],
-                default=["Monday", "Wednesday", "Friday"]
-            )
-
-            selected_dates = generate_weekday_dates(
-                start_date,
-                end_date,
-                selected_weekdays
-            )
+        st.caption(f"📅 {len(selected_dates)} date(s) selected")
 
         selected_template = task_options[selected_task_title]
 
