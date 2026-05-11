@@ -508,7 +508,7 @@ if "page" not in st.session_state:
 
 pages = [
     ("dashboard", "📊", "Dashboard"),
-    ("kanban", "🎯", "Kanban"),
+    ("kanban", "🎯", "Daily Board"),
     ("parents", "👨‍👩‍👧", "Parents"),
     ("kids", "🧒", "Kids"),
     ("reading", "📚", "Reading"),

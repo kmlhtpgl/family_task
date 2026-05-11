@@ -8,7 +8,7 @@ from utils.db_helpers import update_task
 
 
 def kanban_page(data):
-    st.header("🎯 Daily Kanban Board")
+    st.header("🎯 Daily Board")
     st.caption("Drag tasks between Backlog, In Progress and Done.")
 
     if not data["kids"] and not data.get("parents"):
