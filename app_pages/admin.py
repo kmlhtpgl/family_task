@@ -30,7 +30,7 @@ def admin_page(data):
 
     admin_tabs = [
         ("parents", "👨‍👩‍👧‍👦 Parents"),
-        ("children", "👧 Children"),
+        ("children", "🧒 Children"),
         ("task_list", "📋 Task List"),
         ("assign_task", "🎯 Assign Task"),
         ("remove_task", "🗑️ Remove Task"),
@@ -236,7 +236,7 @@ def parents_tab(data):
 # -----------------------
 
 def add_child_tab(data):
-    st.subheader("👧 Children Management")
+    st.subheader("🧒 Children Management")
 
     # Add Child Form
     st.write("### Add New Child")
@@ -701,7 +701,7 @@ def remove_assignment_tab(data):
     selected_ids = set()
     for task in filtered:
         assignee = task["_assignee_name"]
-        assignee_display = f"👧 {assignee}" if task.get("kid_id") else (f"👨‍👩‍👧 {assignee}" if assignee else "Unknown")
+        assignee_display = f"🧒 {assignee}" if task.get("kid_id") else (f"👨‍👩‍👧 {assignee}" if assignee else "Unknown")
 
         checked = st.checkbox(
             f"📋 **{task['title']}** — {assignee_display} — 📅 {task.get('due_date', 'N/A')} — 📌 {task.get('status', 'N/A')} — ⭐ {task.get('points', 0)} pts",
@@ -744,7 +744,7 @@ def build_assignee_options(data):
 
     if all_kids:
         for name in all_kids:
-            options[f"👧 {name}"] = [{"kid_id": kid_options[name], "parent_id": None}]
+            options[f"🧒 {name}"] = [{"kid_id": kid_options[name], "parent_id": None}]
 
     if all_parents:
         for name in all_parents:

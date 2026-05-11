@@ -42,7 +42,7 @@ def build_reader_options(data):
     options = {}
 
     for kid in data["kids"]:
-        options[f"👧 {kid['name']}"] = {"type": "kid", "id": kid["id"]}
+        options[f"🧒 {kid['name']}"] = {"type": "kid", "id": kid["id"]}
 
     for parent in data.get("parents", []):
         options[f"👨‍👩‍👧 {parent['name']}"] = {"type": "parent", "id": parent["id"]}

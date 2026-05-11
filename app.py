@@ -510,7 +510,7 @@ pages = [
     ("dashboard", "📊", "Dashboard"),
     ("kanban", "🎯", "Kanban"),
     ("parents", "👨‍👩‍👧", "Parents"),
-    ("kids", "👧", "Kids"),
+    ("kids", "🧒", "Kids"),
     ("reading", "📚", "Reading"),
     ("admin", "⚙️", "Admin"),
 ]

@@ -240,7 +240,7 @@ def show_progress_charts(data):
 
 
 def show_weekly_leaderboard(data, week_offset=0):
-    st.subheader("👧 Kids Leaderboard")
+    st.subheader("🧒 Kids Leaderboard")
 
     leaderboard = get_weekly_leaderboard(data)
 
@@ -303,7 +303,7 @@ def show_weekly_leaderboard(data, week_offset=0):
 def get_assignee_display(data, task):
     if task.get("kid_id"):
         kid = get_kid(data, task["kid_id"])
-        return f"👧 {kid['name']}" if kid else "👧 Unknown"
+        return f"🧒 {kid['name']}" if kid else "🧒 Unknown"
 
     if task.get("parent_id"):
         for parent in data.get("parents", []):

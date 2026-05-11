@@ -26,12 +26,12 @@ def kanban_page(data):
     filter_labels = ["All tasks"]
 
     if kid_options:
-        filter_labels.append("👧 All children")
+        filter_labels.append("🧒 All children")
 
     if parent_options:
         filter_labels.append("👨‍👩‍👧 All parents")
 
-    filter_labels.extend([f"👧 {name}" for name in kid_options.keys()])
+    filter_labels.extend([f"🧒 {name}" for name in kid_options.keys()])
     filter_labels.extend([f"👨‍👩‍👧 {name}" for name in parent_options.keys()])
 
     selected_filter = st.selectbox(
@@ -232,14 +232,14 @@ def filter_tasks(tasks, selected_filter, kid_options, parent_options):
     if selected_filter == "All tasks":
         return tasks
 
-    if selected_filter == "👧 All children":
+    if selected_filter == "🧒 All children":
         return [t for t in tasks if t.get("kid_id") is not None]
 
     if selected_filter == "👨‍👩‍👧 All parents":
         return [t for t in tasks if t.get("parent_id") is not None]
 
-    if selected_filter.startswith("👧 ") and "All children" not in selected_filter:
-        kid_name = selected_filter.replace("👧 ", "")
+    if selected_filter.startswith("🧒 ") and "All children" not in selected_filter:
+        kid_name = selected_filter.replace("🧒 ", "")
 
         if kid_name in kid_options:
             return [t for t in tasks if t.get("kid_id") == kid_options[kid_name]]
@@ -256,7 +256,7 @@ def filter_tasks(tasks, selected_filter, kid_options, parent_options):
 def get_assignee_label(data, task):
     if task.get("kid_id"):
         kid = get_kid(data, task["kid_id"])
-        return f"👧 {kid['name']}" if kid else "👧 Unknown"
+        return f"🧒 {kid['name']}" if kid else "🧒 Unknown"
 
     if task.get("parent_id"):
         for parent in data.get("parents", []):
