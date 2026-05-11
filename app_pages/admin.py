@@ -424,13 +424,21 @@ def task_list_tab(data):
 
     st.divider()
 
-    if not templates:
-        st.caption("No tasks in the task list yet.")
-        return
-
     st.write("### 📝 Your Tasks")
 
-    for template in templates:
+    search_task = st.text_input("🔍 Search tasks", placeholder="Type task name to filter...", label_visibility="collapsed")
+    filtered = [t for t in templates if search_task.lower() in t["title"].lower()] if search_task else templates
+
+    if not filtered:
+        if search_task:
+            st.caption("No tasks match your search.")
+        else:
+            st.caption("No tasks in the task list yet.")
+    else:
+        prefix = f"Showing {len(filtered)} of {len(templates)}" if search_task else f"Total {len(templates)}"
+        st.caption(f"{prefix} task(s)")
+
+    for template in filtered:
         with st.container(border=True):
             col_info, col_actions = st.columns([4, 1])
 
@@ -866,13 +874,21 @@ def book_list_tab(data):
 
     st.divider()
 
-    if not book_templates:
-        st.caption("No books in the book list yet.")
-        return
-
     st.write("### 📖 Your Books")
 
-    for book in book_templates:
+    search_book = st.text_input("🔍 Search books", placeholder="Type book name to filter...", label_visibility="collapsed")
+    filtered_books = [b for b in book_templates if search_book.lower() in b["title"].lower()] if search_book else book_templates
+
+    if not filtered_books:
+        if search_book:
+            st.caption("No books match your search.")
+        else:
+            st.caption("No books in the book list yet.")
+    else:
+        prefix = f"Showing {len(filtered_books)} of {len(book_templates)}" if search_book else f"Total {len(book_templates)}"
+        st.caption(f"{prefix} book(s)")
+
+    for book in filtered_books:
         lang_flag = "🇬🇧" if book.get("language") == "English" else "🇹🇷"
 
         with st.container(border=True):
