@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import streamlit as st
 from datetime import date, datetime, timedelta
 
@@ -31,6 +34,8 @@ from utils.db_helpers import (
 )
 from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
+
+DATA_DIR = Path("data")
 
 
 def admin_page(data):
@@ -1068,6 +1073,41 @@ def surah_list_tab(data):
 
     st.info("Assign surahs or duas from the list below to children or parents via the 'Assign Surah/Dua' tab.")
 
+    # Seed templates button
+    templates_file = DATA_DIR / "surah_templates.json"
+    if templates_file.exists():
+        if st.button("📥 Load all surahs and duas from templates", type="primary", use_container_width=True):
+            with open(templates_file) as f:
+                templates = json.load(f)
+
+            existing = set()
+            for s in data.get("surahs", []):
+                existing.add((s["name"], s.get("type", "surah")))
+
+            new_items = []
+            skipped = 0
+            for t in templates:
+                key = (t["title"], t.get("type", "surah"))
+                if key not in existing:
+                    new_items.append({
+                        "name": t["title"],
+                        "type": t.get("type", "surah"),
+                        "total_ayahs": int(t["total_ayahs"]),
+                        "memorized_ayahs": 0,
+                        "status": "In Progress",
+                        "kid_id": None,
+                        "parent_id": None
+                    })
+                else:
+                    skipped += 1
+
+            if new_items:
+                add_surahs(new_items)
+                st.success(f"✅ Loaded {len(new_items)} items ({skipped} already existed)!")
+            else:
+                st.info(f"All {skipped} items already in the list.")
+            st.rerun()
+
     item_type = st.selectbox("Type", ["Surah", "Dua"], key="surah_list_type")
 
     col1, col2 = st.columns([3, 1])
@@ -1159,12 +1199,32 @@ def assign_surah_tab(data):
         st.info("Add children or parents first.")
         return
 
+    # Get unassigned items (no kid_id and no parent_id)
+    available = [
+        s for s in data.get("surahs", [])
+        if not s.get("kid_id") and not s.get("parent_id")
+    ]
+
+    if not available:
+        st.warning("No surahs or duas available. Go to the 'Surah List' tab and click '📥 Load all surahs and duas from templates' first, or add them manually.")
+        return
+
     assignee_options = build_assignee_options(data)
 
+    item_options = {}
+    for s in available:
+        icon = "📖" if s.get("type") == "surah" else "🤲"
+        label = f"{icon} {s['name']} ({s.get('type', 'surah')}, {s['total_ayahs']} ayahs)"
+        item_options[label] = s
+
     with st.form("assign_surah_form"):
-        item_type = st.selectbox("Type", ["Surah", "Dua"], key="assign_surah_type")
-        name = st.text_input("Name", placeholder="e.g. Al-Fatiha" if item_type == "Surah" else "e.g. Subhaneke")
-        total_ayahs = st.number_input("Total ayahs", min_value=1, max_value=300, value=7)
+        selected_label = st.selectbox(
+            "Choose item",
+            list(item_options.keys()),
+            key="assign_surah_item"
+        )
+
+        selected = item_options[selected_label]
 
         assign_to = st.selectbox(
             "Assign to",
@@ -1175,27 +1235,23 @@ def assign_surah_tab(data):
         submitted = st.form_submit_button("Assign")
 
         if submitted:
-            if not name.strip():
-                st.error("Please enter a name.")
-                return
-
             selected_assignees = assignee_options[assign_to]
             new_items = []
 
             for assignee in selected_assignees:
                 new_item = {
-                    "name": name.strip(),
-                    "type": item_type.lower(),
+                    "name": selected["name"],
+                    "type": selected.get("type", "surah"),
                     "kid_id": assignee.get("kid_id"),
                     "parent_id": assignee.get("parent_id"),
-                    "total_ayahs": int(total_ayahs),
+                    "total_ayahs": int(selected["total_ayahs"]),
                     "memorized_ayahs": 0,
                     "status": "In Progress"
                 }
                 new_items.append(new_item)
 
             add_surahs(new_items)
-            st.success(f"✅ '{name.strip()}' assigned!")
+            st.success(f"✅ '{selected['name']}' assigned!")
             st.rerun()
 
 
