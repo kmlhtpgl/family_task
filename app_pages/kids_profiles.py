@@ -4,6 +4,13 @@ import streamlit as st
 
 from utils.task_helpers import get_total_points_for_kid, get_monthly_points_for_kid, get_rank, get_overdue_task_count
 from utils.book_helpers import get_finished_books, split_books_by_language
+from utils.surah_helpers import (
+    calculate_surah_progress,
+    get_quran_surahs_in_progress,
+    get_finished_quran_surahs,
+    get_duas_in_progress,
+    get_finished_duas,
+)
 from utils.achievement_helpers import get_kid_achievements
 from utils.data_helpers import today_string
 from utils.styles import avatar_image, achievement_badge
@@ -96,6 +103,7 @@ def show_kid_profile(data, kid):
     with col2:
         show_child_tasks(data, kid)
         show_child_read_books(data, kid)
+        show_child_quran(data, kid)
 
 
 def show_child_tasks(data, kid):
@@ -195,3 +203,60 @@ def show_child_read_books(data, kid):
             st.write(f"🇹🇷 {book['title']}{writer} ({book['total_pages']} pages)")
     else:
         st.caption("No Turkish books finished yet.")
+
+
+def show_child_quran(data, kid):
+    st.subheader("📖 Quran Memorization")
+
+    surahs = get_quran_surahs_in_progress(data, kid["id"])
+    finished_surahs = get_finished_quran_surahs(data, kid["id"])
+    duas = get_duas_in_progress(data, kid["id"])
+    finished_duas = get_finished_duas(data, kid["id"])
+
+    if surahs:
+        st.write("**📖 Surahs in Progress**")
+
+        for s in surahs:
+            progress = calculate_surah_progress(s)
+            progress_pct = round(progress * 100)
+
+            st.markdown(
+                f'<div class="task-item">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                f'<span>{s["name"]}</span>'
+                f'<span>{s.get("memorized_ayahs", 0)}/{s["total_ayahs"]} ({progress_pct}%)</span>'
+                f'</div>'
+                f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+    if duas:
+        st.write("**🤲 Duas in Progress**")
+
+        for d in duas:
+            progress = calculate_surah_progress(d)
+            progress_pct = round(progress * 100)
+
+            st.markdown(
+                f'<div class="task-item">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                f'<span>{d["name"]}</span>'
+                f'<span>{d.get("memorized_ayahs", 0)}/{d["total_ayahs"]} ({progress_pct}%)</span>'
+                f'</div>'
+                f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+    memorized = len(finished_surahs) + len(finished_duas)
+    if memorized > 0:
+        st.markdown(
+            f'<div style="padding:8px;background:rgba(76,175,80,0.08);border-radius:8px;margin-top:8px;">'
+            f'<strong>✨ Memorized:</strong> {len(finished_surahs)} surahs, {len(finished_duas)} duas'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+    if not surahs and not duas and memorized == 0:
+        st.caption("No surahs or duas assigned yet.")
