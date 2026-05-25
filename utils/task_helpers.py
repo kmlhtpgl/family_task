@@ -1,7 +1,46 @@
+from datetime import date, timedelta
+
 from utils.data_helpers import today_string, current_week_key
 
 
 TASK_STATUSES = ["Backlog", "In Progress", "Done"]
+
+OVERDUE_DAYS = 2
+
+
+def get_effective_points(task):
+    """
+    Returns task points, applying the overdue penalty.
+    If a Done task was completed more than OVERDUE_DAYS after its due date,
+    the points are reduced to 0.
+    """
+    points = task.get("points", 0)
+    if task.get("status") != "Done":
+        return points
+    due = task.get("due_date")
+    completed = task.get("completed_date")
+    if not due or not completed:
+        return points
+    try:
+        due_date = date.fromisoformat(due)
+        completed_date = date.fromisoformat(completed)
+        if (completed_date - due_date).days > OVERDUE_DAYS:
+            return 0
+    except (ValueError, TypeError):
+        pass
+    return points
+
+
+def is_task_overdue(task):
+    """Check if a task is overdue by more than OVERDUE_DAYS."""
+    due = task.get("due_date")
+    if not due:
+        return False
+    try:
+        due_date = date.fromisoformat(due)
+        return (date.today() - due_date).days > OVERDUE_DAYS and task.get("status") != "Done"
+    except (ValueError, TypeError):
+        return False
 
 
 def move_task(task, new_status):
@@ -42,12 +81,12 @@ def get_today_tasks(data):
 
 def get_weekly_points_for_kid(data, kid_id):
     """
-    Calculates this week's points for one child.
+    Calculates this week's points for one child (with overdue penalty).
     """
     week = current_week_key()
 
     return sum(
-        task.get("points", 0)
+        get_effective_points(task)
         for task in data["tasks"]
         if task.get("kid_id") == kid_id
         and task.get("status") == "Done"
@@ -57,12 +96,12 @@ def get_weekly_points_for_kid(data, kid_id):
 
 def get_weekly_points_for_parent(data, parent_id):
     """
-    Calculates this week's points for one parent.
+    Calculates this week's points for one parent (with overdue penalty).
     """
     week = current_week_key()
 
     return sum(
-        task.get("points", 0)
+        get_effective_points(task)
         for task in data["tasks"]
         if task.get("parent_id") == parent_id
         and task.get("status") == "Done"
@@ -72,10 +111,10 @@ def get_weekly_points_for_parent(data, parent_id):
 
 def get_total_points_for_kid(data, kid_id):
     """
-    Calculates all completed task points for one child.
+    Calculates all completed task points for one child (with overdue penalty).
     """
     return sum(
-        task.get("points", 0)
+        get_effective_points(task)
         for task in data["tasks"]
         if task.get("kid_id") == kid_id
         and task.get("status") == "Done"
@@ -84,14 +123,77 @@ def get_total_points_for_kid(data, kid_id):
 
 def get_total_points_for_parent(data, parent_id):
     """
-    Calculates all completed task points for one parent.
+    Calculates all completed task points for one parent (with overdue penalty).
     """
     return sum(
-        task.get("points", 0)
+        get_effective_points(task)
         for task in data["tasks"]
         if task.get("parent_id") == parent_id
         and task.get("status") == "Done"
     )
+
+
+def get_monthly_points_for_kid(data, kid_id, year, month):
+    """
+    Calculates points for one child in a specific month (with overdue penalty).
+    year: int, month: int (1-12)
+    """
+    month_str = f"{year:04d}-{month:02d}"
+    return sum(
+        get_effective_points(task)
+        for task in data["tasks"]
+        if task.get("kid_id") == kid_id
+        and task.get("status") == "Done"
+        and task.get("completed_date", "").startswith(month_str)
+    )
+
+
+def get_monthly_points_for_parent(data, parent_id, year, month):
+    """
+    Calculates points for one parent in a specific month (with overdue penalty).
+    """
+    month_str = f"{year:04d}-{month:02d}"
+    return sum(
+        get_effective_points(task)
+        for task in data["tasks"]
+        if task.get("parent_id") == parent_id
+        and task.get("status") == "Done"
+        and task.get("completed_date", "").startswith(month_str)
+    )
+
+
+def get_monthly_points_for_all(data, year, month):
+    """
+    Calculates total points for everyone in a specific month.
+    Returns dict of {person_id: points} with a type flag.
+    """
+    month_str = f"{year:04d}-{month:02d}"
+    scores = {}
+
+    for kid in data["kids"]:
+        pts = get_monthly_points_for_kid(data, kid["id"], year, month)
+        if pts > 0:
+            scores[kid["id"]] = {"name": kid["name"], "points": pts, "type": "kid"}
+
+    for parent in data.get("parents", []):
+        pts = get_monthly_points_for_parent(data, parent["id"], year, month)
+        if pts > 0:
+            scores[parent["id"]] = {"name": parent["name"], "points": pts, "type": "parent"}
+
+    return scores
+
+
+def get_overdue_task_count(data, person_id, is_kid=True):
+    """Count how many overdue tasks a person has."""
+    count = 0
+    for task in data["tasks"]:
+        if is_kid and task.get("kid_id") != person_id:
+            continue
+        if not is_kid and task.get("parent_id") != person_id:
+            continue
+        if is_task_overdue(task):
+            count += 1
+    return count
 
 
 TIERS = ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ascendant", "Immortal"]

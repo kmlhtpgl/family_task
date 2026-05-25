@@ -6,6 +6,8 @@ from app_pages.kanban import kanban_page
 from app_pages.kids_profiles import kids_profiles_page
 from app_pages.parents_profiles import parents_profiles_page
 from app_pages.reading_library import reading_library_page
+from app_pages.surah_memorization import surah_memorization_page
+from app_pages.rewards import rewards_page
 from app_pages.admin import admin_page
 
 st.set_page_config(
@@ -512,6 +514,8 @@ pages = [
     ("parents", "👨‍👩‍👧", "Parents"),
     ("kids", "🧒", "Kids"),
     ("reading", "📚", "Reading"),
+    ("quran", "📖", "Quran"),
+    ("rewards", "💰", "Rewards"),
     ("admin", "⚙️", "Admin"),
 ]
 
@@ -552,6 +556,12 @@ elif page == "kids":
 
 elif page == "reading":
     reading_library_page(data)
+
+elif page == "quran":
+    surah_memorization_page(data)
+
+elif page == "rewards":
+    rewards_page(data)
 
 elif page == "admin":
     if "admin_authenticated" not in st.session_state:

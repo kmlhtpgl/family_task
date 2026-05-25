@@ -14,11 +14,23 @@ def get_all_data(retries=3, delay=0.5):
             task_templates = supabase.table("task_templates").select("*").order("id").execute().data
             book_templates = supabase.table("book_templates").select("*").order("id").execute().data
 
+            try:
+                surahs = supabase.table("surahs").select("*").order("id").execute().data
+            except Exception:
+                surahs = []
+
+            try:
+                reward_sessions = supabase.table("reward_sessions").select("*").order("id").execute().data
+            except Exception:
+                reward_sessions = []
+
             return {
                 "parents": parents,
                 "kids": kids,
                 "tasks": tasks,
                 "books": books,
+                "surahs": surahs,
+                "reward_sessions": reward_sessions,
                 "task_templates": task_templates,
                 "book_templates": book_templates,
                 "settings": {
@@ -379,6 +391,148 @@ def delete_book(book_id):
         .table("books")
         .delete()
         .eq("id", book_id)
+        .execute()
+        .data
+    )
+
+
+# -----------------------
+# Surahs
+# -----------------------
+
+def add_surah(surah, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return supabase.table("surahs").insert(surah).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def add_surahs(surahs, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    if not surahs:
+        return []
+    for attempt in range(retries):
+        try:
+            return supabase.table("surahs").insert(surahs).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def update_surah(surah_id, updates):
+    supabase = get_supabase_client()
+    return (
+        supabase
+        .table("surahs")
+        .update(updates)
+        .eq("id", surah_id)
+        .execute()
+        .data
+    )
+
+
+def delete_surah(surah_id):
+    supabase = get_supabase_client()
+    return (
+        supabase
+        .table("surahs")
+        .delete()
+        .eq("id", surah_id)
+        .execute()
+        .data
+    )
+
+
+# -----------------------
+# Reward Sessions
+# -----------------------
+
+def add_reward_session(session, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return supabase.table("reward_sessions").insert(session).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def update_reward_session(session_id, updates):
+    supabase = get_supabase_client()
+    return (
+        supabase
+        .table("reward_sessions")
+        .update(updates)
+        .eq("id", session_id)
+        .execute()
+        .data
+    )
+
+
+# -----------------------
+# Points Reset
+# -----------------------
+
+def reset_all_points():
+    """Set points to 0 for all Done tasks."""
+    supabase = get_supabase_client()
+    return (
+        supabase
+        .table("tasks")
+        .update({"points": 0})
+        .eq("status", "Done")
+        .execute()
+        .data
+    )
+
+
+def reset_monthly_points(year, month):
+    """Set points to 0 for tasks completed in a specific month."""
+    supabase = get_supabase_client()
+    month_str = f"{year:04d}-{month:02d}"
+    return (
+        supabase
+        .table("tasks")
+        .update({"points": 0})
+        .eq("status", "Done")
+        .like("completed_date", f"{month_str}%")
+        .execute()
+        .data
+    )
+
+
+def reset_person_points(person_id, is_kid=True):
+    """Set points to 0 for Done tasks of a specific person."""
+    supabase = get_supabase_client()
+    field = "kid_id" if is_kid else "parent_id"
+    return (
+        supabase
+        .table("tasks")
+        .update({"points": 0})
+        .eq("status", "Done")
+        .eq(field, person_id)
+        .execute()
+        .data
+    )
+
+
+def delete_done_tasks():
+    """Delete all Done tasks."""
+    supabase = get_supabase_client()
+    return (
+        supabase
+        .table("tasks")
+        .delete()
+        .eq("status", "Done")
         .execute()
         .data
     )

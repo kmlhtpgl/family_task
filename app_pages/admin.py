@@ -19,9 +19,18 @@ from utils.db_helpers import (
     add_book_template,
     replace_book_template,
     delete_book_template,
-    replace_book_templates
+    replace_book_templates,
+    add_surah,
+    add_surahs,
+    update_surah,
+    delete_surah,
+    reset_all_points,
+    reset_monthly_points,
+    reset_person_points,
+    delete_done_tasks
 )
 from utils.storage_helpers import upload_profile_photo, delete_profile_photo
+from utils.task_helpers import get_effective_points
 
 
 def admin_page(data):
@@ -36,6 +45,8 @@ def admin_page(data):
         ("remove_task", "🗑️ Remove Task"),
         ("book_list", "📚 Book List"),
         ("assign_book", "📖 Assign Book"),
+        ("surah_list", "📖 Surah List"),
+        ("assign_surah", "🎯 Assign Surah"),
         ("settings", "⚙️ Settings")
     ]
 
@@ -70,8 +81,12 @@ def admin_page(data):
         book_list_tab(data)
     elif active == "assign_book":
         assign_book_tab(data)
+    elif active == "surah_list":
+        surah_list_tab(data)
+    elif active == "assign_surah":
+        assign_surah_tab(data)
     elif active == "settings":
-        settings_tab()
+        settings_tab(data)
 
 
 # -----------------------
@@ -1045,10 +1060,150 @@ def assign_book_tab(data):
 
 
 # -----------------------
+# Surah List
+# -----------------------
+
+def surah_list_tab(data):
+    st.subheader("📖 Surah & Dua List")
+
+    st.info("Assign surahs or duas from the list below to children or parents via the 'Assign Surah/Dua' tab.")
+
+    item_type = st.selectbox("Type", ["Surah", "Dua"], key="surah_list_type")
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        title = st.text_input("Name", placeholder="Enter name...", label_visibility="collapsed")
+    with col2:
+        total_ayahs = st.number_input("Ayahs", min_value=1, max_value=300, value=7, label_visibility="collapsed")
+
+    if st.button("Add to List", type="primary"):
+        if not title.strip():
+            st.error("Please enter a name.")
+        else:
+            add_surah({
+                "name": title.strip(),
+                "type": item_type.lower(),
+                "total_ayahs": int(total_ayahs),
+                "memorized_ayahs": 0,
+                "status": "In Progress",
+                "kid_id": None,
+                "parent_id": None
+            })
+            type_label = "dua" if item_type == "Dua" else "surah"
+            st.success(f"✅ {type_label} '{title.strip()}' added!")
+            st.rerun()
+
+    st.divider()
+    st.write("### 📖 Your Items")
+
+    search = st.text_input("🔍 Search", placeholder="Type name...", label_visibility="collapsed")
+
+    assigned = [s for s in data.get("surahs", []) if s.get("kid_id") or s.get("parent_id")]
+
+    if search:
+        assigned = [s for s in assigned if search.lower() in s["name"].lower()]
+
+    if not assigned:
+        st.caption("No items assigned yet.")
+        return
+
+    st.caption(f"Total {len(assigned)} assigned item(s)")
+
+    for surah in assigned:
+        assignee_name = "Unknown"
+        if surah.get("kid_id"):
+            for kid in data["kids"]:
+                if kid["id"] == surah["kid_id"]:
+                    assignee_name = f"🧒 {kid['name']}"
+                    break
+        elif surah.get("parent_id"):
+            for parent in data.get("parents", []):
+                if parent["id"] == surah["parent_id"]:
+                    assignee_name = f"👨‍👩‍👧 {parent['name']}"
+                    break
+
+        item_type = surah.get("type", "surah")
+        icon = "📖" if item_type == "surah" else "🤲"
+        type_label = "surah" if item_type == "surah" else "dua"
+
+        with st.container(border=True):
+            col_info, col_actions = st.columns([4, 1])
+
+            with col_info:
+                st.markdown(
+                    f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
+                    f'<div style="width:50px;height:50px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">{icon}</div>'
+                    f'<div>'
+                    f'<div style="font-size:1.1em;font-weight:700;">{surah["name"]}</div>'
+                    f'<div style="color:#888;font-size:0.85em;">{assignee_name} · {type_label} · {surah["total_ayahs"]} ayahs · {surah.get("memorized_ayahs", 0)} memorized · {surah.get("status", "In Progress")}</div>'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+
+            with col_actions:
+                if st.button("🗑️", key=f"del_surah_{surah['id']}", help="Delete"):
+                    delete_surah(surah["id"])
+                    st.success("✅ Removed!")
+                    st.rerun()
+
+
+# -----------------------
+# Assign Surah
+# -----------------------
+
+def assign_surah_tab(data):
+    st.subheader("🎯 Assign Surah / Dua")
+
+    if not data["kids"] and not data.get("parents"):
+        st.info("Add children or parents first.")
+        return
+
+    assignee_options = build_assignee_options(data)
+
+    with st.form("assign_surah_form"):
+        item_type = st.selectbox("Type", ["Surah", "Dua"], key="assign_surah_type")
+        name = st.text_input("Name", placeholder="e.g. Al-Fatiha" if item_type == "Surah" else "e.g. Subhaneke")
+        total_ayahs = st.number_input("Total ayahs", min_value=1, max_value=300, value=7)
+
+        assign_to = st.selectbox(
+            "Assign to",
+            list(assignee_options.keys()),
+            key="assign_surah_to"
+        )
+
+        submitted = st.form_submit_button("Assign")
+
+        if submitted:
+            if not name.strip():
+                st.error("Please enter a name.")
+                return
+
+            selected_assignees = assignee_options[assign_to]
+            new_items = []
+
+            for assignee in selected_assignees:
+                new_item = {
+                    "name": name.strip(),
+                    "type": item_type.lower(),
+                    "kid_id": assignee.get("kid_id"),
+                    "parent_id": assignee.get("parent_id"),
+                    "total_ayahs": int(total_ayahs),
+                    "memorized_ayahs": 0,
+                    "status": "In Progress"
+                }
+                new_items.append(new_item)
+
+            add_surahs(new_items)
+            st.success(f"✅ '{name.strip()}' assigned!")
+            st.rerun()
+
+
+# -----------------------
 # Settings
 # -----------------------
 
-def settings_tab():
+def settings_tab(data):
     st.subheader("⚙️ Settings")
 
     st.info(
@@ -1057,3 +1212,79 @@ def settings_tab():
     )
 
     st.success("✅ Parent and child profiles with photos are fully available!")
+
+    st.divider()
+    st.subheader("🔄 Reset Points")
+
+    st.warning("⚠️ This action cannot be undone. Choose carefully.")
+
+    reset_option = st.radio(
+        "What would you like to reset?",
+        [
+            "Reset ALL points to 0",
+            "Delete all Done tasks (permanent)",
+            "Reset this month's points to 0",
+            "Reset a specific person's points to 0"
+        ],
+        key="reset_option"
+    )
+
+    target_person_id = None
+    is_kid = True
+
+    if reset_option == "Reset this month's points to 0":
+        from datetime import date
+        today = date.today()
+        st.info(f"This will reset points for {today.strftime('%B %Y')}")
+
+    elif reset_option == "Reset a specific person's points to 0":
+        person_options = {}
+
+        for kid in data["kids"]:
+            person_options[f"🧒 {kid['name']}"] = {"id": kid["id"], "is_kid": True}
+
+        for parent in data.get("parents", []):
+            person_options[f"👨‍👩‍👧 {parent['name']}"] = {"id": parent["id"], "is_kid": False}
+
+        selected_person = st.selectbox(
+            "Choose person",
+            list(person_options.keys()),
+            key="reset_person_select"
+        )
+
+        if selected_person:
+            target_person_id = person_options[selected_person]["id"]
+            is_kid = person_options[selected_person]["is_kid"]
+
+    confirm_text = st.text_input(
+        "Type RESET to confirm",
+        type="default",
+        placeholder="Type RESET here...",
+        key="reset_confirm"
+    )
+
+    if st.button("🚨 Execute Reset", type="primary", use_container_width=True):
+        if confirm_text != "RESET":
+            st.error("Please type RESET to confirm.")
+            return
+
+        from datetime import date
+
+        if reset_option == "Reset ALL points to 0":
+            count = reset_all_points()
+            st.success(f"✅ All Done task points reset to 0! ({len(count)} tasks affected)")
+
+        elif reset_option == "Delete all Done tasks (permanent)":
+            count = delete_done_tasks()
+            st.success(f"✅ All Done tasks deleted! ({len(count)} tasks removed)")
+
+        elif reset_option == "Reset this month's points to 0":
+            today = date.today()
+            count = reset_monthly_points(today.year, today.month)
+            st.success(f"✅ Points reset for {today.strftime('%B %Y')}! ({len(count)} tasks affected)")
+
+        elif reset_option == "Reset a specific person's points to 0" and target_person_id is not None:
+            count = reset_person_points(target_person_id, is_kid)
+            st.success(f"✅ Points reset for selected person! ({len(count)} tasks affected)")
+
+        st.rerun()

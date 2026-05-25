@@ -1,6 +1,8 @@
+from datetime import date
+
 import streamlit as st
 
-from utils.task_helpers import get_total_points_for_kid, get_rank
+from utils.task_helpers import get_total_points_for_kid, get_monthly_points_for_kid, get_rank, get_overdue_task_count
 from utils.book_helpers import get_finished_books, split_books_by_language
 from utils.achievement_helpers import get_kid_achievements
 from utils.data_helpers import today_string
@@ -53,6 +55,25 @@ def show_kid_profile(data, kid):
             f'<div class="metric-card"><h3>⭐ Total Points</h3><div class="value">{total_points}</div></div>',
             unsafe_allow_html=True
         )
+
+        today = date.today()
+        monthly_pts = get_monthly_points_for_kid(data, kid["id"], today.year, today.month)
+        gbp = monthly_pts / 300
+        st.markdown(
+            f'<div style="padding:12px;background:rgba(255,215,0,0.1);border-radius:12px;border:1px solid #FFD700;margin-top:8px;">'
+            f'<strong>💰 This Month:</strong> {monthly_pts} pts = £{gbp:.2f}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+        overdue = get_overdue_task_count(data, kid["id"], is_kid=True)
+        if overdue > 0:
+            st.markdown(
+                f'<div style="padding:12px;background:rgba(255,0,0,0.08);border-radius:12px;border:1px solid #FF4444;margin-top:8px;">'
+                f'<strong>⚠️ Overdue:</strong> {overdue} task(s) past due date'
+                f'</div>',
+                unsafe_allow_html=True
+            )
         st.markdown(
             f'<div style="text-align:center;padding:12px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:12px;color:white;margin-top:8px;">'
             f'<span style="font-size:2.5em;">{icon}</span><br>'

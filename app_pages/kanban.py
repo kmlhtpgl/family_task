@@ -3,7 +3,7 @@ from datetime import date
 from streamlit_sortables import sort_items
 
 from utils.data_helpers import get_kid
-from utils.task_helpers import TASK_STATUSES
+from utils.task_helpers import TASK_STATUSES, get_effective_points, OVERDUE_DAYS
 from utils.db_helpers import update_task
 
 
@@ -187,6 +187,7 @@ def kanban_page(data):
 
 def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
     changed = False
+    overdue_warnings = []
 
     for container in sorted_containers:
         new_status = container["header"].split(" (")[0]
@@ -216,6 +217,11 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
                             updates["completed_date"] = today.isoformat()
                             updates["completed_week"] = f"{year}-W{week}"
 
+                            task_copy = {**task, "completed_date": today.isoformat()}
+                            effective = get_effective_points(task_copy)
+                            if effective == 0:
+                                overdue_warnings.append(task["title"])
+
                         elif old_status == "Done" and new_status != "Done":
                             updates["completed_date"] = None
                             updates["completed_week"] = None
@@ -224,6 +230,12 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
                         changed = True
 
                     break
+
+    if overdue_warnings:
+        st.warning(
+            f"⚠️ {len(overdue_warnings)} task(s) were overdue by more than {OVERDUE_DAYS} days. "
+            f"0 points awarded for: {', '.join(overdue_warnings)}"
+        )
 
     return changed
 

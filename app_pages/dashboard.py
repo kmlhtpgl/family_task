@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import date, timedelta
 
 from utils.data_helpers import get_kid, today_string, current_week_key
-from utils.task_helpers import get_today_tasks, get_rank, get_total_points_for_kid, get_total_points_for_parent, TASK_STATUSES
+from utils.task_helpers import get_today_tasks, get_rank, get_total_points_for_kid, get_total_points_for_parent, TASK_STATUSES, get_effective_points, OVERDUE_DAYS
 from utils.db_helpers import update_task
 
 
@@ -137,15 +137,19 @@ def show_today_tasks(data):
                     updates["completed_date"] = today.isoformat()
                     updates["completed_week"] = f"{year}-W{week}"
 
+                    task_copy = {**task, "completed_date": today.isoformat()}
+                    effective = get_effective_points(task_copy)
+                    if effective == 0:
+                        st.warning(f"⚠️ This task was overdue by more than {OVERDUE_DAYS} days. 0 points awarded.")
+                    else:
+                        st.success(f"Well done! {effective} points added.")
                 elif task["status"] == "Done" and new_status != "Done":
                     updates["completed_date"] = None
                     updates["completed_week"] = None
+                else:
+                    st.success(f"Task moved to {new_status}.")
 
                 update_task(task["id"], updates)
-
-                if new_status == "Done":
-                    st.success(f"Well done! {task['points']} points added.")
-
                 st.rerun()
 
 
