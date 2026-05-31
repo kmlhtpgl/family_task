@@ -22,26 +22,19 @@ def surah_memorization_page(data):
         st.info("No surahs or duas assigned yet. Go to Admin to assign them.")
         return
 
-    reader_group = st.segmented_control(
-        "Type", ["Kids", "Parents"], key="surah_reader_group"
-    )
+    reader_labels = [f"🧒 {k['name']}" for k in data["kids"]]
+    reader_labels += [f"👨‍👩‍👧 {p['name']}" for p in data.get("parents", [])]
 
-    reader_id = None
-    is_parent = False
+    selected_label = st.radio("Choose reader", reader_labels, horizontal=True, key="surah_reader_select")
 
-    if reader_group == "Kids" and data["kids"]:
-        kid_names = [kid["name"] for kid in data["kids"]]
-        selected = st.radio("Choose reader", kid_names, horizontal=True, key="surah_reader_kid")
-        reader_id = next(k["id"] for k in data["kids"] if k["name"] == selected)
-    elif reader_group == "Parents" and data.get("parents"):
-        parent_names = [p["name"] for p in data["parents"]]
-        selected = st.radio("Choose reader", parent_names, horizontal=True, key="surah_reader_parent")
-        reader_id = next(p["id"] for p in data["parents"] if p["name"] == selected)
+    if selected_label.startswith("🧒 "):
+        name = selected_label.replace("🧒 ", "")
+        reader_id = next(k["id"] for k in data["kids"] if k["name"] == name)
+        is_parent = False
+    else:
+        name = selected_label.replace("👨‍👩‍👧 ", "")
+        reader_id = next(p["id"] for p in data["parents"] if p["name"] == name)
         is_parent = True
-
-    if reader_id is None:
-        st.info("Select a reader above.")
-        return
 
     show_surahs_common(data, reader_id, is_parent)
     st.divider()

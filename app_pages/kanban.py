@@ -20,41 +20,20 @@ def kanban_page(data):
         value=date.today()
     )
 
-    kid_names = [kid["name"] for kid in data["kids"]]
-    parent_names = [p["name"] for p in data.get("parents", [])]
+    filter_labels = ["All"]
+    filter_labels.extend([f"🧒 {kid['name']}" for kid in data["kids"]])
+    filter_labels.extend([f"👨‍👩‍👧 {p['name']}" for p in data.get("parents", [])])
 
-    filter_group = st.segmented_control(
-        "Filter",
-        ["All", "Kids", "Parents"],
-        key="kanban_filter_group"
+    selected_filter = st.segmented_control(
+        "Filter", filter_labels, key="kanban_filter"
     )
-
-    filter_person_id = None
-    filter_is_kid = True
-
-    if filter_group == "Kids" and kid_names:
-        kid_choices = ["All children"] + kid_names
-        selected_kid = st.radio(
-            "Select child", kid_choices, horizontal=True, key="kanban_filter_kid"
-        )
-        if selected_kid != "All children":
-            filter_person_id = next(k["id"] for k in data["kids"] if k["name"] == selected_kid)
-        filter_is_kid = True
-    elif filter_group == "Parents" and parent_names:
-        parent_choices = ["All parents"] + parent_names
-        selected_parent = st.radio(
-            "Select parent", parent_choices, horizontal=True, key="kanban_filter_parent"
-        )
-        if selected_parent != "All parents":
-            filter_person_id = next(p["id"] for p in data["parents"] if p["name"] == selected_parent)
-        filter_is_kid = False
 
     daily_tasks = [
         task for task in data["tasks"]
         if task.get("due_date") == selected_date.isoformat()
     ]
 
-    filtered_tasks = filter_tasks(daily_tasks, filter_group, filter_person_id, filter_is_kid)
+    filtered_tasks = filter_tasks(daily_tasks, selected_filter, data)
 
     if not filtered_tasks:
         st.info("No tasks for this date.")
@@ -181,7 +160,7 @@ def kanban_page(data):
         containers,
         multi_containers=True,
         custom_style=custom_style,
-        key=f"kanban_sortable_{selected_date}_{filter_group}_{filter_person_id or 'all'}"
+        key=f"kanban_sortable_{selected_date}_{selected_filter}"
     )
 
     changed = update_task_statuses_from_board(
@@ -250,19 +229,21 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
     return changed
 
 
-def filter_tasks(tasks, filter_group, person_id, is_kid):
-    if filter_group == "All":
+def filter_tasks(tasks, selected_filter, data):
+    if selected_filter == "All":
         return tasks
 
-    if filter_group == "Kids":
-        if person_id is not None:
-            return [t for t in tasks if t.get("kid_id") == person_id]
-        return [t for t in tasks if t.get("kid_id") is not None]
+    if selected_filter.startswith("🧒 "):
+        name = selected_filter.replace("🧒 ", "")
+        kid = next((k for k in data["kids"] if k["name"] == name), None)
+        if kid:
+            return [t for t in tasks if t.get("kid_id") == kid["id"]]
 
-    if filter_group == "Parents":
-        if person_id is not None:
-            return [t for t in tasks if t.get("parent_id") == person_id]
-        return [t for t in tasks if t.get("parent_id") is not None]
+    if selected_filter.startswith("👨‍👩‍👧 "):
+        name = selected_filter.replace("👨‍👩‍👧 ", "")
+        parent = next((p for p in data.get("parents", []) if p["name"] == name), None)
+        if parent:
+            return [t for t in tasks if t.get("parent_id") == parent["id"]]
 
     return tasks
 

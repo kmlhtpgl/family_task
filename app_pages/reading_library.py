@@ -19,32 +19,20 @@ def reading_library_page(data):
         st.info("Add children or parents first in Admin.")
         return
 
-    reader_group = st.segmented_control(
-        "Type", ["Kids", "Parents"], key="reader_group"
-    )
+    reader_labels = [f"🧒 {k['name']}" for k in data["kids"]]
+    reader_labels += [f"👨‍👩‍👧 {p['name']}" for p in data.get("parents", [])]
 
-    reader_id = None
-    is_parent = False
+    selected_label = st.radio("Choose reader", reader_labels, horizontal=True, key="reader_select")
 
-    if reader_group == "Kids" and data["kids"]:
-        kid_names = [kid["name"] for kid in data["kids"]]
-        selected = st.radio("Choose reader", kid_names, horizontal=True, key="reader_kid")
-        reader_id = next(k["id"] for k in data["kids"] if k["name"] == selected)
-    elif reader_group == "Parents" and data.get("parents"):
-        parent_names = [p["name"] for p in data["parents"]]
-        selected = st.radio("Choose reader", parent_names, horizontal=True, key="reader_parent")
-        reader_id = next(p["id"] for p in data["parents"] if p["name"] == selected)
-        is_parent = True
-
-    if reader_id is None:
-        st.info("Select a reader above.")
-        return
-
-    if not is_parent:
+    if selected_label.startswith("🧒 "):
+        name = selected_label.replace("🧒 ", "")
+        reader_id = next(k["id"] for k in data["kids"] if k["name"] == name)
         show_books_in_progress(data, reader_id, is_parent=False)
         st.divider()
         show_finished_books(data, reader_id, is_parent=False)
     else:
+        name = selected_label.replace("👨‍👩‍👧 ", "")
+        reader_id = next(p["id"] for p in data["parents"] if p["name"] == name)
         show_books_in_progress(data, reader_id, is_parent=True)
         st.divider()
         show_finished_books(data, reader_id, is_parent=True)

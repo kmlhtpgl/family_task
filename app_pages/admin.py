@@ -679,21 +679,16 @@ def remove_assignment_tab(data):
             t["_assignee_name"] = parents.get(t["parent_id"])
 
     with st.expander("🔍 Filter tasks", expanded=True):
-        filter_group = st.segmented_control(
-            "Filter by", ["All", "Kids", "Parents"], key="admin_filter_group"
+        filter_choices = ["All"]
+        if data["kids"]:
+            filter_choices.append("All children")
+            filter_choices.extend([f"🧒 {k['name']}" for k in data["kids"]])
+        if data.get("parents"):
+            filter_choices.append("All parents")
+            filter_choices.extend([f"👨‍👩‍👧 {p['name']}" for p in data["parents"]])
+        selected_filter = st.segmented_control(
+            "Filter by", filter_choices, key="admin_filter_select"
         )
-
-        filter_assignee = None
-        if filter_group == "Kids" and data["kids"]:
-            kid_choices = ["All children"] + [k["name"] for k in data["kids"]]
-            filter_assignee = st.radio(
-                "Child", kid_choices, horizontal=True, key="admin_filter_kid"
-            )
-        elif filter_group == "Parents" and data.get("parents"):
-            parent_choices = ["All parents"] + [p["name"] for p in data["parents"]]
-            filter_assignee = st.radio(
-                "Parent", parent_choices, horizontal=True, key="admin_filter_parent"
-            )
 
         scol1, scol2 = st.columns(2)
         with scol1:
@@ -707,16 +702,16 @@ def remove_assignment_tab(data):
     filtered = tasks
     if search_title:
         filtered = [t for t in filtered if search_title.lower() in t["title"].lower()]
-    if filter_group == "Kids":
-        if filter_assignee and filter_assignee != "All children":
-            filtered = [t for t in filtered if t.get("kid_id") and t["_assignee_name"] == filter_assignee]
-        elif filter_assignee == "All children":
-            filtered = [t for t in filtered if t.get("kid_id")]
-    elif filter_group == "Parents":
-        if filter_assignee and filter_assignee != "All parents":
-            filtered = [t for t in filtered if t.get("parent_id") and t["_assignee_name"] == filter_assignee]
-        elif filter_assignee == "All parents":
-            filtered = [t for t in filtered if t.get("parent_id")]
+    if selected_filter == "All children":
+        filtered = [t for t in filtered if t.get("kid_id")]
+    elif selected_filter == "All parents":
+        filtered = [t for t in filtered if t.get("parent_id")]
+    elif selected_filter.startswith("🧒 "):
+        name = selected_filter.replace("🧒 ", "")
+        filtered = [t for t in filtered if t.get("kid_id") and t["_assignee_name"] == name]
+    elif selected_filter.startswith("👨‍👩‍👧 "):
+        name = selected_filter.replace("👨‍👩‍👧 ", "")
+        filtered = [t for t in filtered if t.get("parent_id") and t["_assignee_name"] == name]
     if filter_status != "All":
         filtered = [t for t in filtered if t.get("status") == filter_status]
 
@@ -762,53 +757,50 @@ def remove_assignment_tab(data):
 
 
 def render_assignee_selector(data, key_prefix):
-    """Touch-friendly assignee picker: segmented control + radio.
+    """Touch-friendly assignee picker with flat name list.
     Returns a list of assignee dicts like [{"kid_id": 1, "parent_id": None}, ...]."""
-    group = st.segmented_control("Assign to", ["Kids", "Parents"], key=f"{key_prefix}_group")
-    if group == "Kids":
-        if not data["kids"]:
-            st.warning("No kids added yet.")
-            return []
-        choices = ["All children"] + [k["name"] for k in data["kids"]]
-        selected = st.radio("Choose", choices, horizontal=True, key=f"{key_prefix}_name")
-        if selected == "All children":
-            return [{"kid_id": k["id"], "parent_id": None} for k in data["kids"]]
-        kid = next(k for k in data["kids"] if k["name"] == selected)
+    choices = []
+    if data["kids"]:
+        choices.append("All children")
+        choices.extend([f"🧒 {k['name']}" for k in data["kids"]])
+    if data.get("parents"):
+        choices.append("All parents")
+        choices.extend([f"👨‍👩‍👧 {p['name']}" for p in data["parents"]])
+    if not choices:
+        st.warning("No children or parents added yet.")
+        return []
+    selected = st.radio("Assign to", choices, horizontal=True, key=f"{key_prefix}_name")
+    if selected == "All children":
+        return [{"kid_id": k["id"], "parent_id": None} for k in data["kids"]]
+    if selected == "All parents":
+        return [{"kid_id": None, "parent_id": p["id"]} for p in data["parents"]]
+    if selected.startswith("🧒 "):
+        name = selected.replace("🧒 ", "")
+        kid = next(k for k in data["kids"] if k["name"] == name)
         return [{"kid_id": kid["id"], "parent_id": None}]
-    elif group == "Parents":
-        if not data.get("parents"):
-            st.warning("No parents added yet.")
-            return []
-        choices = ["All parents"] + [p["name"] for p in data["parents"]]
-        selected = st.radio("Choose", choices, horizontal=True, key=f"{key_prefix}_name")
-        if selected == "All parents":
-            return [{"kid_id": None, "parent_id": p["id"]} for p in data["parents"]]
-        parent = next(p for p in data["parents"] if p["name"] == selected)
+    if selected.startswith("👨‍👩‍👧 "):
+        name = selected.replace("👨‍👩‍👧 ", "")
+        parent = next(p for p in data["parents"] if p["name"] == name)
         return [{"kid_id": None, "parent_id": parent["id"]}]
     return []
 
 
 def render_person_selector(data, key_prefix):
-    """Touch-friendly person picker: segmented control + radio.
+    """Touch-friendly person picker with flat name list.
     Returns (person_id, person_type) or None if nothing selected."""
-    group = st.segmented_control("Type", ["Kids", "Parents"], key=f"{key_prefix}_group")
-    if group == "Kids":
-        if not data["kids"]:
-            st.warning("No kids added yet.")
-            return None
-        names = [k["name"] for k in data["kids"]]
-        selected = st.radio("Select", names, horizontal=True, key=f"{key_prefix}_name")
-        kid = next(k for k in data["kids"] if k["name"] == selected)
+    choices = [f"🧒 {k['name']}" for k in data["kids"]]
+    choices += [f"👨‍👩‍👧 {p['name']}" for p in data.get("parents", [])]
+    if not choices:
+        st.warning("No children or parents added yet.")
+        return None
+    selected = st.radio("Select", choices, horizontal=True, key=f"{key_prefix}_name")
+    if selected.startswith("🧒 "):
+        name = selected.replace("🧒 ", "")
+        kid = next(k for k in data["kids"] if k["name"] == name)
         return (kid["id"], "kid")
-    elif group == "Parents":
-        if not data.get("parents"):
-            st.warning("No parents added yet.")
-            return None
-        names = [p["name"] for p in data["parents"]]
-        selected = st.radio("Select", names, horizontal=True, key=f"{key_prefix}_name")
-        parent = next(p for p in data["parents"] if p["name"] == selected)
-        return (parent["id"], "parent")
-    return None
+    name = selected.replace("👨‍👩‍👧 ", "")
+    parent = next(p for p in data["parents"] if p["name"] == name)
+    return (parent["id"], "parent")
 
 
 def generate_daily_dates(start_date, end_date):
