@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS public.reward_sessions (
     paid_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS public.points_adjustments (
+    id SERIAL PRIMARY KEY,
+    person_id INTEGER NOT NULL,
+    person_type TEXT NOT NULL CHECK (person_type IN ('kid', 'parent')),
+    points INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
 """
 
 

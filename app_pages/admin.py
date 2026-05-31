@@ -30,7 +30,9 @@ from utils.db_helpers import (
     reset_all_points,
     reset_monthly_points,
     reset_person_points,
-    delete_done_tasks
+    delete_done_tasks,
+    add_points_adjustment,
+    delete_points_adjustment
 )
 from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
@@ -52,6 +54,7 @@ def admin_page(data):
         ("assign_book", "📖 Assign Book"),
         ("surah_list", "📖 Surah List"),
         ("assign_surah", "🎯 Assign Surah"),
+        ("bonus_penalty", "🎯 Bonus/Penalty"),
         ("settings", "⚙️ Settings")
     ]
 
@@ -90,6 +93,8 @@ def admin_page(data):
         surah_list_tab(data)
     elif active == "assign_surah":
         assign_surah_tab(data)
+    elif active == "bonus_penalty":
+        bonus_penalty_tab(data)
     elif active == "settings":
         settings_tab(data)
 
@@ -1253,6 +1258,73 @@ def assign_surah_tab(data):
             add_surahs(new_items)
             st.success(f"✅ '{selected['name']}' assigned!")
             st.rerun()
+
+
+# -----------------------
+# Bonus / Penalty
+# -----------------------
+
+def bonus_penalty_tab(data):
+    st.subheader("🎯 Bonus / Penalty Points")
+    st.caption("Add bonus points as a reward or deduct points as a punishment.")
+
+    st.markdown("### ➕ Add Adjustment")
+
+    person_options = {}
+    for kid in data["kids"]:
+        person_options[f"🧒 {kid['name']} (Kid)"] = {"id": kid["id"], "type": "kid"}
+    for parent in data.get("parents", []):
+        person_options[f"👨‍👩‍👧 {parent['name']} (Parent)"] = {"id": parent["id"], "type": "parent"}
+
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        selected_label = st.selectbox("Person", list(person_options.keys()), key="bonus_person")
+    with col2:
+        points_val = st.number_input("Points", value=10, step=1, key="bonus_points",
+                                     help="Positive = bonus, Negative = penalty")
+
+    if st.button("Apply Adjustment", type="primary", use_container_width=True):
+        selected = person_options[selected_label]
+        add_points_adjustment(selected["id"], selected["type"], points_val)
+        st.success(f"✅ {'Bonus' if points_val > 0 else 'Penalty'} of {points_val} pts applied to {selected_label.split(' (')[0]}!")
+        st.rerun()
+
+    st.divider()
+    st.markdown("### 📜 Adjustment History")
+
+    adjustments = data.get("points_adjustments", [])
+    if not adjustments:
+        st.info("No adjustments recorded yet.")
+        return
+
+    name_lookup = {}
+    for kid in data["kids"]:
+        name_lookup[("kid", kid["id"])] = f"🧒 {kid['name']}"
+    for parent in data.get("parents", []):
+        name_lookup[("parent", parent["id"])] = f"👨‍👩‍👧 {parent['name']}"
+
+    sorted_adjustments = sorted(adjustments, key=lambda x: x.get("created_at", ""), reverse=True)
+
+    for adj in sorted_adjustments:
+        key = (adj["person_type"], adj["person_id"])
+        person_name = name_lookup.get(key, f"Unknown ({adj['person_type']} #{adj['person_id']})")
+        pts = adj["points"]
+        created = adj.get("created_at", "Unknown")[:10]
+        sign = "+" if pts > 0 else ""
+        color = "#4CAF50" if pts > 0 else "#FF5252"
+
+        col1, col2, col3, col4 = st.columns([2, 1, 1, 0.7])
+        with col1:
+            st.write(person_name)
+        with col2:
+            st.markdown(f"<span style='color:{color};font-weight:700;'>{sign}{pts}</span>",
+                        unsafe_allow_html=True)
+        with col3:
+            st.write(created)
+        with col4:
+            if st.button("🗑️", key=f"del_adj_{adj['id']}", help="Delete this adjustment"):
+                delete_points_adjustment(adj["id"])
+                st.rerun()
 
 
 # -----------------------

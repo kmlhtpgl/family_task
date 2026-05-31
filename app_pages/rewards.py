@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 import streamlit as st
 
-from utils.task_helpers import get_monthly_points_for_kid, get_monthly_points_for_parent
+from utils.task_helpers import get_monthly_points_for_kid, get_monthly_points_for_parent, get_monthly_adjustment_points
 from utils.db_helpers import add_reward_session, update_reward_session
 
 
@@ -55,7 +55,9 @@ def rewards_page(data):
 
 
 def show_kid_reward(data, kid, year, month):
-    pts = get_monthly_points_for_kid(data, kid["id"], year, month)
+    task_pts = get_monthly_points_for_kid(data, kid["id"], year, month)
+    adj_pts = get_monthly_adjustment_points(data, kid["id"], "kid", year, month)
+    pts = task_pts + adj_pts
     gbp = pts / POINTS_PER_GBP
 
     existing = find_existing_session(data, kid["id"], year, month, is_kid=True)
@@ -98,7 +100,9 @@ def show_kid_reward(data, kid, year, month):
 
 
 def show_parent_reward(data, parent, year, month):
-    pts = get_monthly_points_for_parent(data, parent["id"], year, month)
+    task_pts = get_monthly_points_for_parent(data, parent["id"], year, month)
+    adj_pts = get_monthly_adjustment_points(data, parent["id"], "parent", year, month)
+    pts = task_pts + adj_pts
     gbp = pts / POINTS_PER_GBP
 
     existing = find_existing_session(data, parent["id"], year, month, is_kid=False)

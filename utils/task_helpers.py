@@ -183,6 +183,21 @@ def get_monthly_points_for_all(data, year, month):
     return scores
 
 
+def get_monthly_adjustment_points(data, person_id, person_type, year, month):
+    """
+    Sums bonus/penalty point adjustments for a person in a specific month.
+    Adjustments only affect monthly reward calculations.
+    """
+    month_str = f"{year:04d}-{month:02d}"
+    total = 0
+    for adj in data.get("points_adjustments", []):
+        if adj.get("person_id") == person_id and adj.get("person_type") == person_type:
+            created = adj.get("created_at", "")
+            if created.startswith(month_str):
+                total += adj.get("points", 0)
+    return total
+
+
 def get_overdue_task_count(data, person_id, is_kid=True):
     """Count how many overdue tasks a person has."""
     count = 0

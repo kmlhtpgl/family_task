@@ -24,6 +24,11 @@ def get_all_data(retries=3, delay=0.5):
             except Exception:
                 reward_sessions = []
 
+            try:
+                points_adjustments = supabase.table("points_adjustments").select("*").order("id").execute().data
+            except Exception:
+                points_adjustments = []
+
             return {
                 "parents": parents,
                 "kids": kids,
@@ -31,6 +36,7 @@ def get_all_data(retries=3, delay=0.5):
                 "books": books,
                 "surahs": surahs,
                 "reward_sessions": reward_sessions,
+                "points_adjustments": points_adjustments,
                 "task_templates": task_templates,
                 "book_templates": book_templates,
                 "settings": {
@@ -533,6 +539,39 @@ def delete_done_tasks():
         .table("tasks")
         .delete()
         .eq("status", "Done")
+        .execute()
+        .data
+    )
+
+
+# -----------------------
+# Points Adjustments
+# -----------------------
+
+def add_points_adjustment(person_id, person_type, points):
+    """Add a bonus (positive) or penalty (negative) point adjustment."""
+    supabase = get_supabase_client()
+    return (
+        supabase
+        .table("points_adjustments")
+        .insert({
+            "person_id": person_id,
+            "person_type": person_type,
+            "points": points
+        })
+        .execute()
+        .data
+    )
+
+
+def delete_points_adjustment(adjustment_id):
+    """Delete a points adjustment by ID."""
+    supabase = get_supabase_client()
+    return (
+        supabase
+        .table("points_adjustments")
+        .delete()
+        .eq("id", adjustment_id)
         .execute()
         .data
     )
