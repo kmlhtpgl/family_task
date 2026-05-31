@@ -25,7 +25,7 @@ def kanban_page(data):
     filter_labels.extend([f"👨‍👩‍👧 {p['name']}" for p in data.get("parents", [])])
 
     selected_filter = st.segmented_control(
-        "Filter", filter_labels, key="kanban_filter"
+        "Filter", filter_labels, default="All", key="kanban_filter"
     )
 
     daily_tasks = [

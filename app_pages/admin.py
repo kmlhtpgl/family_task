@@ -687,7 +687,7 @@ def remove_assignment_tab(data):
             filter_choices.append("All parents")
             filter_choices.extend([f"👨‍👩‍👧 {p['name']}" for p in data["parents"]])
         selected_filter = st.segmented_control(
-            "Filter by", filter_choices, key="admin_filter_select"
+            "Filter by", filter_choices, default="All", key="admin_filter_select"
         )
 
         scol1, scol2 = st.columns(2)
