@@ -33,16 +33,20 @@ def kanban_page(data):
     filter_is_kid = True
 
     if filter_group == "Kids" and kid_names:
+        kid_choices = ["All children"] + kid_names
         selected_kid = st.radio(
-            "Select child", kid_names, horizontal=True, key="kanban_filter_kid"
+            "Select child", kid_choices, horizontal=True, key="kanban_filter_kid"
         )
-        filter_person_id = next(k["id"] for k in data["kids"] if k["name"] == selected_kid)
+        if selected_kid != "All children":
+            filter_person_id = next(k["id"] for k in data["kids"] if k["name"] == selected_kid)
         filter_is_kid = True
     elif filter_group == "Parents" and parent_names:
+        parent_choices = ["All parents"] + parent_names
         selected_parent = st.radio(
-            "Select parent", parent_names, horizontal=True, key="kanban_filter_parent"
+            "Select parent", parent_choices, horizontal=True, key="kanban_filter_parent"
         )
-        filter_person_id = next(p["id"] for p in data["parents"] if p["name"] == selected_parent)
+        if selected_parent != "All parents":
+            filter_person_id = next(p["id"] for p in data["parents"] if p["name"] == selected_parent)
         filter_is_kid = False
 
     daily_tasks = [
@@ -177,7 +181,7 @@ def kanban_page(data):
         containers,
         multi_containers=True,
         custom_style=custom_style,
-        key=f"kanban_sortable_{selected_date}_{selected_filter}"
+        key=f"kanban_sortable_{selected_date}_{filter_group}_{filter_person_id or 'all'}"
     )
 
     changed = update_task_statuses_from_board(
