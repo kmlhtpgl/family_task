@@ -19,35 +19,35 @@ def reading_library_page(data):
         st.info("Add children or parents first in Admin.")
         return
 
-    reader_options = build_reader_options(data)
-
-    selected_label = st.selectbox(
-        "Choose reader",
-        list(reader_options.keys())
+    reader_group = st.segmented_control(
+        "Type", ["Kids", "Parents"], key="reader_group"
     )
 
-    reader_info = reader_options[selected_label]
+    reader_id = None
+    is_parent = False
 
-    if reader_info["type"] == "kid":
-        show_books_in_progress(data, reader_info["id"], is_parent=False)
+    if reader_group == "Kids" and data["kids"]:
+        kid_names = [kid["name"] for kid in data["kids"]]
+        selected = st.radio("Choose reader", kid_names, horizontal=True, key="reader_kid")
+        reader_id = next(k["id"] for k in data["kids"] if k["name"] == selected)
+    elif reader_group == "Parents" and data.get("parents"):
+        parent_names = [p["name"] for p in data["parents"]]
+        selected = st.radio("Choose reader", parent_names, horizontal=True, key="reader_parent")
+        reader_id = next(p["id"] for p in data["parents"] if p["name"] == selected)
+        is_parent = True
+
+    if reader_id is None:
+        st.info("Select a reader above.")
+        return
+
+    if not is_parent:
+        show_books_in_progress(data, reader_id, is_parent=False)
         st.divider()
-        show_finished_books(data, reader_info["id"], is_parent=False)
+        show_finished_books(data, reader_id, is_parent=False)
     else:
-        show_books_in_progress(data, reader_info["id"], is_parent=True)
+        show_books_in_progress(data, reader_id, is_parent=True)
         st.divider()
-        show_finished_books(data, reader_info["id"], is_parent=True)
-
-
-def build_reader_options(data):
-    options = {}
-
-    for kid in data["kids"]:
-        options[f"🧒 {kid['name']}"] = {"type": "kid", "id": kid["id"]}
-
-    for parent in data.get("parents", []):
-        options[f"👨‍👩‍👧 {parent['name']}"] = {"type": "parent", "id": parent["id"]}
-
-    return options
+        show_finished_books(data, reader_id, is_parent=True)
 
 
 def show_books_in_progress(data, reader_id, is_parent=False):

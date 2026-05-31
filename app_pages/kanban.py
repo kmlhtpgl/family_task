@@ -20,31 +20,37 @@ def kanban_page(data):
         value=date.today()
     )
 
-    kid_options = {kid["name"]: kid["id"] for kid in data["kids"]}
-    parent_options = {p["name"]: p["id"] for p in data.get("parents", [])}
+    kid_names = [kid["name"] for kid in data["kids"]]
+    parent_names = [p["name"] for p in data.get("parents", [])]
 
-    filter_labels = ["All tasks"]
-
-    if kid_options:
-        filter_labels.append("🧒 All children")
-
-    if parent_options:
-        filter_labels.append("👨‍👩‍👧 All parents")
-
-    filter_labels.extend([f"🧒 {name}" for name in kid_options.keys()])
-    filter_labels.extend([f"👨‍👩‍👧 {name}" for name in parent_options.keys()])
-
-    selected_filter = st.selectbox(
-        "Filter tasks",
-        filter_labels
+    filter_group = st.segmented_control(
+        "Filter",
+        ["All", "Kids", "Parents"],
+        key="kanban_filter_group"
     )
+
+    filter_person_id = None
+    filter_is_kid = True
+
+    if filter_group == "Kids" and kid_names:
+        selected_kid = st.radio(
+            "Select child", kid_names, horizontal=True, key="kanban_filter_kid"
+        )
+        filter_person_id = next(k["id"] for k in data["kids"] if k["name"] == selected_kid)
+        filter_is_kid = True
+    elif filter_group == "Parents" and parent_names:
+        selected_parent = st.radio(
+            "Select parent", parent_names, horizontal=True, key="kanban_filter_parent"
+        )
+        filter_person_id = next(p["id"] for p in data["parents"] if p["name"] == selected_parent)
+        filter_is_kid = False
 
     daily_tasks = [
         task for task in data["tasks"]
         if task.get("due_date") == selected_date.isoformat()
     ]
 
-    filtered_tasks = filter_tasks(daily_tasks, selected_filter, kid_options, parent_options)
+    filtered_tasks = filter_tasks(daily_tasks, filter_group, filter_person_id, filter_is_kid)
 
     if not filtered_tasks:
         st.info("No tasks for this date.")
@@ -240,27 +246,19 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
     return changed
 
 
-def filter_tasks(tasks, selected_filter, kid_options, parent_options):
-    if selected_filter == "All tasks":
+def filter_tasks(tasks, filter_group, person_id, is_kid):
+    if filter_group == "All":
         return tasks
 
-    if selected_filter == "🧒 All children":
+    if filter_group == "Kids":
+        if person_id is not None:
+            return [t for t in tasks if t.get("kid_id") == person_id]
         return [t for t in tasks if t.get("kid_id") is not None]
 
-    if selected_filter == "👨‍👩‍👧 All parents":
+    if filter_group == "Parents":
+        if person_id is not None:
+            return [t for t in tasks if t.get("parent_id") == person_id]
         return [t for t in tasks if t.get("parent_id") is not None]
-
-    if selected_filter.startswith("🧒 ") and "All children" not in selected_filter:
-        kid_name = selected_filter.replace("🧒 ", "")
-
-        if kid_name in kid_options:
-            return [t for t in tasks if t.get("kid_id") == kid_options[kid_name]]
-
-    if selected_filter.startswith("👨‍👩‍👧 ") and "All parents" not in selected_filter:
-        parent_name = selected_filter.replace("👨‍👩‍👧 ", "")
-
-        if parent_name in parent_options:
-            return [t for t in tasks if t.get("parent_id") == parent_options[parent_name]]
 
     return tasks
 

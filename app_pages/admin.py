@@ -558,7 +558,6 @@ def assign_task_tab(data):
         st.info("Add tasks to the Task List first.")
         return
 
-    assignee_options = build_assignee_options(data)
     task_options = {
         template["title"]: template
         for template in task_templates
@@ -606,11 +605,7 @@ def assign_task_tab(data):
             list(task_options.keys())
         )
 
-        assign_to = st.selectbox(
-            "Assign to",
-            list(assignee_options.keys()),
-            key="assign_task_to"
-        )
+        selected_assignees = render_assignee_selector(data, "assign_task")
 
         st.caption(f"📅 {len(selected_dates)} date(s) selected")
 
@@ -634,8 +629,6 @@ def assign_task_tab(data):
             if not selected_dates:
                 st.error("Please choose at least one valid date.")
                 return
-
-            selected_assignees = assignee_options[assign_to]
 
             new_tasks = []
 
@@ -686,20 +679,26 @@ def remove_assignment_tab(data):
             t["_assignee_name"] = parents.get(t["parent_id"])
 
     with st.expander("🔍 Filter tasks", expanded=True):
-        fcol1, fcol2, fcol3 = st.columns(3)
-        with fcol1:
+        filter_group = st.segmented_control(
+            "Filter by", ["All", "Kids", "Parents"], key="admin_filter_group"
+        )
+
+        filter_assignee = None
+        if filter_group == "Kids" and data["kids"]:
+            kid_choices = ["All children"] + [k["name"] for k in data["kids"]]
+            filter_assignee = st.radio(
+                "Child", kid_choices, horizontal=True, key="admin_filter_kid"
+            )
+        elif filter_group == "Parents" and data.get("parents"):
+            parent_choices = ["All parents"] + [p["name"] for p in data["parents"]]
+            filter_assignee = st.radio(
+                "Parent", parent_choices, horizontal=True, key="admin_filter_parent"
+            )
+
+        scol1, scol2 = st.columns(2)
+        with scol1:
             search_title = st.text_input("Search by task name", placeholder="Type to filter...")
-        with fcol2:
-            all_assignees = sorted(
-                set(
-                    t["_assignee_name"] for t in tasks if t["_assignee_name"]
-                )
-            )
-            filter_assignee = st.selectbox(
-                "Filter by assignee",
-                ["All"] + all_assignees
-            )
-        with fcol3:
+        with scol2:
             filter_status = st.selectbox(
                 "Filter by status",
                 ["All", "Backlog", "In Progress", "Done"]
@@ -708,8 +707,16 @@ def remove_assignment_tab(data):
     filtered = tasks
     if search_title:
         filtered = [t for t in filtered if search_title.lower() in t["title"].lower()]
-    if filter_assignee != "All":
-        filtered = [t for t in filtered if t["_assignee_name"] == filter_assignee]
+    if filter_group == "Kids":
+        if filter_assignee and filter_assignee != "All children":
+            filtered = [t for t in filtered if t.get("kid_id") and t["_assignee_name"] == filter_assignee]
+        elif filter_assignee == "All children":
+            filtered = [t for t in filtered if t.get("kid_id")]
+    elif filter_group == "Parents":
+        if filter_assignee and filter_assignee != "All parents":
+            filtered = [t for t in filtered if t.get("parent_id") and t["_assignee_name"] == filter_assignee]
+        elif filter_assignee == "All parents":
+            filtered = [t for t in filtered if t.get("parent_id")]
     if filter_status != "All":
         filtered = [t for t in filtered if t.get("status") == filter_status]
 
@@ -754,28 +761,54 @@ def remove_assignment_tab(data):
         st.caption("Tasks are permanently deleted. This cannot be undone.")
 
 
-def build_assignee_options(data):
-    options = {}
+def render_assignee_selector(data, key_prefix):
+    """Touch-friendly assignee picker: segmented control + radio.
+    Returns a list of assignee dicts like [{"kid_id": 1, "parent_id": None}, ...]."""
+    group = st.segmented_control("Assign to", ["Kids", "Parents"], key=f"{key_prefix}_group")
+    if group == "Kids":
+        if not data["kids"]:
+            st.warning("No kids added yet.")
+            return []
+        choices = ["All children"] + [k["name"] for k in data["kids"]]
+        selected = st.radio("Choose", choices, horizontal=True, key=f"{key_prefix}_name")
+        if selected == "All children":
+            return [{"kid_id": k["id"], "parent_id": None} for k in data["kids"]]
+        kid = next(k for k in data["kids"] if k["name"] == selected)
+        return [{"kid_id": kid["id"], "parent_id": None}]
+    elif group == "Parents":
+        if not data.get("parents"):
+            st.warning("No parents added yet.")
+            return []
+        choices = ["All parents"] + [p["name"] for p in data["parents"]]
+        selected = st.radio("Choose", choices, horizontal=True, key=f"{key_prefix}_name")
+        if selected == "All parents":
+            return [{"kid_id": None, "parent_id": p["id"]} for p in data["parents"]]
+        parent = next(p for p in data["parents"] if p["name"] == selected)
+        return [{"kid_id": None, "parent_id": parent["id"]}]
+    return []
 
-    kid_options = {kid["name"]: kid["id"] for kid in data["kids"]}
-    parent_options = {p["name"]: p["id"] for p in data.get("parents", [])}
 
-    all_kids = list(kid_options.keys())
-    all_parents = list(parent_options.keys())
-
-    if all_kids and all_parents:
-        options["All children"] = [{"kid_id": kid_options[n], "parent_id": None} for n in all_kids]
-        options["All parents"] = [{"kid_id": None, "parent_id": parent_options[n]} for n in all_parents]
-
-    if all_kids:
-        for name in all_kids:
-            options[f"🧒 {name}"] = [{"kid_id": kid_options[name], "parent_id": None}]
-
-    if all_parents:
-        for name in all_parents:
-            options[f"👨‍👩‍👧 {name}"] = [{"kid_id": None, "parent_id": parent_options[name]}]
-
-    return options
+def render_person_selector(data, key_prefix):
+    """Touch-friendly person picker: segmented control + radio.
+    Returns (person_id, person_type) or None if nothing selected."""
+    group = st.segmented_control("Type", ["Kids", "Parents"], key=f"{key_prefix}_group")
+    if group == "Kids":
+        if not data["kids"]:
+            st.warning("No kids added yet.")
+            return None
+        names = [k["name"] for k in data["kids"]]
+        selected = st.radio("Select", names, horizontal=True, key=f"{key_prefix}_name")
+        kid = next(k for k in data["kids"] if k["name"] == selected)
+        return (kid["id"], "kid")
+    elif group == "Parents":
+        if not data.get("parents"):
+            st.warning("No parents added yet.")
+            return None
+        names = [p["name"] for p in data["parents"]]
+        selected = st.radio("Select", names, horizontal=True, key=f"{key_prefix}_name")
+        parent = next(p for p in data["parents"] if p["name"] == selected)
+        return (parent["id"], "parent")
+    return None
 
 
 def generate_daily_dates(start_date, end_date):
@@ -1017,7 +1050,6 @@ def assign_book_tab(data):
         st.info("Add books to the Book List first.")
         return
 
-    assignee_options = build_assignee_options(data)
     book_options = {
         f"{book['title']} {'— ' + book.get('writer', 'Unknown') if book.get('writer') else ''} ({book['language']}, {book['total_pages']} pages)": book
         for book in book_templates
@@ -1030,11 +1062,7 @@ def assign_book_tab(data):
             key="assign_book_select"
         )
 
-        assign_to = st.selectbox(
-            "Assign to",
-            list(assignee_options.keys()),
-            key="assign_book_to"
-        )
+        selected_assignees = render_assignee_selector(data, "assign_book")
 
         selected_book = book_options[selected_book_label]
 
@@ -1047,8 +1075,6 @@ def assign_book_tab(data):
         submitted = st.form_submit_button("Assign Book")
 
         if submitted:
-            selected_assignees = assignee_options[assign_to]
-
             new_books = []
 
             for assignee in selected_assignees:
@@ -1214,8 +1240,6 @@ def assign_surah_tab(data):
         st.warning("No surahs or duas available. Go to the 'Surah List' tab and click '📥 Load all surahs and duas from templates' first, or add them manually.")
         return
 
-    assignee_options = build_assignee_options(data)
-
     item_options = {}
     for s in available:
         icon = "📖" if s.get("type") == "surah" else "🤲"
@@ -1231,16 +1255,11 @@ def assign_surah_tab(data):
 
         selected = item_options[selected_label]
 
-        assign_to = st.selectbox(
-            "Assign to",
-            list(assignee_options.keys()),
-            key="assign_surah_to"
-        )
+        selected_assignees = render_assignee_selector(data, "assign_surah")
 
         submitted = st.form_submit_button("Assign")
 
         if submitted:
-            selected_assignees = assignee_options[assign_to]
             new_items = []
 
             for assignee in selected_assignees:
@@ -1270,23 +1289,19 @@ def bonus_penalty_tab(data):
 
     st.markdown("### ➕ Add Adjustment")
 
-    person_options = {}
-    for kid in data["kids"]:
-        person_options[f"🧒 {kid['name']} (Kid)"] = {"id": kid["id"], "type": "kid"}
-    for parent in data.get("parents", []):
-        person_options[f"👨‍👩‍👧 {parent['name']} (Parent)"] = {"id": parent["id"], "type": "parent"}
-
+    person = render_person_selector(data, "bonus")
     col1, col2 = st.columns([2, 1])
-    with col1:
-        selected_label = st.selectbox("Person", list(person_options.keys()), key="bonus_person")
     with col2:
         points_val = st.number_input("Points", value=10, step=1, key="bonus_points",
                                      help="Positive = bonus, Negative = penalty")
 
     if st.button("Apply Adjustment", type="primary", use_container_width=True):
-        selected = person_options[selected_label]
-        add_points_adjustment(selected["id"], selected["type"], points_val)
-        st.success(f"✅ {'Bonus' if points_val > 0 else 'Penalty'} of {points_val} pts applied to {selected_label.split(' (')[0]}!")
+        if person is None:
+            st.error("Please select a person.")
+            return
+        person_id, person_type = person
+        add_points_adjustment(person_id, person_type, points_val)
+        st.success(f"✅ {'Bonus' if points_val > 0 else 'Penalty'} of {points_val} pts applied!")
         st.rerun()
 
     st.divider()
@@ -1366,23 +1381,10 @@ def settings_tab(data):
         st.info(f"This will reset points for {today.strftime('%B %Y')}")
 
     elif reset_option == "Reset a specific person's points to 0":
-        person_options = {}
-
-        for kid in data["kids"]:
-            person_options[f"🧒 {kid['name']}"] = {"id": kid["id"], "is_kid": True}
-
-        for parent in data.get("parents", []):
-            person_options[f"👨‍👩‍👧 {parent['name']}"] = {"id": parent["id"], "is_kid": False}
-
-        selected_person = st.selectbox(
-            "Choose person",
-            list(person_options.keys()),
-            key="reset_person_select"
-        )
-
-        if selected_person:
-            target_person_id = person_options[selected_person]["id"]
-            is_kid = person_options[selected_person]["is_kid"]
+        person = render_person_selector(data, "reset")
+        if person is not None:
+            target_person_id, person_type = person
+            is_kid = person_type == "kid"
 
     confirm_text = st.text_input(
         "Type RESET to confirm",

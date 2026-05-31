@@ -117,10 +117,10 @@ def show_today_tasks(data):
                 unsafe_allow_html=True
             )
 
-            new_status = st.selectbox(
+            new_status = st.segmented_control(
                 "Move task",
                 TASK_STATUSES,
-                index=TASK_STATUSES.index(task["status"]),
+                default=task["status"],
                 key=f"dashboard_task_{task['id']}",
                 label_visibility="collapsed"
             )

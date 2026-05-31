@@ -22,35 +22,30 @@ def surah_memorization_page(data):
         st.info("No surahs or duas assigned yet. Go to Admin to assign them.")
         return
 
-    reader_options = build_reader_options(data)
-    if not reader_options:
-        st.info("Add children or parents first in Admin.")
-        return
-
-    selected_label = st.selectbox(
-        "Choose reader",
-        list(reader_options.keys())
+    reader_group = st.segmented_control(
+        "Type", ["Kids", "Parents"], key="surah_reader_group"
     )
 
-    reader_info = reader_options[selected_label]
-    is_parent = reader_info["type"] == "parent"
-    reader_id = reader_info["id"]
+    reader_id = None
+    is_parent = False
+
+    if reader_group == "Kids" and data["kids"]:
+        kid_names = [kid["name"] for kid in data["kids"]]
+        selected = st.radio("Choose reader", kid_names, horizontal=True, key="surah_reader_kid")
+        reader_id = next(k["id"] for k in data["kids"] if k["name"] == selected)
+    elif reader_group == "Parents" and data.get("parents"):
+        parent_names = [p["name"] for p in data["parents"]]
+        selected = st.radio("Choose reader", parent_names, horizontal=True, key="surah_reader_parent")
+        reader_id = next(p["id"] for p in data["parents"] if p["name"] == selected)
+        is_parent = True
+
+    if reader_id is None:
+        st.info("Select a reader above.")
+        return
 
     show_surahs_common(data, reader_id, is_parent)
     st.divider()
     show_duas_common(data, reader_id, is_parent)
-
-
-def build_reader_options(data):
-    options = {}
-
-    for kid in data["kids"]:
-        options[f"🧒 {kid['name']}"] = {"type": "kid", "id": kid["id"]}
-
-    for parent in data.get("parents", []):
-        options[f"👨‍👩‍👧 {parent['name']}"] = {"type": "parent", "id": parent["id"]}
-
-    return options
 
 
 def show_surahs_common(data, reader_id, is_parent):
