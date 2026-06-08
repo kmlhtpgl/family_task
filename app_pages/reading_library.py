@@ -63,7 +63,7 @@ def show_books_in_progress(data, reader_id, is_parent=False):
             assigned_date = format_date_short(book.get("created_at", ""))
             elapsed = format_elapsed(book.get("created_at", ""))
 
-            elapsed_display = f"⏱️ {elapsed} ago" if elapsed not in ("", "just now") else f"⏱️ {elapsed}" if elapsed == "just now" else ""
+            elapsed_display = f"· ⏱️ {elapsed} ago" if elapsed else ""
 
             st.markdown(
                 f'<div class="task-item">'
@@ -76,7 +76,7 @@ def show_books_in_progress(data, reader_id, is_parent=False):
                 f'<span style="font-size:0.9em;color:#666;">{book.get("current_page", 0)} / {book["total_pages"]} pages ({progress_pct}%)</span>'
                 f'</div>'
                 f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
-                f'<div style="margin-top:6px;font-size:0.8em;color:#888;">📅 Assigned: {assigned_date} · {elapsed_display}</div>'
+                f'<div style="margin-top:6px;font-size:0.8em;color:#888;">📅 Assigned: {assigned_date}{" " + elapsed_display if elapsed_display else ""}</div>'
                 f'</div>',
                 unsafe_allow_html=True
             )
@@ -150,11 +150,12 @@ def show_finished_books(data, reader_id, is_parent=False):
                 assigned_date = format_date_short(book.get("created_at", ""))
                 finished_date = format_date_short(book.get("finished_date", ""))
                 elapsed = format_elapsed(book.get("created_at", ""), book.get("finished_date"))
+                elapsed_display = f"· ⏱️ {elapsed}" if elapsed else ""
                 st.markdown(
                     f'<div class="task-item" style="border-left-color:#4CAF50;">'
                     f'<div><span>✅ {book["title"]}{writer}</span>'
                     f' <span style="color:#666;">{book["total_pages"]} pages</span></div>'
-                    f'<div style="font-size:0.8em;color:#888;margin-top:3px;">📅 {assigned_date} → {finished_date} · ⏱️ {elapsed}</div>'
+                    f'<div style="font-size:0.8em;color:#888;margin-top:3px;">📅 {assigned_date} → {finished_date} {elapsed_display}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
@@ -170,11 +171,12 @@ def show_finished_books(data, reader_id, is_parent=False):
                 assigned_date = format_date_short(book.get("created_at", ""))
                 finished_date = format_date_short(book.get("finished_date", ""))
                 elapsed = format_elapsed(book.get("created_at", ""), book.get("finished_date"))
+                elapsed_display = f"· ⏱️ {elapsed}" if elapsed else ""
                 st.markdown(
                     f'<div class="task-item" style="border-left-color:#4CAF50;">'
                     f'<div><span>✅ {book["title"]}{writer}</span>'
                     f' <span style="color:#666;">{book["total_pages"]} pages</span></div>'
-                    f'<div style="font-size:0.8em;color:#888;margin-top:3px;">📅 {assigned_date} → {finished_date} · ⏱️ {elapsed}</div>'
+                    f'<div style="font-size:0.8em;color:#888;margin-top:3px;">📅 {assigned_date} → {finished_date} {elapsed_display}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
