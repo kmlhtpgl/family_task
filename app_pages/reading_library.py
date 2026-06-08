@@ -2,6 +2,8 @@ import streamlit as st
 
 from utils.book_helpers import (
     calculate_book_progress,
+    format_date_short,
+    format_elapsed,
     get_books_in_progress,
     get_books_in_progress_for_parent,
     get_finished_books,
@@ -58,6 +60,9 @@ def show_books_in_progress(data, reader_id, is_parent=False):
             language_flag = "🇬🇧" if book["language"] == "English" else "🇹🇷"
             writer_info = f"✍️ {book.get('writer', 'Unknown')}" if book.get("writer") else ""
 
+            assigned_date = format_date_short(book.get("created_at", ""))
+            elapsed = format_elapsed(book.get("created_at", ""))
+
             st.markdown(
                 f'<div class="task-item">'
                 f'<div style="display:flex;justify-content:space-between;align-items:center;">'
@@ -69,6 +74,7 @@ def show_books_in_progress(data, reader_id, is_parent=False):
                 f'<span style="font-size:0.9em;color:#666;">{book.get("current_page", 0)} / {book["total_pages"]} pages ({progress_pct}%)</span>'
                 f'</div>'
                 f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
+                f'<div style="margin-top:6px;font-size:0.8em;color:#888;">📅 Assigned: {assigned_date} · ⏱️ {elapsed} ago</div>'
                 f'</div>',
                 unsafe_allow_html=True
             )
@@ -139,10 +145,14 @@ def show_finished_books(data, reader_id, is_parent=False):
         if english_books:
             for book in english_books:
                 writer = f" — {book.get('writer', '')}" if book.get("writer") else ""
+                assigned_date = format_date_short(book.get("created_at", ""))
+                finished_date = format_date_short(book.get("finished_date", ""))
+                elapsed = format_elapsed(book.get("created_at", ""), book.get("finished_date"))
                 st.markdown(
                     f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                    f'<span>✅ {book["title"]}{writer}</span>'
-                    f' <span style="color:#666;">{book["total_pages"]} pages</span>'
+                    f'<div><span>✅ {book["title"]}{writer}</span>'
+                    f' <span style="color:#666;">{book["total_pages"]} pages</span></div>'
+                    f'<div style="font-size:0.8em;color:#888;margin-top:3px;">📅 {assigned_date} → {finished_date} · ⏱️ {elapsed}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
@@ -155,10 +165,14 @@ def show_finished_books(data, reader_id, is_parent=False):
         if turkish_books:
             for book in turkish_books:
                 writer = f" — {book.get('writer', '')}" if book.get("writer") else ""
+                assigned_date = format_date_short(book.get("created_at", ""))
+                finished_date = format_date_short(book.get("finished_date", ""))
+                elapsed = format_elapsed(book.get("created_at", ""), book.get("finished_date"))
                 st.markdown(
                     f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                    f'<span>✅ {book["title"]}{writer}</span>'
-                    f' <span style="color:#666;">{book["total_pages"]} pages</span>'
+                    f'<div><span>✅ {book["title"]}{writer}</span>'
+                    f' <span style="color:#666;">{book["total_pages"]} pages</span></div>'
+                    f'<div style="font-size:0.8em;color:#888;margin-top:3px;">📅 {assigned_date} → {finished_date} · ⏱️ {elapsed}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )

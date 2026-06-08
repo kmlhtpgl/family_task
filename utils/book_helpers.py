@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 from utils.data_helpers import today_string
 
 
@@ -120,3 +122,53 @@ def split_books_by_language(books):
     ]
 
     return english_books, turkish_books
+
+
+def format_date_short(iso_str):
+    if not iso_str:
+        return "Unknown"
+
+    if "T" in iso_str:
+        dt = datetime.fromisoformat(iso_str)
+    else:
+        dt = date.fromisoformat(iso_str)
+
+    return dt.strftime("%b %d, %Y")
+
+
+def format_elapsed(start_iso, end_date_str=None):
+    if not start_iso:
+        return ""
+
+    start = datetime.fromisoformat(start_iso).date()
+    end = date.fromisoformat(end_date_str) if end_date_str else date.today()
+
+    years = end.year - start.year
+    months = end.month - start.month
+    days = end.day - start.day
+
+    if days < 0:
+        months -= 1
+        prev_month = end.month - 1
+        prev_month_year = end.year
+        if prev_month == 0:
+            prev_month = 12
+            prev_month_year -= 1
+        days_in_prev_month = (
+            date(prev_month_year, prev_month + 1, 1)
+            - date(prev_month_year, prev_month, 1)
+        ).days
+        days += days_in_prev_month
+
+    if months < 0:
+        years -= 1
+        months += 12
+
+    parts = []
+    if years > 0:
+        parts.append(f"{years} year{'s' if years > 1 else ''}")
+    if months > 0:
+        parts.append(f"{months} month{'s' if months > 1 else ''}")
+    parts.append(f"{days} day{'s' if days != 1 else ''}")
+
+    return ", ".join(parts)
