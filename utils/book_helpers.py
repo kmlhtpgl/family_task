@@ -126,7 +126,7 @@ def split_books_by_language(books):
 
 def format_date_short(iso_str):
     if not iso_str:
-        return "Unknown"
+        return "Today"
 
     if "T" in iso_str:
         dt = datetime.fromisoformat(iso_str)
@@ -138,7 +138,7 @@ def format_date_short(iso_str):
 
 def format_elapsed(start_iso, end_date_str=None):
     if not start_iso:
-        return ""
+        return "" if end_date_str else "just now"
 
     start = datetime.fromisoformat(start_iso).date()
     end = date.fromisoformat(end_date_str) if end_date_str else date.today()

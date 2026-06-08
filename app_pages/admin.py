@@ -1077,8 +1077,7 @@ def assign_book_tab(data):
                     "language": selected_book["language"],
                     "total_pages": int(selected_book["total_pages"]),
                     "current_page": 0,
-                    "status": "In Progress",
-                    "created_at": datetime.now().isoformat()
+                    "status": "In Progress"
                 }
 
                 new_books.append(new_book)

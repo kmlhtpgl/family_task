@@ -63,6 +63,8 @@ def show_books_in_progress(data, reader_id, is_parent=False):
             assigned_date = format_date_short(book.get("created_at", ""))
             elapsed = format_elapsed(book.get("created_at", ""))
 
+            elapsed_display = f"⏱️ {elapsed} ago" if elapsed not in ("", "just now") else f"⏱️ {elapsed}" if elapsed == "just now" else ""
+
             st.markdown(
                 f'<div class="task-item">'
                 f'<div style="display:flex;justify-content:space-between;align-items:center;">'
@@ -74,7 +76,7 @@ def show_books_in_progress(data, reader_id, is_parent=False):
                 f'<span style="font-size:0.9em;color:#666;">{book.get("current_page", 0)} / {book["total_pages"]} pages ({progress_pct}%)</span>'
                 f'</div>'
                 f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
-                f'<div style="margin-top:6px;font-size:0.8em;color:#888;">📅 Assigned: {assigned_date} · ⏱️ {elapsed} ago</div>'
+                f'<div style="margin-top:6px;font-size:0.8em;color:#888;">📅 Assigned: {assigned_date} · {elapsed_display}</div>'
                 f'</div>',
                 unsafe_allow_html=True
             )
