@@ -167,6 +167,16 @@ st.markdown(f"""
         document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {{
             weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
         }});
+
+        document.querySelector('.navbar-brand').addEventListener('click', function() {{
+            const btns = document.querySelectorAll('button');
+            for (const btn of btns) {{
+                if (btn.textContent.includes('Dashboard')) {{
+                    btn.click();
+                    break;
+                }}
+            }}
+        }});
     </script>
 """, unsafe_allow_html=True)
 
