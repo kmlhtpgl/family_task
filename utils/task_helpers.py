@@ -111,26 +111,42 @@ def get_weekly_points_for_parent(data, parent_id):
 
 def get_total_points_for_kid(data, kid_id):
     """
-    Calculates all completed task points for one child (with overdue penalty).
+    Calculates all completed task points for one child (with overdue penalty),
+    plus points adjustments (bonuses/penalties).
     """
-    return sum(
+    task_pts = sum(
         get_effective_points(task)
         for task in data["tasks"]
         if task.get("kid_id") == kid_id
         and task.get("status") == "Done"
     )
+    adj_pts = sum(
+        adj.get("points", 0)
+        for adj in data.get("points_adjustments", [])
+        if adj.get("person_id") == kid_id
+        and adj.get("person_type") == "kid"
+    )
+    return task_pts + adj_pts
 
 
 def get_total_points_for_parent(data, parent_id):
     """
-    Calculates all completed task points for one parent (with overdue penalty).
+    Calculates all completed task points for one parent (with overdue penalty),
+    plus points adjustments (bonuses/penalties).
     """
-    return sum(
+    task_pts = sum(
         get_effective_points(task)
         for task in data["tasks"]
         if task.get("parent_id") == parent_id
         and task.get("status") == "Done"
     )
+    adj_pts = sum(
+        adj.get("points", 0)
+        for adj in data.get("points_adjustments", [])
+        if adj.get("person_id") == parent_id
+        and adj.get("person_type") == "parent"
+    )
+    return task_pts + adj_pts
 
 
 def get_monthly_points_for_kid(data, kid_id, year, month):
@@ -212,7 +228,7 @@ def get_overdue_task_count(data, person_id, is_kid=True):
 
 
 TIERS = ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ascendant", "Immortal"]
-TIER_ICONS = {"Iron": "🪨", "Bronze": "🥉", "Silver": "🥈", "Gold": "🥇", "Platinum": "💎", "Diamond": "💠", "Ascendant": "🌟", "Immortal": "🔥", "Radiant": "👑"}
+TIER_ICONS = {"Iron": "🪨", "Bronze": "🗿", "Silver": "🪙", "Gold": "🌟", "Platinum": "💎", "Diamond": "💠", "Ascendant": "✨", "Immortal": "🔥", "Radiant": "👑"}
 PTS_PER_SUB_RANK = 100
 SUBS_PER_TIER = 3
 PTS_PER_TIER = PTS_PER_SUB_RANK * SUBS_PER_TIER  # 300
