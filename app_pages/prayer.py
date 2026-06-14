@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import date, timedelta
 from collections import defaultdict
 
-PRAYER_NAMES = ["Fajr", "Zuhr", "Asr", "Maghrib", "Isha"]
+PRAYER_NAMES = ["Fecr", "Zuhr", "Asr", "Maghrib", "Isha"]
 
 
 def prayer_page(data):
