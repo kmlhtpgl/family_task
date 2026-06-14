@@ -29,6 +29,11 @@ def get_all_data(retries=3, delay=0.5):
             except Exception:
                 points_adjustments = []
 
+            try:
+                prayer_logs = supabase.table("prayer_logs").select("*").order("id").execute().data
+            except Exception:
+                prayer_logs = []
+
             return {
                 "parents": parents,
                 "kids": kids,
@@ -37,6 +42,7 @@ def get_all_data(retries=3, delay=0.5):
                 "surahs": surahs,
                 "reward_sessions": reward_sessions,
                 "points_adjustments": points_adjustments,
+                "prayer_logs": prayer_logs,
                 "task_templates": task_templates,
                 "book_templates": book_templates,
                 "settings": {
@@ -572,6 +578,43 @@ def delete_points_adjustment(adjustment_id):
         .table("points_adjustments")
         .delete()
         .eq("id", adjustment_id)
+        .execute()
+        .data
+    )
+
+
+# -----------------------
+# Prayer Logs
+# -----------------------
+
+def mark_prayer_done(person_id, person_type, prayer_name, prayer_date):
+    """Insert a prayer_logs row to mark a prayer as done."""
+    supabase = get_supabase_client()
+    return (
+        supabase
+        .table("prayer_logs")
+        .insert({
+            "person_id": person_id,
+            "person_type": person_type,
+            "prayer_name": prayer_name,
+            "prayer_date": prayer_date,
+        })
+        .execute()
+        .data
+    )
+
+
+def mark_prayer_not_done(person_id, person_type, prayer_name, prayer_date):
+    """Delete a prayer_logs row to mark a prayer as not done."""
+    supabase = get_supabase_client()
+    return (
+        supabase
+        .table("prayer_logs")
+        .delete()
+        .eq("person_id", person_id)
+        .eq("person_type", person_type)
+        .eq("prayer_name", prayer_name)
+        .eq("prayer_date", prayer_date)
         .execute()
         .data
     )

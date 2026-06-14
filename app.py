@@ -9,6 +9,7 @@ from app_pages.reading_library import reading_library_page
 from app_pages.surah_memorization import surah_memorization_page
 from app_pages.rewards import rewards_page
 from app_pages.admin import admin_page
+from app_pages.prayer import prayer_page
 
 st.set_page_config(
     page_title="Family Task Tracker",
@@ -515,6 +516,7 @@ pages = [
     ("kids", "🧒", "Kids"),
     ("reading", "📚", "Reading"),
     ("quran", "📖", "Quran"),
+    ("prayer", "🕌", "Prayer"),
     ("rewards", "💰", "Rewards"),
     ("admin", "⚙️", "Admin"),
 ]
@@ -559,6 +561,9 @@ elif page == "reading":
 
 elif page == "quran":
     surah_memorization_page(data)
+
+elif page == "prayer":
+    prayer_page(data)
 
 elif page == "rewards":
     rewards_page(data)

@@ -45,6 +45,16 @@ CREATE TABLE IF NOT EXISTS public.points_adjustments (
     points INTEGER NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS public.prayer_logs (
+    id SERIAL PRIMARY KEY,
+    person_id INTEGER NOT NULL,
+    person_type TEXT NOT NULL CHECK (person_type IN ('kid', 'parent')),
+    prayer_name TEXT NOT NULL CHECK (prayer_name IN ('Fajr', 'Zuhr', 'Asr', 'Maghrib', 'Isha')),
+    prayer_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(person_id, person_type, prayer_name, prayer_date)
+);
 """
 
 
