@@ -539,7 +539,7 @@ def apply_custom_styles(dark_mode=False):
     }}
 
     /* ── Metric card (legacy class name, maps to card--stat) ── */
-    .metric-card {
+    .metric-card {{
         background: var(--bg-card) !important;
         border: 1px solid var(--border) !important;
         border-radius: var(--radius-lg) !important;
@@ -549,26 +549,26 @@ def apply_custom_styles(dark_mode=False):
         border-left: 4px solid var(--primary);
         position: relative;
         overflow: hidden;
-    }
-    .metric-card h3 {
+    }}
+    .metric-card h3 {{
         margin: 0;
         font-size: 1em;
         font-weight: 500;
         color: var(--text-secondary);
-    }
-    .metric-card .value {
+    }}
+    .metric-card .value {{
         font-family: var(--font-mono);
         font-size: 2.2em;
         font-weight: 700;
         color: var(--text);
         margin: 8px 0;
         line-height: 1.2;
-    }
-    .metric-card .label {
+    }}
+    .metric-card .label {{
         font-size: 0.85em;
         color: var(--text-secondary);
         font-weight: 500;
-    }
+    }}
 
     /* ── StMetric ── */
     .stMetric {{
