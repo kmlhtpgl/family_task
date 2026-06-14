@@ -1,300 +1,252 @@
 import streamlit as st
 from datetime import date, timedelta
+from collections import defaultdict
 
-from utils.data_helpers import get_kid, today_string, current_week_key
-from utils.task_helpers import get_today_tasks, get_rank, get_total_points_for_kid, get_total_points_for_parent, TASK_STATUSES, get_effective_points, OVERDUE_DAYS
+from utils.data_helpers import get_kid
+from utils.task_helpers import (
+    get_today_tasks, get_rank,
+    get_total_points_for_kid, get_total_points_for_parent,
+    get_weekly_points_for_kid, get_weekly_points_for_parent,
+    TASK_STATUSES, get_effective_points,
+)
 from utils.db_helpers import update_task
+
+PRAYER_NAMES = ["Fecr", "Zuhr", "Asr", "Maghrib", "Isha"]
 
 
 def dashboard_page(data):
-    st.header("📊 Daily Dashboard")
-
-    # Week selector
-    week_offset = st.session_state.get("week_offset", 0)
-
-    col_prev, col_week, col_next = st.columns([1, 4, 1])
-
-    with col_prev:
-        if st.button("◀ Prev", key="prev_week"):
-            st.session_state.week_offset = week_offset - 1
-            st.rerun()
-
-    with col_week:
-        target_week = date.today() + timedelta(weeks=week_offset)
-        year, week_num, _ = target_week.isocalendar()
-        week_label = f"Week {week_num} ({year})"
-
-        if week_offset == 0:
-            st.markdown(f"<h3 style='text-align:center;color:var(--primary);'>📅 This Week</h3>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<h3 style='text-align:center;color:var(--primary);'>📅 {week_label}</h3>", unsafe_allow_html=True)
-
-    with col_next:
-        if st.button("Next ▶", key="next_week"):
-            st.session_state.week_offset = week_offset + 1
-            st.rerun()
-
-    st.write(f"Today: **{today_string()}**")
+    st.header("📊 Weekly Dashboard")
 
     if not data["kids"] and not data.get("parents"):
         st.info("No children or parents added yet. Go to Admin to add them first.")
         return
 
-    # Quick summary metrics
-    st.subheader("📈 Quick Stats")
+    week_offset = st.session_state.get("week_offset", 0)
+    today = date.today()
+    monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+    sunday = monday + timedelta(days=6)
 
-    all_tasks = data["tasks"]
-    done_tasks = [t for t in all_tasks if t.get("status") == "Done"]
-    in_progress_tasks = [t for t in all_tasks if t.get("status") == "In Progress"]
-    all_books = data["books"]
-    finished_books = [b for b in all_books if b.get("status") == "Finished"]
+    col_prev, col_week, col_next = st.columns([1, 4, 1])
+    with col_prev:
+        if st.button("◀ Prev", key="prev_week"):
+            st.session_state.week_offset = week_offset - 1
+            st.rerun()
+    with col_week:
+        if week_offset == 0:
+            st.markdown(f"<h3 style='text-align:center;color:var(--primary);'>📅 This Week</h3>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<h3 style='text-align:center;color:var(--primary);'>📅 {monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}</h3>", unsafe_allow_html=True)
+        st.caption(f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}")
+    with col_next:
+        if st.button("Next ▶", key="next_week"):
+            st.session_state.week_offset = week_offset + 1
+            st.rerun()
 
-    metric_cols = st.columns(4)
+    # ── Section 1: Person Cards ──
+    st.subheader("👨‍👩‍👧‍👦 This Week at a Glance")
 
-    with metric_cols[0]:
-        st.markdown(
-            f'<div class="metric-card"><h3>✅ Done Tasks</h3><div class="value">{len(done_tasks)}</div><div class="label">Total completed</div></div>',
-            unsafe_allow_html=True
-        )
+    def count_missed_prayers(person_id, field):
+        count = 0
+        for t in data["tasks"]:
+            if t.get(field) != person_id:
+                continue
+            if t.get("title") not in PRAYER_NAMES:
+                continue
+            if t.get("status") == "Done":
+                continue
+            due = t.get("due_date")
+            if not due:
+                continue
+            try:
+                d = date.fromisoformat(due)
+                if monday <= d <= sunday:
+                    count += 1
+            except (ValueError, TypeError):
+                pass
+        return count
 
-    with metric_cols[1]:
-        st.markdown(
-            f'<div class="metric-card"><h3>⏳ In Progress</h3><div class="value">{len(in_progress_tasks)}</div><div class="label">Active now</div></div>',
-            unsafe_allow_html=True
-        )
+    people = []
+    for kid in data["kids"]:
+        weekly_pts = get_weekly_points_for_kid(data, kid["id"])
+        total_pts = get_total_points_for_kid(data, kid["id"])
+        rank, icon = get_rank(total_pts)
+        missed = count_missed_prayers(kid["id"], "kid_id")
+        people.append(("🧒", kid["name"], weekly_pts, rank, icon, missed))
 
-    with metric_cols[2]:
-        st.markdown(
-            f'<div class="metric-card"><h3>📚 Books Done</h3><div class="value">{len(finished_books)}</div><div class="label">Total read</div></div>',
-            unsafe_allow_html=True
-        )
+    for parent in data.get("parents", []):
+        weekly_pts = get_weekly_points_for_parent(data, parent["id"])
+        total_pts = get_total_points_for_parent(data, parent["id"])
+        rank, icon = get_rank(total_pts)
+        missed = count_missed_prayers(parent["id"], "parent_id")
+        people.append(("👨‍👩‍👧", parent["name"], weekly_pts, rank, icon, missed))
 
-    with metric_cols[3]:
-        total_points = sum(t.get("points", 0) for t in done_tasks)
-        st.markdown(
-            f'<div class="metric-card"><h3>⭐ Total Points</h3><div class="value">{total_points}</div><div class="label">Family total</div></div>',
-            unsafe_allow_html=True
-        )
+    card_cols = st.columns(len(people))
+    for i, (emoji, name, pts, rank, icon, missed) in enumerate(people):
+        with card_cols[i]:
+            st.markdown(f"""
+            <div class="card card--stat" style="text-align:center;padding:16px;">
+                <div style="font-size:2em;">{emoji}</div>
+                <h4 style="margin:4px 0;font-size:0.95em;">{name}</h4>
+                <div class="value" style="font-size:1.6em;">{pts}</div>
+                <div class="label">pts this week</div>
+                <hr style="margin:8px 0;">
+                <div style="font-size:1.3em;">{icon}</div>
+                <div style="font-size:0.8em;color:var(--text-secondary);">{rank}</div>
+                <hr style="margin:8px 0;">
+                <div style="font-size:1.1em;color:var(--danger);">🕌 {missed}</div>
+                <div class="label">missed prayers</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.divider()
 
-    # Tabs for tasks vs charts vs ranks
-    tab_tasks, tab_charts, tab_ranks = st.tabs(["📋 Tasks", "📊 Charts", "🏆 Ranks"])
-
-    with tab_tasks:
-        show_today_tasks(data)
-
-    with tab_charts:
-        show_progress_charts(data)
-
-    with tab_ranks:
-        show_rankings(data)
-
-
-def show_today_tasks(data):
+    # ── Section 2: Today's Tasks ──
     st.subheader("📋 Today's Tasks")
 
     today_tasks = get_today_tasks(data)
+    today_tasks.sort(key=lambda t: get_assignee_name(data, t))
 
     if not today_tasks:
         st.success("✅ No unfinished tasks for today!")
-        return
-
-    for task in today_tasks:
-        assignee_label = get_assignee_display(data, task)
-
-        with st.container():
-            st.markdown(
-                f'<div class="task-item">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<div>'
-                f'<h4 style="margin:0;">{task["title"]}</h4>'
-                f'<p style="margin:5px 0 0 0;color:#666;">{assignee_label} • {task["points"]} points</p>'
-                f'</div>'
-                f'<span class="status-badge status-{task["status"].lower().replace(" ", "-")}">{task["status"]}</span>'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+    else:
+        for task in today_tasks:
+            assignee = get_assignee_display(data, task)
+            st.markdown(f"""
+            <div class="task-item">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <h4 style="margin:0;">{task["title"]}</h4>
+                        <p style="margin:4px 0 0 0;color:var(--text-secondary);font-size:0.85em;">{assignee} • {task.get("points", 0)} pts</p>
+                    </div>
+                    <span class="status-badge status-{task["status"].lower().replace(" ", "-")}">{task["status"]}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
             new_status = st.segmented_control(
                 "Move task",
                 TASK_STATUSES,
                 default=task["status"],
-                key=f"dashboard_task_{task['id']}",
-                label_visibility="collapsed"
+                key=f"dash_task_{task['id']}",
+                label_visibility="collapsed",
             )
 
             if new_status != task["status"]:
-                updates = {
-                    "status": new_status
-                }
-
+                updates = {"status": new_status}
                 if task["status"] != "Done" and new_status == "Done":
-                    today = date.today()
-                    year, week, _ = today.isocalendar()
-
-                    updates["completed_date"] = today.isoformat()
-                    updates["completed_week"] = f"{year}-W{week}"
-
-                    task_copy = {**task, "completed_date": today.isoformat()}
+                    today_dt = date.today()
+                    year, week_num, _ = today_dt.isocalendar()
+                    updates["completed_date"] = today_dt.isoformat()
+                    updates["completed_week"] = f"{year}-W{week_num}"
+                    task_copy = {**task, "completed_date": today_dt.isoformat()}
                     effective = get_effective_points(task_copy)
                     if effective == 0:
-                        st.warning(f"⚠️ This task was overdue by more than {OVERDUE_DAYS} days. 0 points awarded.")
+                        st.warning("⚠️ Overdue – 0 points awarded.")
                     else:
-                        st.success(f"Well done! {effective} points added.")
+                        st.success(f"✨ {effective} points added!")
                 elif task["status"] == "Done" and new_status != "Done":
                     updates["completed_date"] = None
                     updates["completed_week"] = None
                 else:
-                    st.success(f"Task moved to {new_status}.")
-
+                    st.success(f"Moved to {new_status}.")
                 update_task(task["id"], updates)
                 st.rerun()
 
+    st.divider()
 
-def show_progress_charts(data):
-    st.subheader("📊 Progress Charts")
+    # ── Section 3: Weekly Summary ──
+    st.subheader("📊 This Week Summary")
 
-    # Tasks by status
-    st.write("### Tasks by Status")
+    st.markdown("**🕌 Missed Prayers This Week**")
 
-    status_counts = {status: 0 for status in TASK_STATUSES}
+    kids_sorted = sorted(data["kids"], key=lambda k: k["name"])
+    missed = defaultdict(lambda: defaultdict(int))
 
     for task in data["tasks"]:
-        status_counts[task.get("status", "Backlog")] += 1
+        if task.get("title") not in PRAYER_NAMES:
+            continue
+        kid_id = task.get("kid_id")
+        if kid_id is None:
+            continue
+        due = task.get("due_date")
+        if not due:
+            continue
+        try:
+            due_date = date.fromisoformat(due)
+        except (ValueError, TypeError):
+            continue
+        if not (monday <= due_date <= sunday):
+            continue
+        if task.get("status") != "Done":
+            missed[task["title"]][kid_id] += 1
 
-    chart_data = {
-        "Status": list(status_counts.keys()),
-        "Count": list(status_counts.values())
-    }
+    if kids_sorted:
+        header_cols = st.columns([2] + [1] * len(kids_sorted))
+        header_cols[0].markdown("**Prayer**")
+        for i, kid in enumerate(kids_sorted):
+            header_cols[i + 1].markdown(f"**🧒 {kid['name']}**")
 
-    st.bar_chart(chart_data, x="Status", y="Count", color="#6366F1", horizontal=True)
+        for prayer in PRAYER_NAMES:
+            cols = st.columns([2] + [1] * len(kids_sorted))
+            cols[0].write(prayer)
+            for i, kid in enumerate(kids_sorted):
+                count = missed[prayer].get(kid["id"], 0)
+                color = "var(--danger)" if count > 0 else "var(--success)"
+                cols[i + 1].markdown(
+                    f"<span style='color:{color};font-weight:700;'>{count}</span>",
+                    unsafe_allow_html=True,
+                )
 
-    st.divider()
-
-    # Books by status
-    st.write("### Reading Progress")
-
-    books_in_progress = [b for b in data["books"] if b.get("status") == "In Progress"]
-    books_finished = [b for b in data["books"] if b.get("status") == "Finished"]
-
-    book_data = {
-        "Status": ["In Progress", "Finished"],
-        "Count": [len(books_in_progress), len(books_finished)]
-    }
-
-    st.bar_chart(book_data, x="Status", y="Count", color="#14B8A6", horizontal=True)
-
-    st.divider()
-
-    # Points per child this week
-    st.write("### Points per Child (This Week)")
-
-    week = current_week_key()
-    child_points = []
-
-    for kid in data["kids"]:
-        points = sum(
-            t.get("points", 0)
-            for t in data["tasks"]
-            if t.get("kid_id") == kid["id"]
-            and t.get("status") == "Done"
-            and t.get("completed_week") == week
-        )
-
-        child_points.append({"name": kid["name"], "points": points})
-
-    if child_points:
-        child_df = {
-            "Child": [c["name"] for c in child_points],
-            "Points": [c["points"] for c in child_points]
-        }
-
-        st.bar_chart(child_df, x="Child", y="Points", color="#F59E0B", horizontal=True)
-    else:
-        st.info("No points earned this week yet.")
-
-    st.divider()
-
-    # Parent points
-    if data.get("parents"):
-        st.write("### Points per Parent (This Week)")
-
-        parent_points = []
-
-        for parent in data["parents"]:
-            points = sum(
-                t.get("points", 0)
-                for t in data["tasks"]
-                if t.get("parent_id") == parent["id"]
-                and t.get("status") == "Done"
-                and t.get("completed_week") == week
+        total_cols = st.columns([2] + [1] * len(kids_sorted))
+        total_cols[0].markdown("**Total**")
+        for i, kid in enumerate(kids_sorted):
+            total = sum(missed[p][kid["id"]] for p in PRAYER_NAMES)
+            total_cols[i + 1].markdown(
+                f"<span style='font-weight:700;'>{total}</span>",
+                unsafe_allow_html=True,
             )
 
-            parent_points.append({"name": parent["name"], "points": points})
+    st.markdown("---")
+    book_count = len([b for b in data["books"] if b.get("status") == "In Progress"])
+    surah_count = len([s for s in data.get("surahs", []) if s.get("status") != "Memorized"])
 
-        if parent_points:
-            parent_df = {
-                "Parent": [p["name"] for p in parent_points],
-                "Points": [p["points"] for p in parent_points]
-            }
-
-            st.bar_chart(parent_df, x="Parent", y="Points", color="#14B8A6", horizontal=True)
-
-
-def show_rankings(data):
-    st.subheader("🏆 Personal Ranks")
-    st.caption("Earn points to climb the ranks — inspired by Valorant!")
-
-    ranks = []
-
-    for kid in data["kids"]:
-        pts = get_total_points_for_kid(data, kid["id"])
-        rank, icon = get_rank(pts)
-        ranks.append({"name": kid["name"], "points": pts, "rank": rank, "icon": icon, "is_kid": True})
-
-    for parent in data.get("parents", []):
-        pts = get_total_points_for_parent(data, parent["id"])
-        rank, icon = get_rank(pts)
-        ranks.append({"name": parent["name"], "points": pts, "rank": rank, "icon": icon, "is_kid": False})
-
-    ranks.sort(key=lambda r: r["points"], reverse=True)
-
-    if not ranks:
-        st.info("Complete tasks to earn points and rank up!")
-        return
-
-    for r in ranks:
-        emoji = "🧒" if r["is_kid"] else "👨‍👩‍👧"
-        st.markdown(
-            f'<div class="task-item">'
-            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-            f'<div>'
-            f'<span style="font-size:1.2em;">{emoji}</span> '
-            f'<strong>{r["name"]}</strong>'
-            f'</div>'
-            f'<div style="text-align:right;">'
-            f'<span style="font-size:1.8em;">{r["icon"]}</span><br>'
-            f'<strong>{r["rank"]}</strong>'
-            f'<br><span style="color:#888;">{r["points"]} pts</span>'
-            f'</div>'
-            f'</div>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
+    mini_cols = st.columns(2)
+    with mini_cols[0]:
+        st.markdown(f"""
+        <div class="card" style="text-align:center;padding:12px;">
+            <div style="font-size:1.5em;">📚</div>
+            <div class="value" style="font-size:1.4em;">{book_count}</div>
+            <div class="label">Books in progress</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with mini_cols[1]:
+        st.markdown(f"""
+        <div class="card" style="text-align:center;padding:12px;">
+            <div style="font-size:1.5em;">📖</div>
+            <div class="value" style="font-size:1.4em;">{surah_count}</div>
+            <div class="label">Surahs in progress</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def get_assignee_display(data, task):
     if task.get("kid_id"):
         kid = get_kid(data, task["kid_id"])
         return f"🧒 {kid['name']}" if kid else "🧒 Unknown"
-
     if task.get("parent_id"):
         for parent in data.get("parents", []):
             if parent["id"] == task["parent_id"]:
                 return f"👨‍👩‍👧 {parent['name']}"
-
         return "👨‍👩‍👧 Unknown"
-
     return "Unknown"
+
+
+def get_assignee_name(data, task):
+    if task.get("kid_id"):
+        kid = get_kid(data, task["kid_id"])
+        return kid["name"] if kid else ""
+    if task.get("parent_id"):
+        for parent in data.get("parents", []):
+            if parent["id"] == task["parent_id"]:
+                return parent["name"]
+    return ""
