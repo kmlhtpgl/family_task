@@ -84,7 +84,7 @@ def kanban_page(data):
         flex: 1;
         min-width: 0;
         min-height: 720px;
-        border-radius: 15px;
+        border-radius: var(--radius-lg, 16px);
         padding: 15px;
         border: 2px solid;
         display: flex;
@@ -92,18 +92,18 @@ def kanban_page(data):
     }
 
     .sortable-container[data-header="Backlog"] {
-        background: linear-gradient(135deg, rgba(158, 158, 158, 0.05), rgba(158, 158, 158, 0.02));
-        border-color: #9E9E9E;
+        background: rgba(148,163,184,0.04);
+        border-color: #94A3B8;
     }
 
     .sortable-container[data-header*="In Progress"] {
-        background: linear-gradient(135deg, rgba(255, 152, 0, 0.05), rgba(255, 152, 0, 0.02));
-        border-color: #FF9800;
+        background: rgba(245,158,11,0.04);
+        border-color: #F59E0B;
     }
 
     .sortable-container[data-header*="Done"] {
-        background: linear-gradient(135deg, rgba(76, 175, 80, 0.05), rgba(76, 175, 80, 0.02));
-        border-color: #4CAF50;
+        background: rgba(16,185,129,0.04);
+        border-color: #10B981;
     }
 
     .sortable-container-header {
@@ -116,18 +116,18 @@ def kanban_page(data):
     }
 
     .sortable-container[data-header="Backlog"] .sortable-container-header {
-        color: #9E9E9E;
-        background: rgba(158, 158, 158, 0.1);
+        color: #94A3B8;
+        background: rgba(148,163,184,0.08);
     }
 
     .sortable-container[data-header*="In Progress"] .sortable-container-header {
-        color: #FF9800;
-        background: rgba(255, 152, 0, 0.1);
+        color: #F59E0B;
+        background: rgba(245,158,11,0.08);
     }
 
     .sortable-container[data-header*="Done"] .sortable-container-header {
-        color: #4CAF50;
-        background: rgba(76, 175, 80, 0.1);
+        color: #10B981;
+        background: rgba(16,185,129,0.08);
     }
 
     .sortable-container-body {
@@ -135,21 +135,21 @@ def kanban_page(data):
     }
 
     .sortable-item {
-        background: linear-gradient(135deg, #FF8A80 0%, #4ECDC4 100%);
+        background: linear-gradient(135deg, #6366F1 0%, #EC4899 100%);
         color: white !important;
-        border-radius: 12px;
+        border-radius: var(--radius, 12px);
         padding: 12px;
         margin-bottom: 10px;
         font-size: 14px;
         font-weight: 600;
         cursor: grab;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 12px rgba(99,102,241,0.2);
     }
 
     .sortable-item:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 8px 24px rgba(99,102,241,0.3);
     }
 
     .sortable-item:active {

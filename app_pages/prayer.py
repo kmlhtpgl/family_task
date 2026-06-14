@@ -24,7 +24,7 @@ def prayer_page(data):
         monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
         sunday = monday + timedelta(days=6)
         st.markdown(
-            f"<h3 style='text-align:center;color:#FF8A80;'>"
+            f"<h3 style='text-align:center;color:var(--primary);'>"
             f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}"
             f"</h3>",
             unsafe_allow_html=True,

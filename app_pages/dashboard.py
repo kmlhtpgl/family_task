@@ -25,9 +25,9 @@ def dashboard_page(data):
         week_label = f"Week {week_num} ({year})"
 
         if week_offset == 0:
-            st.markdown(f"<h3 style='text-align:center;color:#FF8A80;'>📅 This Week</h3>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='text-align:center;color:var(--primary);'>📅 This Week</h3>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<h3 style='text-align:center;color:#FF8A80;'>📅 {week_label}</h3>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='text-align:center;color:var(--primary);'>📅 {week_label}</h3>", unsafe_allow_html=True)
 
     with col_next:
         if st.button("Next ▶", key="next_week"):
@@ -169,7 +169,7 @@ def show_progress_charts(data):
         "Count": list(status_counts.values())
     }
 
-    st.bar_chart(chart_data, x="Status", y="Count", color="#FF8A80", horizontal=True)
+    st.bar_chart(chart_data, x="Status", y="Count", color="#6366F1", horizontal=True)
 
     st.divider()
 
@@ -184,7 +184,7 @@ def show_progress_charts(data):
         "Count": [len(books_in_progress), len(books_finished)]
     }
 
-    st.bar_chart(book_data, x="Status", y="Count", color="#4ECDC4", horizontal=True)
+    st.bar_chart(book_data, x="Status", y="Count", color="#14B8A6", horizontal=True)
 
     st.divider()
 
@@ -211,7 +211,7 @@ def show_progress_charts(data):
             "Points": [c["points"] for c in child_points]
         }
 
-        st.bar_chart(child_df, x="Child", y="Points", color="#FFD93D", horizontal=True)
+        st.bar_chart(child_df, x="Child", y="Points", color="#F59E0B", horizontal=True)
     else:
         st.info("No points earned this week yet.")
 
@@ -240,7 +240,7 @@ def show_progress_charts(data):
                 "Points": [p["points"] for p in parent_points]
             }
 
-            st.bar_chart(parent_df, x="Parent", y="Points", color="#4ECDC4", horizontal=True)
+            st.bar_chart(parent_df, x="Parent", y="Points", color="#14B8A6", horizontal=True)
 
 
 def show_rankings(data):

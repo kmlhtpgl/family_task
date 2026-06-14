@@ -175,7 +175,7 @@ def parents_tab(data):
                     )
                 else:
                     st.markdown(
-                        '<div class="avatar-circle" style="width:80px;height:80px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);display:flex;align-items:center;justify-content:center;font-size:30px;color:white;">👤</div>',
+                        '<div class="avatar-circle" style="width:80px;height:80px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:30px;color:white;">👤</div>',
                         unsafe_allow_html=True
                     )
 
@@ -329,7 +329,7 @@ def add_child_tab(data):
                     )
                 else:
                     st.markdown(
-                        '<div class="avatar-circle" style="width:80px;height:80px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);display:flex;align-items:center;justify-content:center;font-size:30px;color:white;">👤</div>',
+                        '<div class="avatar-circle" style="width:80px;height:80px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:30px;color:white;">👤</div>',
                         unsafe_allow_html=True
                     )
 
@@ -471,7 +471,7 @@ def task_list_tab(data):
                 if st.session_state.editing_task_id != template['id']:
                     st.markdown(
                         f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
-                        f'<div style="width:50px;height:50px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">📋</div>'
+                        f'<div style="width:50px;height:50px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">📋</div>'
                         f'<div>'
                         f'<div style="font-size:1.1em;font-weight:700;">{template["title"]}</div>'
                         f'<div style="color:#888;font-size:0.85em;">⭐ {template["default_points"]} points</div>'
@@ -924,7 +924,7 @@ def book_list_tab(data):
 
                     st.markdown(
                         f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
-                        f'<div style="width:50px;height:65px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">📖</div>'
+                        f'<div style="width:50px;height:65px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">📖</div>'
                         f'<div>'
                         f'<div style="font-size:1.1em;font-weight:700;">{book["title"]}</div>'
                         f'<div style="color:#888;font-size:0.85em;">{writer_line} · {lang_flag} · {book["total_pages"]} pages</div>'
@@ -1195,7 +1195,7 @@ def surah_list_tab(data):
             with col_info:
                 st.markdown(
                     f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
-                    f'<div style="width:50px;height:50px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">{icon}</div>'
+                    f'<div style="width:50px;height:50px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">{icon}</div>'
                     f'<div>'
                     f'<div style="font-size:1.1em;font-weight:700;">{surah["name"]}</div>'
                     f'<div style="color:#888;font-size:0.85em;">{assignee_name} · {type_label} · {surah["total_ayahs"]} ayahs · {surah.get("memorized_ayahs", 0)} memorized · {surah.get("status", "In Progress")}</div>'

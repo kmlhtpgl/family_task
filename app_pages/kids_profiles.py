@@ -82,7 +82,7 @@ def show_kid_profile(data, kid):
                 unsafe_allow_html=True
             )
         st.markdown(
-            f'<div style="text-align:center;padding:12px;background:linear-gradient(135deg,#FF8A80,#4ECDC4);border-radius:12px;color:white;margin-top:8px;">'
+            f'<div style="text-align:center;padding:12px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:12px;color:white;margin-top:8px;">'
             f'<span style="font-size:2.5em;">{icon}</span><br>'
             f'<strong style="font-size:1.2em;">{rank}</strong>'
             f'</div>',
