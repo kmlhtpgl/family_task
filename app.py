@@ -152,10 +152,10 @@ st.markdown("""
 
 st.markdown(f"""
     <div class="top-navbar">
-        <div class="navbar-brand">
+        <a href="?nav=dashboard" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:12px;cursor:pointer;" class="navbar-brand">
             <div class="logo">🏠</div>
             <h1>Family Task</h1>
-        </div>
+        </a>
         <div class="navbar-actions">
             <div class="nav-date" id="current-date"></div>
             <button class="nav-dark-btn" onclick="document.getElementById('dark-toggle-input').click()" title="Toggle theme">
@@ -166,16 +166,6 @@ st.markdown(f"""
     <script>
         document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {{
             weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-        }});
-
-        document.querySelector('.navbar-brand').addEventListener('click', function() {{
-            const btns = document.querySelectorAll('button');
-            for (const btn of btns) {{
-                if (btn.textContent.includes('Dashboard')) {{
-                    btn.click();
-                    break;
-                }}
-            }}
         }});
     </script>
 """, unsafe_allow_html=True)
@@ -211,6 +201,12 @@ dark_toggle = st.toggle("🌙 Dark mode", value=st.session_state.dark_mode, key=
 
 if dark_toggle != st.session_state.dark_mode:
     st.session_state.dark_mode = dark_toggle
+    st.rerun()
+
+# Handle nav query param (clicking the Family Task header)
+if st.query_params.get("nav") == "dashboard":
+    st.session_state.page = "dashboard"
+    st.query_params.clear()
     st.rerun()
 
 data = get_all_data()
