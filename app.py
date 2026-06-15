@@ -152,10 +152,10 @@ st.markdown("""
 
 st.markdown(f"""
     <div class="top-navbar">
-        <a href="?nav=dashboard" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:12px;cursor:pointer;" class="navbar-brand">
+        <div onclick="window.location.href='?nav=dashboard'" style="cursor:pointer;display:flex;align-items:center;gap:12px;" class="navbar-brand">
             <div class="logo">🏠</div>
             <h1>Family Task</h1>
-        </a>
+        </div>
         <div class="navbar-actions">
             <div class="nav-date" id="current-date"></div>
             <button class="nav-dark-btn" onclick="document.getElementById('dark-toggle-input').click()" title="Toggle theme">
