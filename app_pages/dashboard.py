@@ -83,10 +83,9 @@ def dashboard_page(data):
         else:
             st.markdown("""
             <style>
-            [data-testid="column"], [data-testid="stColumn"] {
+            div[data-testid="stHorizontalBlock"]:has(> :nth-child(7)) > div {
                 border: 1px solid rgba(128, 128, 128, 0.15) !important;
                 border-radius: 8px !important;
-                overflow: hidden;
                 padding: 4px 6px !important;
             }
             </style>
