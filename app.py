@@ -167,9 +167,9 @@ st.markdown(f"""
         document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {{
             weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
         }});
-        document.getElementById('brand-home').addEventListener('click', function() {
+        document.getElementById('brand-home').addEventListener('click', function() {{
             window.location.href = '?nav=dashboard';
-        });
+        }});
     </script>
 """, unsafe_allow_html=True)
 
