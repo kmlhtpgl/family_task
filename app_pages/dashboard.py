@@ -2,9 +2,8 @@ import streamlit as st
 from datetime import date, timedelta
 from collections import defaultdict
 
-from utils.data_helpers import get_kid
 from utils.task_helpers import (
-    get_today_tasks, get_rank,
+    get_rank,
     get_total_points_for_kid, get_total_points_for_parent,
     get_weekly_points_for_kid, get_weekly_points_for_parent,
     TASK_STATUSES, get_effective_points,
@@ -100,57 +99,88 @@ def dashboard_page(data):
 
     st.divider()
 
-    # ── Section 2: Today's Tasks ──
-    st.subheader("📋 Today's Tasks")
+    # ── Section 2: Weekly Tasks ──
+    st.subheader("📅 Weekly Tasks")
 
-    today_tasks = get_today_tasks(data)
-    today_tasks.sort(key=lambda t: get_assignee_name(data, t))
+    person_options = {}
+    for kid in data["kids"]:
+        person_options[f"🧒 {kid['name']}"] = ("kid", kid["id"])
+    for parent in data.get("parents", []):
+        person_options[f"👨‍👩‍👧 {parent['name']}"] = ("parent", parent["id"])
 
-    if not today_tasks:
-        st.success("✅ No unfinished tasks for today!")
+    if not person_options:
+        st.info("No children or parents added yet.")
     else:
-        for task in today_tasks:
-            assignee = get_assignee_display(data, task)
-            st.markdown(f"""
-            <div class="task-item">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <h4 style="margin:0;">{task["title"]}</h4>
-                        <p style="margin:4px 0 0 0;color:var(--text-secondary);font-size:0.85em;">{assignee} • {task.get("points", 0)} pts</p>
-                    </div>
-                    <span class="status-badge status-{task["status"].lower().replace(" ", "-")}">{task["status"]}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+        selected_person = st.selectbox(
+            "Select person", list(person_options.keys()), key="weekly_person"
+        )
+        person_type, person_id = person_options[selected_person]
 
-            new_status = st.segmented_control(
-                "Move task",
-                TASK_STATUSES,
-                default=task["status"],
-                key=f"dash_task_{task['id']}",
-                label_visibility="collapsed",
-            )
+        weekly_tasks = []
+        for task in data["tasks"]:
+            if person_type == "kid" and task.get("kid_id") != person_id:
+                continue
+            if person_type == "parent" and task.get("parent_id") != person_id:
+                continue
+            due = task.get("due_date")
+            if not due:
+                continue
+            try:
+                due_date = date.fromisoformat(due)
+            except (ValueError, TypeError):
+                continue
+            if not (monday <= due_date <= sunday):
+                continue
+            weekly_tasks.append(task)
 
-            if new_status != task["status"]:
-                updates = {"status": new_status}
-                if task["status"] != "Done" and new_status == "Done":
-                    today_dt = date.today()
-                    year, week_num, _ = today_dt.isocalendar()
-                    updates["completed_date"] = today_dt.isoformat()
-                    updates["completed_week"] = f"{year}-W{week_num}"
-                    task_copy = {**task, "completed_date": today_dt.isoformat()}
-                    effective = get_effective_points(task_copy)
-                    if effective == 0:
-                        st.warning("⚠️ Overdue – 0 points awarded.")
+        weekly_tasks.sort(key=lambda t: t.get("due_date", ""))
+
+        if not weekly_tasks:
+            st.info(f"No tasks for {selected_person} this week.")
+        else:
+            st.write(f"Showing {len(weekly_tasks)} tasks")
+            for task in weekly_tasks:
+                due_date = date.fromisoformat(task["due_date"])
+                day_name = due_date.strftime("%A")
+
+                cols = st.columns([3, 1.5, 1, 1.5])
+                with cols[0]:
+                    st.markdown(f"**{task['title']}**")
+                with cols[1]:
+                    st.write(day_name)
+                with cols[2]:
+                    st.markdown(
+                        f"<span class='status-badge status-{task['status'].lower()}'>{task['status']}</span>",
+                        unsafe_allow_html=True,
+                    )
+                with cols[3]:
+                    if task["status"] == "Done":
+                        if st.button("↩️ Undo", key=f"undo_{task['id']}"):
+                            updates = {
+                                "status": "Backlog",
+                                "completed_date": None,
+                                "completed_week": None,
+                            }
+                            update_task(task["id"], updates)
+                            st.success(f"↩️ {task['title']} moved back to Backlog.")
+                            st.rerun()
                     else:
-                        st.success(f"✨ {effective} points added!")
-                elif task["status"] == "Done" and new_status != "Done":
-                    updates["completed_date"] = None
-                    updates["completed_week"] = None
-                else:
-                    st.success(f"Moved to {new_status}.")
-                update_task(task["id"], updates)
-                st.rerun()
+                        if st.button("✅ Done", key=f"done_{task['id']}"):
+                            today_dt = date.today()
+                            year, week_num, _ = today_dt.isocalendar()
+                            updates = {
+                                "status": "Done",
+                                "completed_date": today_dt.isoformat(),
+                                "completed_week": f"{year}-W{week_num}",
+                            }
+                            update_task(task["id"], updates)
+                            task_copy = {**task, "completed_date": today_dt.isoformat()}
+                            effective = get_effective_points(task_copy)
+                            if effective == 0:
+                                st.warning("⚠️ Overdue – 0 points awarded.")
+                            else:
+                                st.success(f"✨ {effective} points added!")
+                            st.rerun()
 
     st.divider()
 
@@ -227,26 +257,3 @@ def dashboard_page(data):
             <div class="label">Surahs in progress</div>
         </div>
         """, unsafe_allow_html=True)
-
-
-def get_assignee_display(data, task):
-    if task.get("kid_id"):
-        kid = get_kid(data, task["kid_id"])
-        return f"🧒 {kid['name']}" if kid else "🧒 Unknown"
-    if task.get("parent_id"):
-        for parent in data.get("parents", []):
-            if parent["id"] == task["parent_id"]:
-                return f"👨‍👩‍👧 {parent['name']}"
-        return "👨‍👩‍👧 Unknown"
-    return "Unknown"
-
-
-def get_assignee_name(data, task):
-    if task.get("kid_id"):
-        kid = get_kid(data, task["kid_id"])
-        return kid["name"] if kid else ""
-    if task.get("parent_id"):
-        for parent in data.get("parents", []):
-            if parent["id"] == task["parent_id"]:
-                return parent["name"]
-    return ""

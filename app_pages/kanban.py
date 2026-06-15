@@ -9,7 +9,7 @@ from utils.db_helpers import update_task
 
 def kanban_page(data):
     st.header("🎯 Daily Board")
-    st.caption("Drag tasks between Backlog, In Progress and Done.")
+    st.caption("Drag tasks between Backlog and Done.")
 
     if not data["kids"] and not data.get("parents"):
         st.info("Add children or parents first in Admin.")
@@ -53,7 +53,6 @@ def kanban_page(data):
 
                 status_emoji = {
                     "Backlog": "📋",
-                    "In Progress": "⏳",
                     "Done": "✅"
                 }.get(status, "❓")
 
@@ -96,11 +95,6 @@ def kanban_page(data):
         border-color: #94A3B8;
     }
 
-    .sortable-container[data-header*="In Progress"] {
-        background: rgba(245,158,11,0.04);
-        border-color: #F59E0B;
-    }
-
     .sortable-container[data-header*="Done"] {
         background: rgba(16,185,129,0.04);
         border-color: #10B981;
@@ -118,11 +112,6 @@ def kanban_page(data):
     .sortable-container[data-header="Backlog"] .sortable-container-header {
         color: #94A3B8;
         background: rgba(148,163,184,0.08);
-    }
-
-    .sortable-container[data-header*="In Progress"] .sortable-container-header {
-        color: #F59E0B;
-        background: rgba(245,158,11,0.08);
     }
 
     .sortable-container[data-header*="Done"] .sortable-container-header {

@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from utils.data_helpers import today_string, current_week_key
 
 
-TASK_STATUSES = ["Backlog", "In Progress", "Done"]
+TASK_STATUSES = ["Backlog", "Done"]
 
 OVERDUE_DAYS = 2
 
