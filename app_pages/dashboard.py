@@ -78,21 +78,31 @@ def dashboard_page(data):
             d = date.fromisoformat(task["due_date"])
             tasks_by_day[d.weekday()].append(task)
 
-        DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-
         if not weekly_tasks:
             st.info(f"No tasks for {selected_person} this week.")
         else:
+            DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            cols = st.columns(7)
             for day_idx in range(7):
+                current_date = monday + timedelta(days=day_idx)
                 day_tasks = tasks_by_day.get(day_idx, [])
                 day_tasks.sort(key=lambda t: t["title"])
-                current_date = monday + timedelta(days=day_idx)
-                today_flag = " (Today)" if current_date == date.today() else ""
-                st.markdown(f"**{DAY_NAMES[day_idx]}{today_flag}** — {len(day_tasks)}")
-                for task in day_tasks:
-                    with st.expander(f"{task['title']} • {task['points']} pts", key=f"exp_{task['id']}"):
-                        if task["status"] == "Done":
-                            if st.button("↩️ Undo", key=f"undo_{task['id']}", use_container_width=True):
+                is_today = current_date == date.today()
+
+                with cols[day_idx]:
+                    header_bg = "background:var(--primary);color:white;border-radius:8px;padding:6px 4px;" if is_today else ""
+                    st.markdown(
+                        f"<div style='text-align:center;{header_bg}'>"
+                        f"<b>{DAY_SHORT[day_idx]}</b><br>"
+                        f"<small>{current_date.strftime('%m/%d')}</small>"
+                        f"<br><small>{len(day_tasks)}</small>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                    for task in day_tasks:
+                        icon = "✅" if task["status"] == "Done" else "📋"
+                        if st.button(f"{icon} {task['title']}", key=f"cal_{task['id']}", use_container_width=True):
+                            if task["status"] == "Done":
                                 updates = {
                                     "status": "Backlog",
                                     "completed_date": None,
@@ -100,9 +110,7 @@ def dashboard_page(data):
                                 }
                                 update_task(task["id"], updates)
                                 st.success(f"↩️ {task['title']} moved back to Backlog.")
-                                st.rerun()
-                        else:
-                            if st.button("✅ Done", key=f"done_{task['id']}", use_container_width=True):
+                            else:
                                 today_dt = date.today()
                                 year, week_num, _ = today_dt.isocalendar()
                                 updates = {
@@ -117,7 +125,7 @@ def dashboard_page(data):
                                     st.warning("⚠️ Overdue – 0 points awarded.")
                                 else:
                                     st.success(f"✨ {effective} points added!")
-                                st.rerun()
+                            st.rerun()
     else:
         st.info("No children or parents added yet.")
 
