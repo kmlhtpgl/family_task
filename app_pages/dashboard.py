@@ -110,7 +110,9 @@ def dashboard_page(data):
                     )
                     for task in day_tasks:
                         icon = "✅" if task["status"] == "Done" else "📋"
-                        if st.button(f"{icon} {task['title']}", key=f"cal_{task['id']}", use_container_width=True):
+                        task_date = date.fromisoformat(task["due_date"])
+                        can_toggle = (today - timedelta(days=2)) <= task_date <= today
+                        if st.button(f"{icon} {task['title']}", key=f"cal_{task['id']}", use_container_width=True, disabled=not can_toggle):
                             if task["status"] == "Done":
                                 updates = {
                                     "status": "Backlog",

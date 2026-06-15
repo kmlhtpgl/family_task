@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date
+from datetime import date, timedelta
 from streamlit_sortables import sort_items
 
 from utils.data_helpers import get_kid
@@ -184,6 +184,10 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
                     old_status = task["status"]
 
                     if old_status != new_status:
+                        due = task.get("due_date")
+                        if due and not ((date.today() - timedelta(days=2)) <= date.fromisoformat(due) <= date.today()):
+                            break
+
                         updates = {
                             "status": new_status
                         }
