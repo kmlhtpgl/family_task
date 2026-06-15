@@ -83,10 +83,11 @@ def dashboard_page(data):
         else:
             st.markdown("""
             <style>
-            [data-testid="column"] {
-                border: 1px solid rgba(128, 128, 128, 0.12);
-                border-radius: 8px;
-                padding: 4px 6px;
+            [data-testid="column"], [data-testid="stColumn"] {
+                border: 1px solid rgba(128, 128, 128, 0.15) !important;
+                border-radius: 8px !important;
+                overflow: hidden;
+                padding: 4px 6px !important;
             }
             </style>
             """, unsafe_allow_html=True)
