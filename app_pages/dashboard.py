@@ -52,7 +52,7 @@ def dashboard_page(data):
 
     if person_options:
         selected_person = st.segmented_control(
-            "Person", list(person_options.keys()), key="weekly_person"
+            "Person", list(person_options.keys()), default=list(person_options.keys())[0], key="weekly_person"
         )
         person_type, person_id = person_options[selected_person]
 
