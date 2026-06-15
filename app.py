@@ -152,7 +152,7 @@ st.markdown("""
 
 st.markdown(f"""
     <div class="top-navbar">
-        <div onclick="window.location.href='?nav=dashboard'" style="cursor:pointer;display:flex;align-items:center;gap:12px;" class="navbar-brand">
+        <div id="brand-home" style="cursor:pointer;display:flex;align-items:center;gap:12px;" class="navbar-brand">
             <div class="logo">🏠</div>
             <h1>Family Task</h1>
         </div>
@@ -167,6 +167,9 @@ st.markdown(f"""
         document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {{
             weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
         }});
+        document.getElementById('brand-home').addEventListener('click', function() {
+            window.location.href = '?nav=dashboard';
+        });
     </script>
 """, unsafe_allow_html=True)
 
