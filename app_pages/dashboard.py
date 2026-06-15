@@ -81,6 +81,15 @@ def dashboard_page(data):
         if not weekly_tasks:
             st.info(f"No tasks for {selected_person} this week.")
         else:
+            st.markdown("""
+            <style>
+            [data-testid="column"] {
+                border: 1px solid rgba(128, 128, 128, 0.12);
+                border-radius: 8px;
+                padding: 4px 6px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
             DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
             cols = st.columns(7)
             for day_idx in range(7):
