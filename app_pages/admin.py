@@ -1352,33 +1352,36 @@ def kiosk_settings_tab(data):
     st.subheader("🖥️ Kiosk Settings")
     st.caption("Configure the wall-mounted iPad experience: screensaver, adhan, and screen wake lock.")
 
+    from utils.kiosk_helpers import load_kiosk_settings, save_kiosk_settings
+    settings = load_kiosk_settings()
+
+    for k, v in settings.items():
+        st.session_state.setdefault(f"kiosk_{k}", v)
+
     prayer_times = get_prayer_times()
 
     # ── 1. Toggles ──
     st.write("### ⚙️ Features")
     col1, col2, col3 = st.columns(3)
     with col1:
-        screensaver_on = st.toggle(
+        st.toggle(
             "🖼️ Screensaver",
-            value=st.session_state.get("kiosk_screensaver_enabled", True),
             key="kiosk_screensaver_enabled"
         )
     with col2:
-        adhan_on = st.toggle(
+        st.toggle(
             "🕌 Adhan",
-            value=st.session_state.get("kiosk_adhan_enabled", True),
             key="kiosk_adhan_enabled"
         )
     with col3:
-        idle_minutes = st.slider(
+        st.slider(
             "⏱️ Idle timeout (minutes)",
             min_value=1,
             max_value=30,
-            value=st.session_state.get("kiosk_idle_timeout", 5),
             key="kiosk_idle_timeout"
         )
 
-    timeout_val = st.session_state.get("kiosk_idle_timeout", 5)
+    timeout_val = st.session_state.kiosk_idle_timeout
     from pathlib import Path as _Path
     _bg_dir = _Path("static/backgrounds")
     _bg_count = len([f for f in _bg_dir.iterdir() if f.suffix.lower() in (".jpg",".jpeg",".png",".gif",".webp")]) if _bg_dir.exists() else 0
@@ -1390,6 +1393,12 @@ def kiosk_settings_tab(data):
     if st.button("🖼️ Test Screensaver Now", use_container_width=True, type="primary"):
         st.session_state.kiosk_test_screensaver = True
         st.rerun()
+
+    save_kiosk_settings(
+        screensaver_enabled=st.session_state.kiosk_screensaver_enabled,
+        adhan_enabled=st.session_state.kiosk_adhan_enabled,
+        idle_timeout=st.session_state.kiosk_idle_timeout,
+    )
 
     st.divider()
 

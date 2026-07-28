@@ -5,6 +5,29 @@ from pathlib import Path
 import json
 
 
+SETTINGS_PATH = Path("data/kiosk_settings.json")
+
+
+def load_kiosk_settings():
+    defaults = {
+        "screensaver_enabled": True,
+        "adhan_enabled": True,
+        "idle_timeout": 5,
+    }
+    if SETTINGS_PATH.exists():
+        with open(SETTINGS_PATH) as f:
+            return {**defaults, **json.load(f)}
+    return defaults
+
+
+def save_kiosk_settings(**kwargs):
+    current = load_kiosk_settings()
+    current.update(kwargs)
+    SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(SETTINGS_PATH, "w") as f:
+        json.dump(current, f, indent=2)
+
+
 @st.cache_data(ttl=86400)
 def get_prayer_times():
     try:
@@ -73,14 +96,19 @@ def load_background_images():
 
 
 def get_kiosk_config():
+    settings = load_kiosk_settings()
     prayer_times = get_prayer_times()
     audio_data = load_audio_files()
     background_images = load_background_images()
 
+    screensaver_enabled = st.session_state.get("kiosk_screensaver_enabled", settings["screensaver_enabled"])
+    adhan_enabled = st.session_state.get("kiosk_adhan_enabled", settings["adhan_enabled"])
+    idle_timeout = st.session_state.get("kiosk_idle_timeout", settings["idle_timeout"])
+
     config = {
-        "screensaver_enabled": st.session_state.get("kiosk_screensaver_enabled", True),
-        "adhan_enabled": st.session_state.get("kiosk_adhan_enabled", True),
-        "idle_timeout_ms": st.session_state.get("kiosk_idle_timeout", 5) * 60 * 1000,
+        "screensaver_enabled": screensaver_enabled,
+        "adhan_enabled": adhan_enabled,
+        "idle_timeout_ms": idle_timeout * 60 * 1000,
         "trigger_screensaver": st.session_state.pop("kiosk_test_screensaver", False),
         "prayer_times": prayer_times,
         "audio_data": audio_data,
