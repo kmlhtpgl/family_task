@@ -1388,11 +1388,8 @@ def kiosk_settings_tab(data):
     )
 
     if st.button("🖼️ Test Screensaver Now", use_container_width=True, type="primary"):
-        st.markdown(
-            "<script>if(window.Kiosk)window.Kiosk.showScreensaver();</script>",
-            unsafe_allow_html=True
-        )
-        st.success("Screensaver activated! Touch anywhere to dismiss.")
+        st.session_state.kiosk_test_screensaver = True
+        st.rerun()
 
     st.divider()
 

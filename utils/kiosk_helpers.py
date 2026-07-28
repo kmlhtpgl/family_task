@@ -81,6 +81,7 @@ def get_kiosk_config():
         "screensaver_enabled": st.session_state.get("kiosk_screensaver_enabled", True),
         "adhan_enabled": st.session_state.get("kiosk_adhan_enabled", True),
         "idle_timeout_ms": st.session_state.get("kiosk_idle_timeout", 5) * 60 * 1000,
+        "trigger_screensaver": st.session_state.pop("kiosk_test_screensaver", False),
         "prayer_times": prayer_times,
         "audio_data": audio_data,
         "background_images": background_images,

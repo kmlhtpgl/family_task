@@ -382,6 +382,9 @@ st.markdown(f"""
     requestWakeLock();
     resetIdleTimer();
     window.__kioskInt = setInterval(checkPrayerTimes, 15000);
+    if (CONFIG.trigger_screensaver) {{
+        setTimeout(function() {{ showScreensaver(); }}, 500);
+    }}
 
     window.Kiosk = {{
         testAdhan: playAdhan,
