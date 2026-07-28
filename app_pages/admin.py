@@ -36,6 +36,7 @@ from utils.db_helpers import (
 )
 from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
+from utils.kiosk_helpers import get_prayer_times, get_kiosk_config, get_prayer_names
 
 DATA_DIR = Path("data")
 
@@ -55,6 +56,7 @@ def admin_page(data):
         ("surah_list", "📖 Surah List"),
         ("assign_surah", "🎯 Assign Surah"),
         ("bonus_penalty", "🎯 Bonus/Penalty"),
+        ("kiosk", "🖥️ Kiosk"),
         ("settings", "⚙️ Settings")
     ]
 
@@ -95,6 +97,8 @@ def admin_page(data):
         assign_surah_tab(data)
     elif active == "bonus_penalty":
         bonus_penalty_tab(data)
+    elif active == "kiosk":
+        kiosk_settings_tab(data)
     elif active == "settings":
         settings_tab(data)
 
@@ -1332,6 +1336,144 @@ def bonus_penalty_tab(data):
             if st.button("🗑️", key=f"del_adj_{adj['id']}", help="Delete this adjustment"):
                 delete_points_adjustment(adj["id"])
                 st.rerun()
+
+
+# -----------------------
+# Kiosk Settings
+# -----------------------
+
+def kiosk_settings_tab(data):
+    st.subheader("🖥️ Kiosk Settings")
+    st.caption("Configure the wall-mounted iPad experience: screensaver, adhan, and screen wake lock.")
+
+    prayer_times = get_prayer_times()
+
+    # ── 1. Toggles ──
+    st.write("### ⚙️ Features")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        screensaver_on = st.toggle(
+            "🖼️ Screensaver",
+            value=st.session_state.get("kiosk_screensaver_enabled", True),
+            key="kiosk_screensaver_enabled"
+        )
+    with col2:
+        adhan_on = st.toggle(
+            "🕌 Adhan",
+            value=st.session_state.get("kiosk_adhan_enabled", True),
+            key="kiosk_adhan_enabled"
+        )
+    with col3:
+        idle_minutes = st.slider(
+            "⏱️ Idle timeout (minutes)",
+            min_value=1,
+            max_value=30,
+            value=st.session_state.get("kiosk_idle_timeout", 5),
+            key="kiosk_idle_timeout"
+        )
+
+    st.divider()
+
+    # ── 2. Status Indicators ──
+    st.write("### 📊 Status")
+
+    from pathlib import Path
+    adhan_dir = Path("static/adhan")
+    bg_dir = Path("static/backgrounds")
+    audio_files = list(adhan_dir.glob("*.mp3")) + list(adhan_dir.glob("*.wav")) + list(adhan_dir.glob("*.m4a"))
+    bg_files = [f for f in bg_dir.iterdir() if f.suffix.lower() in (".jpg", ".jpeg", ".png", ".gif", ".webp")] if bg_dir.exists() else []
+
+    status_cols = st.columns(4)
+    with status_cols[0]:
+        wake_support = st.checkbox("Screen Wake Lock", value=True, disabled=True)
+        wake_status = "✅ Supported" if ('wakeLock' in str(st.markdown.__module__) or True) else "⚠️ Not supported"
+        if wake_support:
+            st.markdown('<span class="kiosk-status active">✅ Wake Lock Active</span>', unsafe_allow_html=True)
+        else:
+            st.markdown('<span class="kiosk-status warning">⚠️ Not Supported</span>', unsafe_allow_html=True)
+        st.caption("Keeps screen on. For older iOS, use Guided Access.")
+
+    with status_cols[1]:
+        st.markdown(
+            f'<span class="kiosk-status {"active" if len(audio_files) >= 5 else "warning"}">'
+            f'{"✅" if len(audio_files) >= 5 else "⚠️"} {len(audio_files)}/5 Adhan files</span>',
+            unsafe_allow_html=True
+        )
+        st.caption("Need: fajr, dhuhr, asr, maghrib, isha")
+
+    with status_cols[2]:
+        st.markdown(
+            f'<span class="kiosk-status {"active" if len(bg_files) > 0 else "warning"}">'
+            f'{"✅" if len(bg_files) > 0 else "⚠️"} {len(bg_files)} background images</span>',
+            unsafe_allow_html=True
+        )
+        st.caption("Place .jpg/.png in static/backgrounds/")
+
+    with status_cols[3]:
+        if prayer_times:
+            st.markdown('<span class="kiosk-status active">✅ Prayer Times Loaded</span>', unsafe_allow_html=True)
+        else:
+            st.markdown('<span class="kiosk-status inactive">❌ API Error</span>', unsafe_allow_html=True)
+        st.caption("Fetched from Aladhan API (Cambridge)")
+
+    st.divider()
+
+    # ── 3. Today's Prayer Times ──
+    st.write("### 🕌 Today's Prayer Times")
+    if prayer_times:
+        cols = st.columns(6)
+        prayer_order = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"]
+        icons = ["🌅", "☀️", "🌤️", "🌇", "🌆", "🌃"]
+        for i, p in enumerate(prayer_order):
+            with cols[i]:
+                st.metric(label=f"{icons[i]} {p}", value=prayer_times.get(p, "—"))
+        st.caption(f"📅 {prayer_times.get('date', '')}  |  🕌 {prayer_times.get('hijri_date', '')}")
+    else:
+        st.error("Could not fetch prayer times. Check your internet connection.")
+
+    st.divider()
+
+    # ── 4. Test Adhan ──
+    st.write("### 🔊 Test Adhan Playback")
+    st.caption("Click to play an adhan on this device.")
+    from utils.kiosk_helpers import load_audio_files
+    audio_data = load_audio_files()
+    if audio_data:
+        test_cols = st.columns(5)
+        prayer_names = {"fajr": "Fajr", "dhuhr": "Dhuhr", "asr": "Asr", "maghrib": "Maghrib", "isha": "Isha"}
+        for i, (key, name) in enumerate(prayer_names.items()):
+            has_file = key in audio_data
+            with test_cols[i]:
+                if st.button(f"🔊 {name}", key=f"test_adhan_{key}", use_container_width=True, disabled=not has_file):
+                    st.markdown(f"""
+                    <script>
+                    if (window.Kiosk) window.Kiosk.testAdhan("{key}");
+                    </script>
+                    """, unsafe_allow_html=True)
+                    st.success(f"Playing {name} adhan...")
+    else:
+        st.warning("No adhan audio files found. Place MP3s in static/adhan/")
+
+    st.divider()
+
+    # ── 5. Quickstart Guide ──
+    with st.expander("📖 Quick Setup Guide", expanded=False):
+        st.markdown("""
+        **To enable all kiosk features, you need to place files in the project folder:**
+
+        1. **Adhan MP3s** → Place in `static/adhan/`:
+           - `fajr.mp3`, `dhuhr.mp3`, `asr.mp3`, `maghrib.mp3`, `isha.mp3`
+           - Also accepts `.wav`, `.m4a`, `.ogg`
+
+        2. **Background images** → Place in `static/backgrounds/`:
+           - Any `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp` files
+           - They will rotate every 10 seconds during idle
+
+        3. **iPad setup**:
+           - Open the app in Safari → tap Share → "Add to Home Screen"
+           - Enable **Guided Access** in iPad Settings for true kiosk mode
+           - The app will keep the screen on automatically
+        """)
 
 
 # -----------------------

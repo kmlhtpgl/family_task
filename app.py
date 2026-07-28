@@ -1,6 +1,8 @@
+import json
 import streamlit as st
 from utils.db_helpers import get_all_data
 from utils.styles import apply_custom_styles
+from utils.kiosk_helpers import get_kiosk_config
 from app_pages.dashboard import dashboard_page
 from app_pages.kanban import kanban_page
 from app_pages.kids_profiles import kids_profiles_page
@@ -171,6 +173,184 @@ st.markdown(f"""
             window.location.href = '?nav=dashboard';
         }});
     </script>
+""", unsafe_allow_html=True)
+
+# ── Kiosk Module ──
+_kiosk_cfg = get_kiosk_config()
+_kiosk_json = json.dumps(_kiosk_cfg)
+
+st.markdown(f"""
+<script>
+(function() {{
+    if (window.__kioskCleared) {{
+        clearInterval(window.__kioskInt);
+        clearTimeout(window.__kioskIdle);
+        clearInterval(window.__kioskSlide);
+    }}
+    window.__kioskCleared = true;
+
+    var CONFIG = {_kiosk_json};
+
+    function loadConfig() {{
+        if (window.__kioskConfig) CONFIG = window.__kioskConfig;
+    }}
+
+    /* ═══════ WAKE LOCK ═══════ */
+    var wakeLock = null;
+    function requestWakeLock() {{
+        if ('wakeLock' in navigator) {{
+            navigator.wakeLock.request('screen').then(function(wl) {{
+                wakeLock = wl;
+                wakeLock.addEventListener('release', function() {{
+                    wakeLock = null;
+                }});
+            }}).catch(function() {{}});
+        }}
+    }}
+    document.addEventListener('visibilitychange', function() {{
+        if (document.visibilityState === 'visible') requestWakeLock();
+    }});
+
+    /* ═══════ IDLE DETECTION ═══════ */
+    var isScreensaverActive = false;
+    function resetIdleTimer() {{
+        if (isScreensaverActive) hideScreensaver();
+        clearTimeout(window.__kioskIdle);
+        if (CONFIG.screensaver_enabled && CONFIG.background_images && CONFIG.background_images.length > 0) {{
+            window.__kioskIdle = setTimeout(showScreensaver, CONFIG.idle_timeout_ms || 300000);
+        }}
+    }}
+
+    /* ═══════ SCREENSAVER ═══════ */
+    var screensaverEl = null;
+    var slideshowInterval = null;
+    var currentImageIndex = 0;
+
+    function showScreensaver() {{
+        if (isScreensaverActive) return;
+        var imgs = CONFIG.background_images;
+        if (!imgs || imgs.length === 0) return;
+        isScreensaverActive = true;
+
+        screensaverEl = document.createElement('div');
+        screensaverEl.className = 'kiosk-screensaver';
+
+        var imgContainer = document.createElement('div');
+        imgContainer.className = 'kiosk-screensaver-images';
+
+        var img = document.createElement('img');
+        img.src = imgs[0];
+        img.className = 'kiosk-screensaver-img active';
+        imgContainer.appendChild(img);
+        screensaverEl.appendChild(imgContainer);
+        document.body.appendChild(screensaverEl);
+        currentImageIndex = 0;
+
+        if (imgs.length > 1) {{
+            window.__kioskSlide = setInterval(function() {{
+                var container = screensaverEl.querySelector('.kiosk-screensaver-images');
+                if (!container) return;
+                currentImageIndex = (currentImageIndex + 1) % imgs.length;
+                var newImg = document.createElement('img');
+                newImg.src = imgs[currentImageIndex];
+                newImg.className = 'kiosk-screensaver-img';
+                container.appendChild(newImg);
+                setTimeout(function() {{ newImg.classList.add('active'); }}, 50);
+                setTimeout(function() {{
+                    var oldImgs = container.querySelectorAll('.kiosk-screensaver-img:not(.active)');
+                    for (var i = 0; i < oldImgs.length; i++) oldImgs[i].remove();
+                }}, 1600);
+            }}, 10000);
+        }}
+
+        function dismissHandler() {{ hideScreensaver(); }}
+        screensaverEl.addEventListener('click', dismissHandler);
+        screensaverEl.addEventListener('touchend', dismissHandler);
+    }}
+
+    function hideScreensaver() {{
+        if (!isScreensaverActive) return;
+        isScreensaverActive = false;
+        clearInterval(window.__kioskSlide);
+        if (screensaverEl) {{ screensaverEl.remove(); screensaverEl = null; }}
+        currentImageIndex = 0;
+        resetIdleTimer();
+    }}
+
+    /* ═══════ USER ACTIVITY ═══════ */
+    var activityEvents = ['mousedown','mousemove','keydown','touchstart','click','scroll','wheel'];
+    for (var ei = 0; ei < activityEvents.length; ei++) {{
+        document.addEventListener(activityEvents[ei], resetIdleTimer, {{ passive: true }});
+    }}
+
+    /* ═══════ PRAYER TIME CHECKER ═══════ */
+    var lastPrayed = {{}};
+    function checkPrayerTimes() {{
+        if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_data) return;
+        var now = new Date();
+        var todayKey = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
+        if (lastPrayed._date !== todayKey) {{
+            lastPrayed = {{ _date: todayKey }};
+        }}
+        var prayers = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
+        for (var pi = 0; pi < prayers.length; pi++) {{
+            var prayer = prayers[pi];
+            var time = CONFIG.prayer_times[prayer];
+            if (!time) continue;
+            var parts = time.split(':');
+            var h = parseInt(parts[0], 10);
+            var m = parseInt(parts[1], 10);
+            var prayerDate = new Date(now);
+            prayerDate.setHours(h, m, 0, 0);
+            var diff = Math.abs(now - prayerDate);
+            if (diff < 30000 && !lastPrayed[prayer]) {{
+                lastPrayed[prayer] = true;
+                playAdhan(prayer.toLowerCase());
+                break;
+            }}
+        }}
+    }}
+
+    var audioCtx = null;
+    function unlockAudio() {{
+        if (!audioCtx) {{
+            try {{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }} catch(e) {{}}
+        }}
+        if (audioCtx && audioCtx.state === 'suspended') {{
+            audioCtx.resume();
+        }}
+    }}
+    document.addEventListener('touchstart', unlockAudio, {{ once: true }});
+    document.addEventListener('click', unlockAudio, {{ once: true }});
+
+    function playAdhan(prayer) {{
+        if (!CONFIG.audio_data || !CONFIG.audio_data[prayer]) return;
+        unlockAudio();
+        var names = {{ fajr:'Fajr', dhuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha' }};
+        var banner = document.createElement('div');
+        banner.className = 'kiosk-adhan-banner';
+        banner.innerHTML = '\\u{{1F54C}} Adhan \\u2014 ' + (names[prayer] || prayer) + ' time!';
+        document.body.appendChild(banner);
+        setTimeout(function() {{ if (banner.parentNode) banner.remove(); }}, 10000);
+        var audio = new Audio(CONFIG.audio_data[prayer]);
+        audio.play().catch(function() {{}});
+        document.body.classList.add('adhan-playing');
+        audio.onended = function() {{ document.body.classList.remove('adhan-playing'); }};
+    }}
+
+    /* ═══════ INIT ═══════ */
+    requestWakeLock();
+    resetIdleTimer();
+    window.__kioskInt = setInterval(checkPrayerTimes, 15000);
+
+    window.Kiosk = {{
+        testAdhan: playAdhan,
+        hideScreensaver: hideScreensaver,
+        showScreensaver: showScreensaver,
+        updateConfig: function(cfg) {{ window.__kioskConfig = cfg; }},
+    }};
+}})();
+</script>
 """, unsafe_allow_html=True)
 
 # Page navigation bar

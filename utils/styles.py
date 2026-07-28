@@ -603,6 +603,103 @@ def apply_custom_styles(dark_mode=False):
         100% {{ transform: scale(1); opacity: 1; }}
     }}
 
+    /* ── Kiosk Screensaver ── */
+    .kiosk-screensaver {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 99999;
+        background: rgba(0, 0, 0, 0.92);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: kioskFadeIn 0.8s ease-out;
+        cursor: pointer;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }}
+    .kiosk-screensaver-images {{
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }}
+    .kiosk-screensaver-img {{
+        position: absolute;
+        max-width: 90vw;
+        max-height: 90vh;
+        object-fit: contain;
+        border-radius: 12px;
+        opacity: 0;
+        transition: opacity 1.5s ease-in-out;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }}
+    .kiosk-screensaver-img.active {{
+        opacity: 1;
+    }}
+    @keyframes kioskFadeIn {{
+        from {{ opacity: 0; }}
+        to {{ opacity: 1; }}
+    }}
+
+    /* ── Adhan Banner ── */
+    .kiosk-adhan-banner {{
+        position: fixed;
+        top: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 99998;
+        background: linear-gradient(135deg, #1E3A5F, #2D5A87);
+        color: white;
+        padding: 18px 36px;
+        border-radius: 16px;
+        font-size: 1.4em;
+        font-weight: 700;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
+        animation: kioskBannerSlide 0.6s ease-out;
+        pointer-events: none;
+        letter-spacing: 0.5px;
+    }}
+    @keyframes kioskBannerSlide {{
+        from {{ transform: translateX(-50%) translateY(-100px); opacity: 0; }}
+        to {{ transform: translateX(-50%) translateY(0); opacity: 1; }}
+    }}
+    body.adhan-playing .stApp {{
+        opacity: 0.7;
+        transition: opacity 0.5s ease;
+    }}
+
+    /* ── Kiosk Status Indicators ── */
+    .kiosk-status {{
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
+        border-radius: 100px;
+        font-size: 0.85em;
+        font-weight: 600;
+    }}
+    .kiosk-status.active {{
+        background: rgba(16,185,129,0.1);
+        color: #10B981;
+        border: 1px solid rgba(16,185,129,0.2);
+    }}
+    .kiosk-status.inactive {{
+        background: rgba(239,68,68,0.1);
+        color: #EF4444;
+        border: 1px solid rgba(239,68,68,0.2);
+    }}
+    .kiosk-status.warning {{
+        background: rgba(245,158,11,0.1);
+        color: #F59E0B;
+        border: 1px solid rgba(245,158,11,0.2);
+    }}
+
     /* ── Mobile ── */
     @media (max-width: 768px) {{
         .stColumn [data-testid="stButton"] button {{
