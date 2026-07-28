@@ -63,15 +63,21 @@ def admin_page(data):
     if "admin_tab" not in st.session_state:
         st.session_state.admin_tab = "parents"
 
-    tab_cols = st.columns(len(admin_tabs), gap="small")
+    tab_labels = [t[1] for t in admin_tabs]
+    tab_keys = [t[0] for t in admin_tabs]
+    current_index = tab_keys.index(st.session_state.admin_tab)
 
-    for col, (tab_key, tab_label) in zip(tab_cols, admin_tabs):
-        is_active = tab_key == st.session_state.admin_tab
-        btn_type = "primary" if is_active else "secondary"
+    selected_label = st.selectbox(
+        "Admin section",
+        tab_labels,
+        index=current_index,
+        key="admin_tab_selector"
+    )
 
-        if col.button(tab_label, key=f"admin_nav_{tab_key}", use_container_width=True, type=btn_type):
-            st.session_state.admin_tab = tab_key
-            st.rerun()
+    selected_key = tab_keys[tab_labels.index(selected_label)]
+    if selected_key != st.session_state.admin_tab:
+        st.session_state.admin_tab = selected_key
+        st.rerun()
 
     st.divider()
 
