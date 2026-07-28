@@ -132,7 +132,7 @@ def get_kiosk_config():
         "prayer_times": prayer_times,
         "audio_files": get_audio_filenames(),
         "background_files": get_background_filenames(),
-        "static_base": "/app/static",
+        "static_base": "/static",
     }
     return config
 

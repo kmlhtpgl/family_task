@@ -194,6 +194,18 @@ components.html(f"""
     win.__kioskCleared = true;
 
     var CONFIG = {_kiosk_json};
+    var STATIC_BASES = ['/static', '/app/static'];
+
+    function setImgSrc(img, filename) {{
+        img._kioskRetries = 0;
+        var tryLoad = function() {{
+            if (img._kioskRetries >= STATIC_BASES.length) return;
+            img.src = STATIC_BASES[img._kioskRetries] + '/backgrounds/' + filename;
+            img._kioskRetries++;
+        }};
+        img.onerror = tryLoad;
+        tryLoad();
+    }}
 
     /* ═══════ WAKE LOCK ═══════ */
     var wakeLock = null;
@@ -239,7 +251,7 @@ components.html(f"""
         imgContainer.className = 'kiosk-screensaver-images';
 
         var img = doc.createElement('img');
-        img.src = CONFIG.static_base + '/backgrounds/' + files[0];
+        setImgSrc(img, files[0]);
         img.className = 'kiosk-screensaver-img active';
         imgContainer.appendChild(img);
         screensaverEl.appendChild(imgContainer);
@@ -252,7 +264,7 @@ components.html(f"""
                 if (!container) return;
                 currentImageIndex = (currentImageIndex + 1) % files.length;
                 var newImg = doc.createElement('img');
-                newImg.src = CONFIG.static_base + '/backgrounds/' + files[currentImageIndex];
+                setImgSrc(newImg, files[currentImageIndex]);
                 newImg.className = 'kiosk-screensaver-img';
                 container.appendChild(newImg);
                 setTimeout(function() {{ newImg.classList.add('active'); }}, 50);
