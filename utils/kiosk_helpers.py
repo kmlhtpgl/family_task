@@ -12,7 +12,7 @@ def load_kiosk_settings():
     defaults = {
         "screensaver_enabled": True,
         "adhan_enabled": True,
-        "idle_timeout": 5,
+        "idle_timeout": 1,
     }
     if SETTINGS_PATH.exists():
         with open(SETTINGS_PATH) as f:
