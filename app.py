@@ -190,6 +190,7 @@ st.markdown(f"""
     window.__kioskCleared = true;
 
     var CONFIG = {_kiosk_json};
+    var STATIC_URL = '/app/static';
 
     function loadConfig() {{
         if (window.__kioskConfig) CONFIG = window.__kioskConfig;
@@ -216,7 +217,7 @@ st.markdown(f"""
     function resetIdleTimer() {{
         if (isScreensaverActive) hideScreensaver();
         clearTimeout(window.__kioskIdle);
-        if (CONFIG.screensaver_enabled && CONFIG.background_images && CONFIG.background_images.length > 0) {{
+        if (CONFIG.screensaver_enabled && CONFIG.background_files && CONFIG.background_files.length > 0) {{
             window.__kioskIdle = setTimeout(showScreensaver, CONFIG.idle_timeout_ms || 300000);
         }}
     }}
@@ -228,8 +229,8 @@ st.markdown(f"""
 
     function showScreensaver() {{
         if (isScreensaverActive) return;
-        var imgs = CONFIG.background_images;
-        if (!imgs || imgs.length === 0) return;
+        var files = CONFIG.background_files;
+        if (!files || files.length === 0) return;
         isScreensaverActive = true;
 
         screensaverEl = document.createElement('div');
@@ -239,20 +240,20 @@ st.markdown(f"""
         imgContainer.className = 'kiosk-screensaver-images';
 
         var img = document.createElement('img');
-        img.src = imgs[0];
+        img.src = STATIC_URL + '/backgrounds/' + files[0];
         img.className = 'kiosk-screensaver-img active';
         imgContainer.appendChild(img);
         screensaverEl.appendChild(imgContainer);
         document.body.appendChild(screensaverEl);
         currentImageIndex = 0;
 
-        if (imgs.length > 1) {{
+        if (files.length > 1) {{
             window.__kioskSlide = setInterval(function() {{
                 var container = screensaverEl.querySelector('.kiosk-screensaver-images');
                 if (!container) return;
-                currentImageIndex = (currentImageIndex + 1) % imgs.length;
+                currentImageIndex = (currentImageIndex + 1) % files.length;
                 var newImg = document.createElement('img');
-                newImg.src = imgs[currentImageIndex];
+                newImg.src = STATIC_URL + '/backgrounds/' + files[currentImageIndex];
                 newImg.className = 'kiosk-screensaver-img';
                 container.appendChild(newImg);
                 setTimeout(function() {{ newImg.classList.add('active'); }}, 50);
@@ -286,7 +287,7 @@ st.markdown(f"""
     /* ═══════ PRAYER TIME CHECKER ═══════ */
     var lastPrayed = {{}};
     function checkPrayerTimes() {{
-        if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_data) return;
+        if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_files) return;
         var now = new Date();
         var todayKey = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
         if (lastPrayed._date !== todayKey) {{
@@ -332,20 +333,8 @@ st.markdown(f"""
     }}
     reattachAudioUnlock();
 
-    function base64ToArrayBuffer(dataUri) {{
-        var commaIdx = dataUri.indexOf(',');
-        var base64 = dataUri.substring(commaIdx + 1);
-        var binaryStr = atob(base64);
-        var len = binaryStr.length;
-        var bytes = new Uint8Array(len);
-        for (var i = 0; i < len; i++) {{
-            bytes[i] = binaryStr.charCodeAt(i);
-        }}
-        return bytes.buffer;
-    }}
-
     function playAdhan(prayer) {{
-        if (!CONFIG.audio_data || !CONFIG.audio_data[prayer]) return;
+        if (!CONFIG.audio_files || !CONFIG.audio_files[prayer]) return;
         unlockAudio();
         if (!audioCtx) {{
             console.error('Kiosk: No audio context available');
@@ -358,24 +347,28 @@ st.markdown(f"""
         document.body.appendChild(banner);
         setTimeout(function() {{ if (banner.parentNode) banner.remove(); }}, 10000);
         document.body.classList.add('adhan-playing');
-        try {{
-            var arrayBuffer = base64ToArrayBuffer(CONFIG.audio_data[prayer]);
-            audioCtx.decodeAudioData(arrayBuffer, function(buffer) {{
-                var source = audioCtx.createBufferSource();
-                source.buffer = buffer;
-                source.connect(audioCtx.destination);
-                source.start(0);
-                source.onended = function() {{
+
+        var file = CONFIG.audio_files[prayer];
+        fetch(STATIC_URL + '/adhan/' + file)
+            .then(function(r) {{ return r.arrayBuffer(); }})
+            .then(function(arrayBuffer) {{
+                audioCtx.decodeAudioData(arrayBuffer, function(buffer) {{
+                    var source = audioCtx.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(audioCtx.destination);
+                    source.start(0);
+                    source.onended = function() {{
+                        document.body.classList.remove('adhan-playing');
+                    }};
+                }}, function(err) {{
+                    console.error('Kiosk: Audio decode failed', err);
                     document.body.classList.remove('adhan-playing');
-                }};
-            }}, function(err) {{
-                console.error('Kiosk: Audio decode failed', err);
+                }});
+            }})
+            .catch(function(err) {{
+                console.error('Kiosk: Adhan playback error', err);
                 document.body.classList.remove('adhan-playing');
             }});
-        }} catch(e) {{
-            console.error('Kiosk: Adhan playback error', e);
-            document.body.classList.remove('adhan-playing');
-        }}
     }}
 
     /* ═══════ INIT ═══════ */

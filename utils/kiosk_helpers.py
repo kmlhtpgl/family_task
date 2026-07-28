@@ -95,11 +95,30 @@ def load_background_images():
     return images
 
 
+def get_background_filenames():
+    bg_dir = Path("static/backgrounds")
+    files = []
+    if bg_dir.exists():
+        for f in sorted(bg_dir.iterdir()):
+            if f.suffix.lower() in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+                files.append(f.name)
+    return files
+
+
+def get_audio_filenames():
+    adhan_dir = Path("static/adhan")
+    prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"]
+    result = {}
+    for prayer in prayers:
+        found = list(adhan_dir.glob(f"{prayer}.*"))
+        if found:
+            result[prayer] = found[0].name
+    return result
+
+
 def get_kiosk_config():
     settings = load_kiosk_settings()
     prayer_times = get_prayer_times()
-    audio_data = load_audio_files()
-    background_images = load_background_images()
 
     screensaver_enabled = st.session_state.get("kiosk_screensaver_enabled", settings["screensaver_enabled"])
     adhan_enabled = st.session_state.get("kiosk_adhan_enabled", settings["adhan_enabled"])
@@ -111,8 +130,8 @@ def get_kiosk_config():
         "idle_timeout_ms": idle_timeout * 60 * 1000,
         "trigger_screensaver": st.session_state.pop("kiosk_test_screensaver", False),
         "prayer_times": prayer_times,
-        "audio_data": audio_data,
-        "background_images": background_images,
+        "audio_files": get_audio_filenames(),
+        "background_files": get_background_filenames(),
     }
     return config
 
