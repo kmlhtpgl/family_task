@@ -1378,6 +1378,22 @@ def kiosk_settings_tab(data):
             key="kiosk_idle_timeout"
         )
 
+    timeout_val = st.session_state.get("kiosk_idle_timeout", 5)
+    from pathlib import Path as _Path
+    _bg_dir = _Path("static/backgrounds")
+    _bg_count = len([f for f in _bg_dir.iterdir() if f.suffix.lower() in (".jpg",".jpeg",".png",".gif",".webp")]) if _bg_dir.exists() else 0
+    st.info(
+        f"⏱️ Screensaver will start after **{timeout_val} min** of inactivity. "
+        f"Background images loaded: **{_bg_count}**"
+    )
+
+    if st.button("🖼️ Test Screensaver Now", use_container_width=True, type="primary"):
+        st.markdown(
+            "<script>if(window.Kiosk)window.Kiosk.showScreensaver();</script>",
+            unsafe_allow_html=True
+        )
+        st.success("Screensaver activated! Touch anywhere to dismiss.")
+
     st.divider()
 
     # ── 2. Status Indicators ──
