@@ -130,9 +130,8 @@ def get_kiosk_config():
         "idle_timeout_ms": idle_timeout * 60 * 1000,
         "trigger_screensaver": st.session_state.pop("kiosk_test_screensaver", False),
         "prayer_times": prayer_times,
-        "audio_files": get_audio_filenames(),
+        "audio_data": load_audio_files(),
         "background_images": load_background_images(),
-        "static_base": "/static",
     }
     return config
 

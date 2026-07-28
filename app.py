@@ -282,7 +282,7 @@ components.html(f"""
     /* ═══════ PRAYER TIME CHECKER ═══════ */
     var lastPrayed = {{}};
     function checkPrayerTimes() {{
-        if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_files) return;
+        if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_data) return;
         var now = new Date();
         var todayKey = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
         if (lastPrayed._date !== todayKey) {{
@@ -299,7 +299,7 @@ components.html(f"""
             var prayerDate = new Date(now);
             prayerDate.setHours(h, m, 0, 0);
             var diff = Math.abs(now - prayerDate);
-            if (diff < 30000 && !lastPrayed[prayer]) {{
+            if (diff < 120000 && !lastPrayed[prayer]) {{
                 lastPrayed[prayer] = true;
                 playAdhan(prayer.toLowerCase());
                 break;
@@ -328,8 +328,20 @@ components.html(f"""
     }}
     reattachAudioUnlock();
 
+    function base64ToArrayBuffer(dataUri) {{
+        var commaIdx = dataUri.indexOf(',');
+        var base64 = dataUri.substring(commaIdx + 1);
+        var binaryStr = atob(base64);
+        var len = binaryStr.length;
+        var bytes = new Uint8Array(len);
+        for (var i = 0; i < len; i++) {{
+            bytes[i] = binaryStr.charCodeAt(i);
+        }}
+        return bytes.buffer;
+    }}
+
     function playAdhan(prayer) {{
-        if (!CONFIG.audio_files || !CONFIG.audio_files[prayer]) return;
+        if (!CONFIG.audio_data || !CONFIG.audio_data[prayer]) return;
         unlockAudio();
         if (!audioCtx) {{
             console.error('Kiosk: No audio context available');
@@ -342,28 +354,24 @@ components.html(f"""
         doc.body.appendChild(banner);
         setTimeout(function() {{ if (banner.parentNode) banner.remove(); }}, 10000);
         doc.body.classList.add('adhan-playing');
-
-        var file = CONFIG.audio_files[prayer];
-        fetch(CONFIG.static_base + '/adhan/' + file)
-            .then(function(r) {{ return r.arrayBuffer(); }})
-            .then(function(arrayBuffer) {{
-                audioCtx.decodeAudioData(arrayBuffer, function(buffer) {{
-                    var source = audioCtx.createBufferSource();
-                    source.buffer = buffer;
-                    source.connect(audioCtx.destination);
-                    source.start(0);
-                    source.onended = function() {{
-                        doc.body.classList.remove('adhan-playing');
-                    }};
-                }}, function(err) {{
-                    console.error('Kiosk: Audio decode failed', err);
+        try {{
+            var arrayBuffer = base64ToArrayBuffer(CONFIG.audio_data[prayer]);
+            audioCtx.decodeAudioData(arrayBuffer, function(buffer) {{
+                var source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioCtx.destination);
+                source.start(0);
+                source.onended = function() {{
                     doc.body.classList.remove('adhan-playing');
-                }});
-            }})
-            .catch(function(err) {{
-                console.error('Kiosk: Adhan playback error', err);
+                }};
+            }}, function(err) {{
+                console.error('Kiosk: Audio decode failed', err);
                 doc.body.classList.remove('adhan-playing');
             }});
+        }} catch(e) {{
+            console.error('Kiosk: Adhan playback error', e);
+            doc.body.classList.remove('adhan-playing');
+        }}
     }}
 
     /* ═══════ INIT ═══════ */
