@@ -196,13 +196,13 @@ components.html(f"""
     var CONFIG = {_kiosk_json};
 
     /* ═══════ WAKE LOCK ═══════ */
-    var wakeLock = null;
     function requestWakeLock() {{
+        if (win.__kioskWakeLock) return;
         if (win.navigator && 'wakeLock' in win.navigator) {{
             win.navigator.wakeLock.request('screen').then(function(wl) {{
-                wakeLock = wl;
-                wakeLock.addEventListener('release', function() {{
-                    wakeLock = null;
+                win.__kioskWakeLock = wl;
+                wl.addEventListener('release', function() {{
+                    win.__kioskWakeLock = null;
                 }});
             }}).catch(function() {{}});
         }}
