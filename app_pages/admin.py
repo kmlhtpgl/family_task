@@ -1441,7 +1441,7 @@ def kiosk_settings_tab(data):
 
     # ── 4. Test Adhan ──
     st.write("### 🔊 Test Adhan Playback")
-    st.caption("Click to play an adhan on this device.")
+    st.caption("Tap play on the audio player below to hear each adhan.")
     from utils.kiosk_helpers import load_audio_files
     audio_data = load_audio_files()
     if audio_data:
@@ -1450,13 +1450,15 @@ def kiosk_settings_tab(data):
         for i, (key, name) in enumerate(prayer_names.items()):
             has_file = key in audio_data
             with test_cols[i]:
-                if st.button(f"🔊 {name}", key=f"test_adhan_{key}", use_container_width=True, disabled=not has_file):
-                    st.markdown(f"""
-                    <script>
-                    if (window.Kiosk) window.Kiosk.testAdhan("{key}");
-                    </script>
-                    """, unsafe_allow_html=True)
-                    st.success(f"Playing {name} adhan...")
+                st.write(f"**{name}**")
+                from pathlib import Path
+                audio_path = Path("static/adhan")
+                found = list(audio_path.glob(f"{key}.*"))
+                if found:
+                    audio_bytes = found[0].read_bytes()
+                    st.audio(audio_bytes, format="audio/mp3")
+                else:
+                    st.caption("No file")
     else:
         st.warning("No adhan audio files found. Place MP3s in static/adhan/")
 

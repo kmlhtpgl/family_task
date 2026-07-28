@@ -5,6 +5,9 @@ secondaryBackgroundColor = "#F1F5F9"
 textColor = "#0F172A"
 font = "sans serif"
 
+[server]
+enableStaticServing = true
+
 [client]
 showErrorDetails = true
 toolbarMode = "viewer"

@@ -314,28 +314,68 @@ st.markdown(f"""
     var audioCtx = null;
     function unlockAudio() {{
         if (!audioCtx) {{
-            try {{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }} catch(e) {{}}
+            try {{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }} catch(e) {{
+                console.error('Kiosk: AudioContext creation failed', e);
+            }}
         }}
         if (audioCtx && audioCtx.state === 'suspended') {{
-            audioCtx.resume();
+            audioCtx.resume().catch(function(e) {{
+                console.error('Kiosk: AudioContext resume failed', e);
+            }});
         }}
     }}
-    document.addEventListener('touchstart', unlockAudio, {{ once: true }});
-    document.addEventListener('click', unlockAudio, {{ once: true }});
+    function reattachAudioUnlock() {{
+        document.removeEventListener('touchstart', unlockAudio);
+        document.removeEventListener('click', unlockAudio);
+        document.addEventListener('touchstart', unlockAudio);
+        document.addEventListener('click', unlockAudio);
+    }}
+    reattachAudioUnlock();
+
+    function base64ToArrayBuffer(dataUri) {{
+        var commaIdx = dataUri.indexOf(',');
+        var base64 = dataUri.substring(commaIdx + 1);
+        var binaryStr = atob(base64);
+        var len = binaryStr.length;
+        var bytes = new Uint8Array(len);
+        for (var i = 0; i < len; i++) {{
+            bytes[i] = binaryStr.charCodeAt(i);
+        }}
+        return bytes.buffer;
+    }}
 
     function playAdhan(prayer) {{
         if (!CONFIG.audio_data || !CONFIG.audio_data[prayer]) return;
         unlockAudio();
+        if (!audioCtx) {{
+            console.error('Kiosk: No audio context available');
+            return;
+        }}
         var names = {{ fajr:'Fajr', dhuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha' }};
         var banner = document.createElement('div');
         banner.className = 'kiosk-adhan-banner';
         banner.innerHTML = '\\u{{1F54C}} Adhan \\u2014 ' + (names[prayer] || prayer) + ' time!';
         document.body.appendChild(banner);
         setTimeout(function() {{ if (banner.parentNode) banner.remove(); }}, 10000);
-        var audio = new Audio(CONFIG.audio_data[prayer]);
-        audio.play().catch(function() {{}});
         document.body.classList.add('adhan-playing');
-        audio.onended = function() {{ document.body.classList.remove('adhan-playing'); }};
+        try {{
+            var arrayBuffer = base64ToArrayBuffer(CONFIG.audio_data[prayer]);
+            audioCtx.decodeAudioData(arrayBuffer, function(buffer) {{
+                var source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioCtx.destination);
+                source.start(0);
+                source.onended = function() {{
+                    document.body.classList.remove('adhan-playing');
+                }};
+            }}, function(err) {{
+                console.error('Kiosk: Audio decode failed', err);
+                document.body.classList.remove('adhan-playing');
+            }});
+        }} catch(e) {{
+            console.error('Kiosk: Adhan playback error', e);
+            document.body.classList.remove('adhan-playing');
+        }}
     }}
 
     /* ═══════ INIT ═══════ */
