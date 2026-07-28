@@ -251,15 +251,11 @@ components.html(f"""
                 var container = screensaverEl.querySelector('.kiosk-screensaver-images');
                 if (!container) return;
                 currentImageIndex = (currentImageIndex + 1) % imgs.length;
+                while (container.firstChild) container.removeChild(container.firstChild);
                 var newImg = doc.createElement('img');
                 newImg.src = imgs[currentImageIndex];
-                newImg.className = 'kiosk-screensaver-img';
+                newImg.className = 'kiosk-screensaver-img active';
                 container.appendChild(newImg);
-                setTimeout(function() {{ newImg.classList.add('active'); }}, 50);
-                setTimeout(function() {{
-                    var oldImgs = container.querySelectorAll('.kiosk-screensaver-img:not(.active)');
-                    for (var i = 0; i < oldImgs.length; i++) oldImgs[i].remove();
-                }}, 1600);
             }}, 10000);
         }}
 
