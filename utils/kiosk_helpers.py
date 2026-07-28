@@ -131,7 +131,7 @@ def get_kiosk_config():
         "trigger_screensaver": st.session_state.pop("kiosk_test_screensaver", False),
         "prayer_times": prayer_times,
         "audio_files": get_audio_filenames(),
-        "background_files": get_background_filenames(),
+        "background_images": load_background_images(),
         "static_base": "/static",
     }
     return config
