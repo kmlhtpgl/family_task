@@ -621,6 +621,7 @@ def apply_custom_styles(dark_mode=False):
         -webkit-backdrop-filter: blur(4px);
     }}
     .kiosk-screensaver-images {{
+        background: #000;
         position: relative;
         width: 100%;
         height: 100%;
