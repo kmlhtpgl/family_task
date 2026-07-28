@@ -1,5 +1,6 @@
 import json
 import streamlit as st
+import streamlit.components.v1 as components
 from utils.db_helpers import get_all_data
 from utils.styles import apply_custom_styles
 from utils.kiosk_helpers import get_kiosk_config
@@ -179,28 +180,26 @@ st.markdown(f"""
 _kiosk_cfg = get_kiosk_config()
 _kiosk_json = json.dumps(_kiosk_cfg)
 
-st.markdown(f"""
+components.html(f"""
 <script>
 (function() {{
-    if (window.__kioskCleared) {{
-        clearInterval(window.__kioskInt);
-        clearTimeout(window.__kioskIdle);
-        clearInterval(window.__kioskSlide);
+    var doc = window.parent.document;
+    var win = window.parent;
+
+    if (win.__kioskCleared) {{
+        clearInterval(win.__kioskInt);
+        clearTimeout(win.__kioskIdle);
+        clearInterval(win.__kioskSlide);
     }}
-    window.__kioskCleared = true;
+    win.__kioskCleared = true;
 
     var CONFIG = {_kiosk_json};
-    var STATIC_URL = '/app/static';
-
-    function loadConfig() {{
-        if (window.__kioskConfig) CONFIG = window.__kioskConfig;
-    }}
 
     /* ═══════ WAKE LOCK ═══════ */
     var wakeLock = null;
     function requestWakeLock() {{
-        if ('wakeLock' in navigator) {{
-            navigator.wakeLock.request('screen').then(function(wl) {{
+        if (win.navigator && 'wakeLock' in win.navigator) {{
+            win.navigator.wakeLock.request('screen').then(function(wl) {{
                 wakeLock = wl;
                 wakeLock.addEventListener('release', function() {{
                     wakeLock = null;
@@ -208,17 +207,17 @@ st.markdown(f"""
             }}).catch(function() {{}});
         }}
     }}
-    document.addEventListener('visibilitychange', function() {{
-        if (document.visibilityState === 'visible') requestWakeLock();
+    doc.addEventListener('visibilitychange', function() {{
+        if (doc.visibilityState === 'visible') requestWakeLock();
     }});
 
     /* ═══════ IDLE DETECTION ═══════ */
     var isScreensaverActive = false;
     function resetIdleTimer() {{
         if (isScreensaverActive) hideScreensaver();
-        clearTimeout(window.__kioskIdle);
+        clearTimeout(win.__kioskIdle);
         if (CONFIG.screensaver_enabled && CONFIG.background_files && CONFIG.background_files.length > 0) {{
-            window.__kioskIdle = setTimeout(showScreensaver, CONFIG.idle_timeout_ms || 300000);
+            win.__kioskIdle = setTimeout(showScreensaver, CONFIG.idle_timeout_ms || 300000);
         }}
     }}
 
@@ -233,27 +232,27 @@ st.markdown(f"""
         if (!files || files.length === 0) return;
         isScreensaverActive = true;
 
-        screensaverEl = document.createElement('div');
+        screensaverEl = doc.createElement('div');
         screensaverEl.className = 'kiosk-screensaver';
 
-        var imgContainer = document.createElement('div');
+        var imgContainer = doc.createElement('div');
         imgContainer.className = 'kiosk-screensaver-images';
 
-        var img = document.createElement('img');
-        img.src = STATIC_URL + '/backgrounds/' + files[0];
+        var img = doc.createElement('img');
+        img.src = CONFIG.static_base + '/backgrounds/' + files[0];
         img.className = 'kiosk-screensaver-img active';
         imgContainer.appendChild(img);
         screensaverEl.appendChild(imgContainer);
-        document.body.appendChild(screensaverEl);
+        doc.body.appendChild(screensaverEl);
         currentImageIndex = 0;
 
         if (files.length > 1) {{
-            window.__kioskSlide = setInterval(function() {{
+            win.__kioskSlide = setInterval(function() {{
                 var container = screensaverEl.querySelector('.kiosk-screensaver-images');
                 if (!container) return;
                 currentImageIndex = (currentImageIndex + 1) % files.length;
-                var newImg = document.createElement('img');
-                newImg.src = STATIC_URL + '/backgrounds/' + files[currentImageIndex];
+                var newImg = doc.createElement('img');
+                newImg.src = CONFIG.static_base + '/backgrounds/' + files[currentImageIndex];
                 newImg.className = 'kiosk-screensaver-img';
                 container.appendChild(newImg);
                 setTimeout(function() {{ newImg.classList.add('active'); }}, 50);
@@ -272,7 +271,7 @@ st.markdown(f"""
     function hideScreensaver() {{
         if (!isScreensaverActive) return;
         isScreensaverActive = false;
-        clearInterval(window.__kioskSlide);
+        clearInterval(win.__kioskSlide);
         if (screensaverEl) {{ screensaverEl.remove(); screensaverEl = null; }}
         currentImageIndex = 0;
         resetIdleTimer();
@@ -281,7 +280,7 @@ st.markdown(f"""
     /* ═══════ USER ACTIVITY ═══════ */
     var activityEvents = ['mousedown','mousemove','keydown','touchstart','click','scroll','wheel'];
     for (var ei = 0; ei < activityEvents.length; ei++) {{
-        document.addEventListener(activityEvents[ei], resetIdleTimer, {{ passive: true }});
+        doc.addEventListener(activityEvents[ei], resetIdleTimer, {{ passive: true }});
     }}
 
     /* ═══════ PRAYER TIME CHECKER ═══════ */
@@ -315,7 +314,7 @@ st.markdown(f"""
     var audioCtx = null;
     function unlockAudio() {{
         if (!audioCtx) {{
-            try {{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }} catch(e) {{
+            try {{ audioCtx = new (win.AudioContext || win.webkitAudioContext)(); }} catch(e) {{
                 console.error('Kiosk: AudioContext creation failed', e);
             }}
         }}
@@ -326,10 +325,10 @@ st.markdown(f"""
         }}
     }}
     function reattachAudioUnlock() {{
-        document.removeEventListener('touchstart', unlockAudio);
-        document.removeEventListener('click', unlockAudio);
-        document.addEventListener('touchstart', unlockAudio);
-        document.addEventListener('click', unlockAudio);
+        doc.removeEventListener('touchstart', unlockAudio);
+        doc.removeEventListener('click', unlockAudio);
+        doc.addEventListener('touchstart', unlockAudio);
+        doc.addEventListener('click', unlockAudio);
     }}
     reattachAudioUnlock();
 
@@ -341,15 +340,15 @@ st.markdown(f"""
             return;
         }}
         var names = {{ fajr:'Fajr', dhuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha' }};
-        var banner = document.createElement('div');
+        var banner = doc.createElement('div');
         banner.className = 'kiosk-adhan-banner';
         banner.innerHTML = '\\u{{1F54C}} Adhan \\u2014 ' + (names[prayer] || prayer) + ' time!';
-        document.body.appendChild(banner);
+        doc.body.appendChild(banner);
         setTimeout(function() {{ if (banner.parentNode) banner.remove(); }}, 10000);
-        document.body.classList.add('adhan-playing');
+        doc.body.classList.add('adhan-playing');
 
         var file = CONFIG.audio_files[prayer];
-        fetch(STATIC_URL + '/adhan/' + file)
+        fetch(CONFIG.static_base + '/adhan/' + file)
             .then(function(r) {{ return r.arrayBuffer(); }})
             .then(function(arrayBuffer) {{
                 audioCtx.decodeAudioData(arrayBuffer, function(buffer) {{
@@ -358,36 +357,36 @@ st.markdown(f"""
                     source.connect(audioCtx.destination);
                     source.start(0);
                     source.onended = function() {{
-                        document.body.classList.remove('adhan-playing');
+                        doc.body.classList.remove('adhan-playing');
                     }};
                 }}, function(err) {{
                     console.error('Kiosk: Audio decode failed', err);
-                    document.body.classList.remove('adhan-playing');
+                    doc.body.classList.remove('adhan-playing');
                 }});
             }})
             .catch(function(err) {{
                 console.error('Kiosk: Adhan playback error', err);
-                document.body.classList.remove('adhan-playing');
+                doc.body.classList.remove('adhan-playing');
             }});
     }}
 
     /* ═══════ INIT ═══════ */
     requestWakeLock();
     resetIdleTimer();
-    window.__kioskInt = setInterval(checkPrayerTimes, 15000);
+    win.__kioskInt = setInterval(checkPrayerTimes, 15000);
     if (CONFIG.trigger_screensaver) {{
         setTimeout(function() {{ showScreensaver(); }}, 500);
     }}
 
-    window.Kiosk = {{
+    win.Kiosk = {{
         testAdhan: playAdhan,
         hideScreensaver: hideScreensaver,
         showScreensaver: showScreensaver,
-        updateConfig: function(cfg) {{ window.__kioskConfig = cfg; }},
+        updateConfig: function(cfg) {{ win.__kioskConfig = cfg; }},
     }};
 }})();
 </script>
-""", unsafe_allow_html=True)
+""", height=0)
 
 # Page navigation bar
 if "page" not in st.session_state:
