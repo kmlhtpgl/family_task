@@ -36,7 +36,8 @@ def get_prayer_times():
             params={
                 "city": "Cambridge",
                 "country": "United Kingdom",
-                "method": 3
+                "method": 15,
+                "school": 1
             },
             timeout=10
         )
