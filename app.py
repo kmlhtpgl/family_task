@@ -293,6 +293,13 @@ components.html(f"""
             var prayer = prayers[pi];
             var time = CONFIG.prayer_times[prayer];
             if (!time) continue;
+            if (prayer === 'Fajr' && CONFIG.prayer_times.Sunrise) {{
+                var sr = CONFIG.prayer_times.Sunrise.split(':');
+                var srMin = parseInt(sr[0], 10) * 60 + parseInt(sr[1], 10) - 10;
+                var fh = Math.floor(srMin / 60);
+                var fm = srMin % 60;
+                time = fh + ':' + (fm < 10 ? '0' : '') + fm;
+            }}
             var parts = time.split(':');
             var h = parseInt(parts[0], 10);
             var m = parseInt(parts[1], 10);
