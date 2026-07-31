@@ -642,6 +642,45 @@ def apply_custom_styles(dark_mode=False):
     .kiosk-screensaver-img.active {{
         opacity: 1;
     }}
+    .kiosk-screensaver-footer {{
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 100000;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        color: #fff;
+        font-family: var(--font);
+        font-size: 1.15em;
+        font-weight: 500;
+        padding: 12px 28px;
+        border-radius: 100px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        white-space: nowrap;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.08);
+        animation: kioskFadeIn 1s ease-out;
+        letter-spacing: 0.3px;
+        max-width: 92vw;
+    }}
+    .kiosk-screensaver-footer .kiosk-ss-prayer {{
+        color: #A5B4FC;
+        font-weight: 600;
+    }}
+    @media (max-width: 768px) {{
+        .kiosk-screensaver-footer {{
+            font-size: 0.9em;
+            padding: 10px 18px;
+            gap: 10px;
+            bottom: 16px;
+            flex-wrap: wrap;
+            border-radius: 16px;
+        }}
+    }}
     @keyframes kioskFadeIn {{
         from {{ opacity: 0; }}
         to {{ opacity: 1; }}

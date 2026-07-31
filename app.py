@@ -190,6 +190,7 @@ components.html(f"""
         clearInterval(win.__kioskInt);
         clearTimeout(win.__kioskIdle);
         clearInterval(win.__kioskSlide);
+        clearInterval(win.__kioskFooterInt);
     }}
     win.__kioskCleared = true;
 
@@ -221,6 +222,73 @@ components.html(f"""
         }}
     }}
 
+    /* ═══════ NEXT PRAYER HELPER ═══════ */
+    function parsePrayerMinute(timeStr) {{
+        if (!timeStr) return null;
+        var parts = timeStr.split(':');
+        if (parts.length < 2) return null;
+        return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    }}
+
+    function computeNextPrayer() {{
+        var pt = CONFIG.prayer_times;
+        if (!pt) return null;
+        var names = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+        var now = new Date();
+        var nowMin = now.getHours() * 60 + now.getMinutes();
+        var best = Infinity;
+        var next = null;
+        for (var pi = 0; pi < names.length; pi++) {{
+            var prayer = names[pi];
+            var time = pt[prayer];
+            if (!time) continue;
+            if (prayer === 'Fajr' && pt.Sunrise) {{
+                var sr = parsePrayerMinute(pt.Sunrise) - 10;
+                if (sr !== null) {{
+                    var fh = Math.floor(sr / 60);
+                    var fm = sr % 60;
+                    time = fh + ':' + (fm < 10 ? '0' : '') + fm;
+                }}
+            }}
+            var tMin = parsePrayerMinute(time);
+            if (tMin === null) continue;
+            var diff = tMin - nowMin;
+            if (diff < 0) diff += 24 * 60;
+            if (diff < best) {{
+                best = diff;
+                next = {{ name: prayer, time: time, minutes: diff }};
+            }}
+        }}
+        return next;
+    }}
+
+    function formatMinutesLeft(total) {{
+        if (total >= 60) {{
+            var h = Math.floor(total / 60);
+            var m = total % 60;
+            return 'in ' + h + 'h' + (m > 0 ? ' ' + m + 'm' : '');
+        }}
+        return 'in ' + total + ' min';
+    }}
+
+    function renderScreensaverFooter() {{
+        if (!screensaverEl) return;
+        var el = screensaverEl.querySelector('.kiosk-screensaver-footer');
+        if (!el) return;
+        var now = new Date();
+        var hh = now.getHours();
+        var mm = now.getMinutes();
+        var timeStr = (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+        var dateStr = now.toLocaleDateString('en-GB', {{ weekday: 'long', day: 'numeric', month: 'long' }});
+        var clock = '<span class="kiosk-ss-time">🕐 ' + dateStr + ' · ' + timeStr + '</span>';
+        var next = computeNextPrayer();
+        var prayer = '';
+        if (next) {{
+            prayer = '<span class="kiosk-ss-prayer">🕌 Next: ' + next.name + ' at ' + next.time + ' · ' + formatMinutesLeft(next.minutes) + '</span>';
+        }}
+        el.innerHTML = clock + prayer;
+    }}
+
     /* ═══════ SCREENSAVER ═══════ */
     var screensaverEl = null;
     var slideshowInterval = null;
@@ -246,6 +314,12 @@ components.html(f"""
         doc.body.appendChild(screensaverEl);
         currentImageIndex = 0;
 
+        var footer = doc.createElement('div');
+        footer.className = 'kiosk-screensaver-footer';
+        screensaverEl.appendChild(footer);
+        renderScreensaverFooter();
+        win.__kioskFooterInt = setInterval(renderScreensaverFooter, 30000);
+
         if (imgs.length > 1) {{
             win.__kioskSlide = setInterval(function() {{
                 var container = screensaverEl.querySelector('.kiosk-screensaver-images');
@@ -268,6 +342,7 @@ components.html(f"""
         if (!isScreensaverActive) return;
         isScreensaverActive = false;
         clearInterval(win.__kioskSlide);
+        clearInterval(win.__kioskFooterInt);
         if (screensaverEl) {{ screensaverEl.remove(); screensaverEl = null; }}
         currentImageIndex = 0;
         resetIdleTimer();
