@@ -293,6 +293,29 @@ components.html(f"""
     var screensaverEl = null;
     var slideshowInterval = null;
     var currentImageIndex = 0;
+    var shuffledOrder = [];
+    var shuffledPos = 0;
+
+    function buildShuffleOrder(length) {{
+        var order = [];
+        for (var i = 0; i < length; i++) order.push(i);
+        for (var i = length - 1; i > 0; i--) {{
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = order[i];
+            order[i] = order[j];
+            order[j] = tmp;
+        }}
+        return order;
+    }}
+
+    function nextImageIndex() {{
+        shuffledPos++;
+        if (shuffledPos >= shuffledOrder.length) {{
+            shuffledOrder = buildShuffleOrder(shuffledOrder.length);
+            shuffledPos = 0;
+        }}
+        return shuffledOrder[shuffledPos];
+    }}
 
     function showScreensaver() {{
         if (isScreensaverActive) return;
@@ -306,13 +329,16 @@ components.html(f"""
         var imgContainer = doc.createElement('div');
         imgContainer.className = 'kiosk-screensaver-images';
 
+        shuffledOrder = buildShuffleOrder(imgs.length);
+        shuffledPos = 0;
+        currentImageIndex = shuffledOrder[shuffledPos];
+
         var img = doc.createElement('img');
-        img.src = imgs[0];
+        img.src = imgs[currentImageIndex];
         img.className = 'kiosk-screensaver-img active';
         imgContainer.appendChild(img);
         screensaverEl.appendChild(imgContainer);
         doc.body.appendChild(screensaverEl);
-        currentImageIndex = 0;
 
         var footer = doc.createElement('div');
         footer.className = 'kiosk-screensaver-footer';
@@ -324,7 +350,7 @@ components.html(f"""
             win.__kioskSlide = setInterval(function() {{
                 var container = screensaverEl.querySelector('.kiosk-screensaver-images');
                 if (!container) return;
-                currentImageIndex = (currentImageIndex + 1) % imgs.length;
+                currentImageIndex = nextImageIndex();
                 while (container.firstChild) container.removeChild(container.firstChild);
                 var newImg = doc.createElement('img');
                 newImg.src = imgs[currentImageIndex];
@@ -345,6 +371,8 @@ components.html(f"""
         clearInterval(win.__kioskFooterInt);
         if (screensaverEl) {{ screensaverEl.remove(); screensaverEl = null; }}
         currentImageIndex = 0;
+        shuffledOrder = [];
+        shuffledPos = 0;
         resetIdleTimer();
     }}
 
