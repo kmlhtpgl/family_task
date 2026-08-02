@@ -5,27 +5,46 @@ import time
 def get_all_data(retries=3, delay=0.5):
     supabase = get_supabase_client()
 
+    def fetch_all(table_name):
+        rows = []
+        start = 0
+        page_size = 1000
+        while True:
+            batch = (
+                supabase.table(table_name)
+                .select("*")
+                .order("id")
+                .range(start, start + page_size - 1)
+                .execute()
+                .data
+            )
+            rows.extend(batch)
+            if len(batch) < page_size:
+                break
+            start += page_size
+        return rows
+
     for attempt in range(retries):
         try:
-            parents = supabase.table("parents").select("*").order("id").execute().data
-            kids = supabase.table("kids").select("*").order("id").execute().data
-            tasks = supabase.table("tasks").select("*").order("id").execute().data
-            books = supabase.table("books").select("*").order("id").execute().data
-            task_templates = supabase.table("task_templates").select("*").order("id").execute().data
-            book_templates = supabase.table("book_templates").select("*").order("id").execute().data
+            parents = fetch_all("parents")
+            kids = fetch_all("kids")
+            tasks = fetch_all("tasks")
+            books = fetch_all("books")
+            task_templates = fetch_all("task_templates")
+            book_templates = fetch_all("book_templates")
 
             try:
-                surahs = supabase.table("surahs").select("*").order("id").execute().data
+                surahs = fetch_all("surahs")
             except Exception:
                 surahs = []
 
             try:
-                reward_sessions = supabase.table("reward_sessions").select("*").order("id").execute().data
+                reward_sessions = fetch_all("reward_sessions")
             except Exception:
                 reward_sessions = []
 
             try:
-                points_adjustments = supabase.table("points_adjustments").select("*").order("id").execute().data
+                points_adjustments = fetch_all("points_adjustments")
             except Exception:
                 points_adjustments = []
 
