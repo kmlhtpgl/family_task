@@ -84,6 +84,12 @@ st.markdown("""
         cursor: pointer;
     }
 
+    .top-navbar a[href*="nav"] {
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+    }
+
     .navbar-brand h1 {
         font-size: 1.7em;
         margin: 0;
@@ -453,6 +459,23 @@ components.html(f"""
             doc.body.classList.remove('adhan-playing');
         }}
     }}
+
+    /* ═══════ FAMILY TASK BRAND → HOME (same tab) ═══════ */
+    (function attachBrandNav() {{
+        var tries = 0;
+        function tryAttach() {{
+            var brand = doc.querySelector('a[href*="nav=dashboard"]');
+            if (!brand) {{
+                if (tries < 20) {{ tries++; setTimeout(tryAttach, 100); }}
+                return;
+            }}
+            brand.addEventListener('click', function(e) {{
+                e.preventDefault();
+                win.location.href = '?nav=dashboard';
+            }});
+        }}
+        tryAttach();
+    }})();
 
     /* ═══════ INIT ═══════ */
     requestWakeLock();
