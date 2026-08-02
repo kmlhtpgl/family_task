@@ -65,7 +65,15 @@ def dashboard_page(data):
             st.rerun()
 
     # ── Section 1: Weekly Tasks ──
-    st.subheader("📅 Weekly Tasks")
+    col_head, col_show = st.columns([3, 1])
+    with col_head:
+        st.subheader("📅 Weekly Tasks")
+    with col_show:
+        show_all_week = st.toggle(
+            "Show all week",
+            key="show_all_week_toggle",
+            help="Allow checking off tasks from the whole week",
+        )
 
     person_options = {}
     for kid in data["kids"]:
@@ -136,7 +144,7 @@ def dashboard_page(data):
                     for task in day_tasks:
                         icon = "✅" if task["status"] == "Done" else "📋"
                         task_date = date.fromisoformat(task["due_date"])
-                        can_toggle = (today - timedelta(days=2)) <= task_date <= today
+                        can_toggle = show_all_week or ((today - timedelta(days=1)) <= task_date <= (today + timedelta(days=1)))
                         if st.button(f"{icon} {task['title']}", key=f"cal_{task['id']}", use_container_width=True, disabled=not can_toggle):
                             if task["status"] == "Done":
                                 updates = {
