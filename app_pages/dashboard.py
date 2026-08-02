@@ -23,19 +23,44 @@ def dashboard_page(data):
     monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
     sunday = monday + timedelta(days=6)
 
-    col_prev, col_week, col_next = st.columns([1, 4, 1])
+    col_theme, col_prev, col_week, col_next = st.columns([1, 1, 5, 1])
+    with col_theme:
+        icon = "☀️" if st.session_state.dark_mode else "🌙"
+        if st.button(
+            icon,
+            key="dashboard_theme_toggle",
+            type="secondary",
+            use_container_width=True,
+            help="Toggle Day/Night theme",
+        ):
+            st.session_state.dark_mode = not st.session_state.dark_mode
+            st.rerun()
     with col_prev:
-        if st.button("◀ Prev", key="prev_week"):
+        if st.button("◀", key="prev_week", type="secondary", use_container_width=True):
             st.session_state.week_offset = week_offset - 1
             st.rerun()
     with col_week:
         if week_offset == 0:
-            st.markdown(f"<h3 style='text-align:center;color:var(--primary);'>📅 This Week</h3>", unsafe_allow_html=True)
+            range_html = (
+                f"<span style='color:var(--text-secondary);font-size:0.7em;font-weight:500;'>"
+                f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}</span>"
+            )
+            st.markdown(
+                f"<div style='text-align:center;'>"
+                f"<h3 style='color:var(--primary);margin:0;font-size:1.15em;'>📅 This Week {range_html}</h3>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
         else:
-            st.markdown(f"<h3 style='text-align:center;color:var(--primary);'>📅 {monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}</h3>", unsafe_allow_html=True)
-        st.caption(f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}")
+            st.markdown(
+                f"<div style='text-align:center;'>"
+                f"<h3 style='color:var(--primary);margin:0;font-size:1.15em;'>"
+                f"📅 {monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}</h3>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
     with col_next:
-        if st.button("Next ▶", key="next_week"):
+        if st.button("▶", key="next_week", type="secondary", use_container_width=True):
             st.session_state.week_offset = week_offset + 1
             st.rerun()
 

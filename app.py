@@ -1,4 +1,6 @@
 import json
+from datetime import date
+
 import streamlit as st
 import streamlit.components.v1 as components
 from utils.db_helpers import get_all_data
@@ -77,6 +79,9 @@ st.markdown("""
         display: flex;
         align-items: center;
         gap: 12px;
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
     }
 
     .navbar-brand h1 {
@@ -112,23 +117,6 @@ st.markdown("""
         font-weight: 600;
     }
 
-    .nav-dark-btn {
-        background: var(--bg-card-alt);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 1.2em;
-        transition: all var(--transition);
-        color: var(--text);
-        line-height: 1;
-    }
-
-    .nav-dark-btn:hover {
-        border-color: var(--primary-light);
-        transform: scale(1.1);
-    }
-
     @media (max-width: 768px) {
         .top-navbar {
             padding: 10px 16px;
@@ -149,24 +137,13 @@ st.markdown("""
 
 st.markdown(f"""
     <div class="top-navbar">
-        <div id="brand-home" style="cursor:pointer;" class="navbar-brand">
+        <a href="?nav=dashboard" class="navbar-brand">
             <h1>Family Task</h1>
-        </div>
+        </a>
         <div class="navbar-actions">
-            <div class="nav-date" id="current-date"></div>
-            <button class="nav-dark-btn" onclick="document.getElementById('dark-toggle-input').click()" title="Toggle theme">
-                {"🌙" if st.session_state.dark_mode else "☀️"}
-            </button>
+            <div class="nav-date">{date.today().strftime('%a %-d %b %Y')}</div>
         </div>
     </div>
-    <script>
-        document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-GB', {{
-            weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-        }});
-        document.getElementById('brand-home').addEventListener('click', function() {{
-            window.location.href = '?nav=dashboard';
-        }});
-    </script>
 """, unsafe_allow_html=True)
 
 # ── Kiosk Module ──
@@ -520,13 +497,6 @@ for col, (page_key, icon, label) in zip(cols, pages):
     if col.button(f"{icon} {label}", key=f"nav_{page_key}", use_container_width=True, type=btn_type):
         st.session_state.page = page_key
         st.rerun()
-
-# Hidden toggle for dark mode (triggered by navbar button)
-dark_toggle = st.toggle("🌙 Dark mode", value=st.session_state.dark_mode, key="dark-toggle-input", label_visibility="collapsed")
-
-if dark_toggle != st.session_state.dark_mode:
-    st.session_state.dark_mode = dark_toggle
-    st.rerun()
 
 # Handle nav query param (clicking the Family Task header)
 if st.query_params.get("nav") == "dashboard":
