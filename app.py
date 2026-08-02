@@ -33,7 +33,11 @@ st.markdown("""
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
     [data-testid="stHeader"] { display: none !important; }
-    .st-emotion-cache-18ni7ap { padding-top: 1rem !important; }
+    [data-testid="stAppViewContainer"] .block-container,
+    .block-container {
+        padding-top: 0.5rem !important;
+        padding-bottom: 2rem !important;
+    }
     [data-testid="collapsedControl"] { z-index: 100; }
 
     .family-bg {
@@ -58,11 +62,11 @@ st.markdown("""
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         border: 1px solid var(--border);
-        padding: 10px 24px;
+        padding: 14px 28px;
         border-radius: var(--radius-xl);
         margin-bottom: 20px;
         box-shadow: var(--shadow-lg), 0 0 0 1px rgba(99,102,241,0.05);
-        height: 60px;
+        height: 76px;
         width: 100%;
         box-sizing: border-box;
         position: relative;
@@ -75,26 +79,17 @@ st.markdown("""
         gap: 12px;
     }
 
-    .navbar-brand .logo {
-        font-size: 1.6em;
-        background: linear-gradient(135deg, var(--primary), var(--secondary));
-        width: 38px;
-        height: 38px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 10px;
-        flex-shrink: 0;
-        color: white;
-    }
-
     .navbar-brand h1 {
-        color: var(--text);
-        font-size: 1.3em;
+        font-size: 1.7em;
         margin: 0;
-        font-weight: 700;
-        letter-spacing: -0.02em;
+        font-weight: 800;
+        letter-spacing: -0.03em;
         white-space: nowrap;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
     }
 
     .navbar-brand span {
@@ -113,17 +108,17 @@ st.markdown("""
 
     .navbar-actions .nav-date {
         color: var(--text-secondary);
-        font-size: 0.85em;
-        font-weight: 500;
+        font-size: 0.95em;
+        font-weight: 600;
     }
 
     .nav-dark-btn {
         background: var(--bg-card-alt);
         border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 6px 10px;
+        border-radius: 12px;
+        padding: 8px 12px;
         cursor: pointer;
-        font-size: 1.1em;
+        font-size: 1.2em;
         transition: all var(--transition);
         color: var(--text);
         line-height: 1;
@@ -136,15 +131,14 @@ st.markdown("""
 
     @media (max-width: 768px) {
         .top-navbar {
-            padding: 8px 14px;
+            padding: 10px 16px;
             border-radius: var(--radius);
             height: auto;
-            min-height: 48px;
+            min-height: 56px;
             flex-wrap: wrap;
         }
-        .navbar-brand h1 { font-size: 1em; }
+        .navbar-brand h1 { font-size: 1.15em; }
         .navbar-brand span { display: none; }
-        .navbar-brand .logo { font-size: 1.3em; width: 32px; height: 32px; }
         .navbar-actions .nav-date { display: none; }
         .family-bg { width: 200px; height: 200px; }
     }
@@ -155,8 +149,7 @@ st.markdown("""
 
 st.markdown(f"""
     <div class="top-navbar">
-        <div id="brand-home" style="cursor:pointer;display:flex;align-items:center;gap:12px;" class="navbar-brand">
-            <div class="logo">🏠</div>
+        <div id="brand-home" style="cursor:pointer;" class="navbar-brand">
             <h1>Family Task</h1>
         </div>
         <div class="navbar-actions">

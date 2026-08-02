@@ -14,8 +14,6 @@ PRAYER_NAMES = ["Fecr", "Zuhr", "Asr", "Maghrib", "Isha"]
 
 
 def dashboard_page(data):
-    st.header("📊 Weekly Dashboard")
-
     if not data["kids"] and not data.get("parents"):
         st.info("No children or parents added yet. Go to Admin to add them first.")
         return
