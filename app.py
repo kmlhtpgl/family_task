@@ -461,20 +461,17 @@ components.html(f"""
     }}
 
     /* ═══════ FAMILY TASK BRAND → HOME (same tab) ═══════ */
-    (function attachBrandNav() {{
+    (function makeBrandSameTab() {{
         var tries = 0;
-        function tryAttach() {{
+        function tryPatch() {{
             var brand = doc.querySelector('a[href*="nav=dashboard"]');
             if (!brand) {{
-                if (tries < 20) {{ tries++; setTimeout(tryAttach, 100); }}
+                if (tries < 50) {{ tries++; setTimeout(tryPatch, 100); }}
                 return;
             }}
-            brand.addEventListener('click', function(e) {{
-                e.preventDefault();
-                win.location.href = '?nav=dashboard';
-            }});
+            brand.removeAttribute('target');
         }}
-        tryAttach();
+        tryPatch();
     }})();
 
     /* ═══════ INIT ═══════ */
