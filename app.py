@@ -6,6 +6,7 @@ import streamlit.components.v1 as components
 from utils.db_helpers import get_all_data
 from utils.styles import apply_custom_styles
 from utils.kiosk_helpers import get_kiosk_config
+from utils.admin_helpers import load_admin_password
 from app_pages.dashboard import dashboard_page
 from app_pages.kanban import kanban_page
 from app_pages.kids_profiles import kids_profiles_page
@@ -563,7 +564,7 @@ elif page == "admin":
         with st.form("admin_login"):
             pwd = st.text_input("Enter admin password", type="password")
             if st.form_submit_button("Unlock"):
-                if pwd == st.secrets["ADMIN_PASSWORD"]:
+                if pwd == load_admin_password():
                     st.session_state.admin_authenticated = True
                     st.rerun()
                 else:

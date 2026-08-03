@@ -36,6 +36,7 @@ from utils.db_helpers import (
 )
 from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
+from utils.admin_helpers import load_admin_password, save_admin_password
 from utils.kiosk_helpers import get_prayer_times, get_kiosk_config, get_prayer_names
 
 DATA_DIR = Path("data")
@@ -424,7 +425,7 @@ def task_list_tab(data):
 
     st.info("Add, edit or remove tasks from your task library.")
 
-    templates = data["task_templates"]
+    templates = sorted(data["task_templates"], key=lambda t: t["title"].lower())
 
     # Initialize editing state
     if "editing_task_id" not in st.session_state:
@@ -562,7 +563,7 @@ def assign_task_tab(data):
         st.info("Add children or parents first.")
         return
 
-    task_templates = data["task_templates"]
+    task_templates = sorted(data["task_templates"], key=lambda t: t["title"].lower())
 
     if not task_templates:
         st.info("Add tasks to the Task List first.")
@@ -1582,3 +1583,22 @@ def settings_tab(data):
             st.success(f"✅ Points reset for selected person! ({len(count)} tasks affected)")
 
         st.rerun()
+
+    st.divider()
+    st.subheader("🔑 Change Admin Password")
+
+    with st.form("change_admin_password_form"):
+        current_pwd = st.text_input("Current admin password", type="password")
+        new_pwd = st.text_input("New admin password", type="password")
+        confirm_pwd = st.text_input("Confirm new admin password", type="password")
+
+        if st.form_submit_button("Change Password", type="primary", use_container_width=True):
+            if current_pwd != load_admin_password():
+                st.error("Current password is incorrect.")
+            elif len(new_pwd) < 4:
+                st.error("New password must be at least 4 characters.")
+            elif new_pwd != confirm_pwd:
+                st.error("New password and confirmation do not match.")
+            else:
+                save_admin_password(new_pwd)
+                st.success("✅ Admin password updated successfully!")
