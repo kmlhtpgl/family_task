@@ -31,6 +31,28 @@ def get_effective_points(task):
     return points
 
 
+def can_mark_done(task, on_date=None):
+    """
+    Returns (allowed, reason) for marking a task as Done.
+    A task may be completed only on/after its due date and no more than
+    OVERDUE_DAYS after it. Future tasks and tasks too far overdue are blocked.
+    reason is None when allowed, else "future" or "overdue".
+    """
+    due = task.get("due_date")
+    if not due:
+        return True, None
+    try:
+        due_date = date.fromisoformat(due)
+    except (ValueError, TypeError):
+        return True, None
+    on_date = on_date or date.today()
+    if due_date > on_date:
+        return False, "future"
+    if (on_date - due_date).days > OVERDUE_DAYS:
+        return False, "overdue"
+    return True, None
+
+
 def is_task_overdue(task):
     """Check if a task is overdue by more than OVERDUE_DAYS."""
     due = task.get("due_date")

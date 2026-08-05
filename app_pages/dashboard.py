@@ -7,6 +7,7 @@ from utils.task_helpers import (
     get_total_points_for_kid, get_total_points_for_parent,
     get_weekly_points_for_kid, get_weekly_points_for_parent,
     TASK_STATUSES, get_effective_points,
+    OVERDUE_DAYS, can_mark_done,
 )
 from utils.db_helpers import update_task
 
@@ -156,6 +157,19 @@ def dashboard_page(data):
                                 update_task(task["id"], updates)
                                 st.success(f"↩️ {task['title']} moved back to Backlog.")
                             else:
+                                allowed, reason = can_mark_done(task)
+                                if not allowed:
+                                    if reason == "future":
+                                        st.info(
+                                            f"⏳ '{task['title']}' is due {task['due_date']} "
+                                            f"and can't be completed before its due date."
+                                        )
+                                    else:
+                                        st.warning(
+                                            f"⚠️ '{task['title']}' is more than {OVERDUE_DAYS} days overdue "
+                                            f"and can't be marked done now."
+                                        )
+                                    continue
                                 today_dt = date.today()
                                 year, week_num, _ = today_dt.isocalendar()
                                 updates = {

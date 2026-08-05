@@ -1,9 +1,9 @@
 import streamlit as st
-from datetime import date, timedelta
+from datetime import date
 from streamlit_sortables import sort_items
 
 from utils.data_helpers import get_kid
-from utils.task_helpers import TASK_STATUSES, get_effective_points, OVERDUE_DAYS
+from utils.task_helpers import TASK_STATUSES, get_effective_points, OVERDUE_DAYS, can_mark_done
 from utils.db_helpers import update_task
 
 
@@ -166,6 +166,7 @@ def kanban_page(data):
 def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
     changed = False
     overdue_warnings = []
+    blocked_tasks = []
 
     for container in sorted_containers:
         new_status = container["header"].split(" (")[0]
@@ -184,9 +185,11 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
                     old_status = task["status"]
 
                     if old_status != new_status:
-                        due = task.get("due_date")
-                        if due and not ((date.today() - timedelta(days=2)) <= date.fromisoformat(due) <= date.today()):
-                            break
+                        if new_status == "Done":
+                            allowed, reason = can_mark_done(task)
+                            if not allowed:
+                                blocked_tasks.append(task["title"])
+                                break
 
                         updates = {
                             "status": new_status
@@ -213,11 +216,20 @@ def update_task_statuses_from_board(data, sorted_containers, item_to_task_id):
 
                     break
 
+    if blocked_tasks:
+        st.warning(
+            f"⚠️ Can't mark as done (future or more than {OVERDUE_DAYS} days overdue): "
+            f"{', '.join(blocked_tasks)}"
+        )
+
     if overdue_warnings:
         st.warning(
             f"⚠️ {len(overdue_warnings)} task(s) were overdue by more than {OVERDUE_DAYS} days. "
             f"0 points awarded for: {', '.join(overdue_warnings)}"
         )
+
+    if changed or blocked_tasks:
+        st.rerun()
 
     return changed
 
