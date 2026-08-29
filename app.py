@@ -512,7 +512,7 @@ pages = [
     ("quran", "📖", "Quran"),
     ("prayer", "🕌", "Prayer"),
     ("rewards", "💰", "Rewards"),
-    ("meeting", "👪", "Family Meeting"),
+    ("meeting", "👪", "Meeting"),
     ("admin", "⚙️", "Admin"),
 ]
 
