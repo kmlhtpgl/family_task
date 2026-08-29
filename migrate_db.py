@@ -57,6 +57,12 @@ CREATE TABLE IF NOT EXISTS public.meeting_notes (
 
 ALTER TABLE public.meeting_notes ADD COLUMN IF NOT EXISTS done BOOLEAN DEFAULT FALSE;
 
+CREATE TABLE IF NOT EXISTS public.app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 """
 
 
