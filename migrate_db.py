@@ -51,8 +51,11 @@ CREATE TABLE IF NOT EXISTS public.meeting_notes (
     title TEXT NOT NULL,
     content TEXT,
     author TEXT,
+    done BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE public.meeting_notes ADD COLUMN IF NOT EXISTS done BOOLEAN DEFAULT FALSE;
 
 """
 

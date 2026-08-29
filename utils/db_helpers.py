@@ -606,7 +606,7 @@ def delete_points_adjustment(adjustment_id):
 # Meeting Notes
 # -----------------------
 
-def add_meeting_note(title, content=None, author=None, retries=2, delay=0.3):
+def add_meeting_note(title, content=None, author=None, done=False, retries=2, delay=0.3):
     supabase = get_supabase_client()
     for attempt in range(retries):
         try:
@@ -614,6 +614,7 @@ def add_meeting_note(title, content=None, author=None, retries=2, delay=0.3):
                 "title": title,
                 "content": content,
                 "author": author,
+                "done": bool(done),
             }).execute().data
         except Exception as e:
             if attempt < retries - 1:
