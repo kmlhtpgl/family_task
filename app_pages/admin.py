@@ -37,7 +37,7 @@ from utils.db_helpers import (
 from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
 from utils.admin_helpers import load_admin_password, save_admin_password
-from utils.kiosk_helpers import get_prayer_times, get_kiosk_config, get_prayer_names
+from utils.kiosk_helpers import get_prayer_times, get_kiosk_config, get_prayer_names, get_weather
 
 DATA_DIR = Path("data")
 
@@ -1395,10 +1395,47 @@ def kiosk_settings_tab(data):
         st.session_state.kiosk_test_screensaver = True
         st.rerun()
 
+    # ── 1b. Weather ──
+    st.write("### 🌤️ Screensaver Weather")
+    wcol1, wcol2, wcol3 = st.columns([1, 2, 1])
+    with wcol1:
+        st.toggle(
+            "🌤️ Show weather",
+            key="kiosk_weather_enabled"
+        )
+    with wcol2:
+        st.text_input(
+            "Weather city",
+            key="kiosk_weather_city",
+            placeholder="e.g. Cambridge"
+        )
+    with wcol3:
+        st.selectbox(
+            "Unit",
+            options=["celsius", "fahrenheit"],
+            format_func=lambda x: "°C Celsius" if x == "celsius" else "°F Fahrenheit",
+            key="kiosk_weather_unit"
+        )
+
+    weather_data = get_weather(
+        st.session_state.kiosk_weather_city or "Cambridge",
+        st.session_state.kiosk_weather_unit
+    )
+    if weather_data:
+        st.success(
+            f"🌤️ {weather_data['city']}, {weather_data['country']}: "
+            f"{weather_data['icon']} {weather_data['temp']}{weather_data['unit']} – {weather_data['condition']}"
+        )
+    else:
+        st.warning("⚠️ Could not fetch weather. Check the city name and internet connection.")
+
     save_kiosk_settings(
         screensaver_enabled=st.session_state.kiosk_screensaver_enabled,
         adhan_enabled=st.session_state.kiosk_adhan_enabled,
         idle_timeout=st.session_state.kiosk_idle_timeout,
+        weather_enabled=st.session_state.kiosk_weather_enabled,
+        weather_city=st.session_state.kiosk_weather_city,
+        weather_unit=st.session_state.kiosk_weather_unit,
     )
 
     st.divider()

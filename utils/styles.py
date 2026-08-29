@@ -671,6 +671,10 @@ def apply_custom_styles(dark_mode=False):
         color: #A5B4FC;
         font-weight: 600;
     }}
+    .kiosk-screensaver-footer .kiosk-ss-weather {{
+        color: #7DD3FC;
+        font-weight: 600;
+    }}
     @media (max-width: 768px) {{
         .kiosk-screensaver-footer {{
             font-size: 0.9em;

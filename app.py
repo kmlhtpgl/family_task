@@ -14,6 +14,7 @@ from app_pages.parents_profiles import parents_profiles_page
 from app_pages.reading_library import reading_library_page
 from app_pages.surah_memorization import surah_memorization_page
 from app_pages.rewards import rewards_page
+from app_pages.meeting import meeting_page
 from app_pages.admin import admin_page
 from app_pages.prayer import prayer_page
 
@@ -263,7 +264,12 @@ components.html(f"""
         if (next) {{
             prayer = '<span class="kiosk-ss-prayer">🕌 Next: ' + next.name + ' at ' + next.time + ' · ' + formatMinutesLeft(next.minutes) + '</span>';
         }}
-        el.innerHTML = clock + prayer;
+        var weather = '';
+        var w = CONFIG.weather;
+        if (w) {{
+            weather = '<span class="kiosk-ss-weather">' + w.icon + ' ' + w.temp + w.unit + ' · ' + w.condition + ' · ' + w.city + '</span>';
+        }}
+        el.innerHTML = clock + prayer + weather;
     }}
 
     /* ═══════ SCREENSAVER ═══════ */
@@ -506,6 +512,7 @@ pages = [
     ("quran", "📖", "Quran"),
     ("prayer", "🕌", "Prayer"),
     ("rewards", "💰", "Rewards"),
+    ("meeting", "👪", "Family Meeting"),
     ("admin", "⚙️", "Admin"),
 ]
 
@@ -554,6 +561,9 @@ elif page == "prayer":
 
 elif page == "rewards":
     rewards_page(data)
+
+elif page == "meeting":
+    meeting_page(data)
 
 elif page == "admin":
     if "admin_authenticated" not in st.session_state:

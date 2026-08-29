@@ -48,6 +48,11 @@ def get_all_data(retries=3, delay=0.5):
             except Exception:
                 points_adjustments = []
 
+            try:
+                meeting_notes = fetch_all("meeting_notes")
+            except Exception:
+                meeting_notes = []
+
             return {
                 "parents": parents,
                 "kids": kids,
@@ -56,6 +61,7 @@ def get_all_data(retries=3, delay=0.5):
                 "surahs": surahs,
                 "reward_sessions": reward_sessions,
                 "points_adjustments": points_adjustments,
+                "meeting_notes": meeting_notes,
                 "task_templates": task_templates,
                 "book_templates": book_templates,
                 "settings": {
@@ -594,4 +600,62 @@ def delete_points_adjustment(adjustment_id):
         .execute()
         .data
     )
+
+
+# -----------------------
+# Meeting Notes
+# -----------------------
+
+def add_meeting_note(title, content=None, author=None, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return supabase.table("meeting_notes").insert({
+                "title": title,
+                "content": content,
+                "author": author,
+            }).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def update_meeting_note(note_id, updates, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("meeting_notes")
+                .update(updates)
+                .eq("id", note_id)
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def delete_meeting_note(note_id, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("meeting_notes")
+                .delete()
+                .eq("id", note_id)
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
 
