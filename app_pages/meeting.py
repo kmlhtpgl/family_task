@@ -54,6 +54,26 @@ def meeting_page(data):
 
     st.divider()
 
+    # ── Add from templates ──
+    templates = data.get("meeting_templates", [])
+    if templates:
+        with st.expander("➕ Add from common templates", expanded=False):
+            t_options = {t["title"]: t for t in sorted(templates, key=lambda x: x["title"].lower())}
+            selected_titles = st.multiselect("Choose templates to add to the meeting list", list(t_options.keys()))
+            if st.button("Add Selected to Meeting", type="primary", disabled=not selected_titles):
+                if not selected_titles:
+                    st.error("Select at least one template.")
+                else:
+                    for title in selected_titles:
+                        t = t_options[title]
+                        add_meeting_note(
+                            title=t["title"],
+                            content=(t.get("content") or "").strip() or None,
+                            author=(t.get("author") or "").strip() or None,
+                        )
+                    st.success(f"✅ {len(selected_titles)} item(s) added!")
+                    st.rerun()
+
     # ── Checklist ──
     if not notes:
         st.info("No meeting items yet. Add your first one above.")

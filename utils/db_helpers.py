@@ -58,6 +58,11 @@ def get_all_data(retries=3, delay=0.5):
             except Exception:
                 meeting_comments = []
 
+            try:
+                meeting_templates = fetch_all("meeting_templates")
+            except Exception:
+                meeting_templates = []
+
             return {
                 "parents": parents,
                 "kids": kids,
@@ -68,6 +73,7 @@ def get_all_data(retries=3, delay=0.5):
                 "points_adjustments": points_adjustments,
                 "meeting_notes": meeting_notes,
                 "meeting_comments": meeting_comments,
+                "meeting_templates": meeting_templates,
                 "task_templates": task_templates,
                 "book_templates": book_templates,
                 "settings": {
@@ -676,6 +682,60 @@ def add_meeting_comment(meeting_note_id, body, author=None, retries=2, delay=0.3
                 "body": body,
                 "author": author,
             }).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def add_meeting_template(title, content=None, author=None, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return supabase.table("meeting_templates").insert({
+                "title": title,
+                "content": content,
+                "author": author,
+            }).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def update_meeting_template(template_id, updates, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("meeting_templates")
+                .update(updates)
+                .eq("id", template_id)
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def delete_meeting_template(template_id, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("meeting_templates")
+                .delete()
+                .eq("id", template_id)
+                .execute()
+                .data
+            )
         except Exception as e:
             if attempt < retries - 1:
                 time.sleep(delay)

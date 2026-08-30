@@ -65,6 +65,14 @@ CREATE TABLE IF NOT EXISTS public.meeting_comments (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.meeting_templates (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT,
+    author TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.app_settings (
     key TEXT PRIMARY KEY,
     value TEXT,

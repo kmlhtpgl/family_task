@@ -32,7 +32,11 @@ from utils.db_helpers import (
     reset_person_points,
     delete_done_tasks,
     add_points_adjustment,
-    delete_points_adjustment
+    delete_points_adjustment,
+    add_meeting_template,
+    update_meeting_template,
+    delete_meeting_template,
+    add_meeting_note
 )
 from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
@@ -57,6 +61,7 @@ def admin_page(data):
         ("surah_list", "📖 Surah List"),
         ("assign_surah", "🎯 Assign Surah"),
         ("bonus_penalty", "🎯 Bonus/Penalty"),
+        ("meeting_templates", "🤝 Meeting Templates"),
         ("kiosk", "🖥️ Kiosk"),
         ("settings", "⚙️ Settings")
     ]
@@ -104,6 +109,8 @@ def admin_page(data):
         assign_surah_tab(data)
     elif active == "bonus_penalty":
         bonus_penalty_tab(data)
+    elif active == "meeting_templates":
+        meeting_templates_tab(data)
     elif active == "kiosk":
         kiosk_settings_tab(data)
     elif active == "settings":
@@ -528,6 +535,132 @@ def task_list_tab(data):
                 if st.button("🗑️", key=f"del_btn_task_{template['id']}", help="Delete"):
                     delete_task_template(template["id"])
                     st.session_state.pending_action = ("task_removed", None)
+                    st.rerun()
+
+
+# -----------------------
+# Meeting Templates
+# -----------------------
+
+def meeting_templates_tab(data):
+    st.subheader("🤝 Meeting Templates")
+    st.caption("Create reusable common agenda items, then add selected ones to the weekly Meeting list.")
+
+    templates = sorted(data.get("meeting_templates", []), key=lambda t: t["title"].lower())
+
+    if "editing_meeting_template_id" not in st.session_state:
+        st.session_state.editing_meeting_template_id = None
+
+    # ── Add template ──
+    st.write("### ➕ Add New Template")
+    with st.form("add_meeting_template_form"):
+        t_col1, t_col2 = st.columns([3, 1])
+        with t_col1:
+            t_title = st.text_input("Title", placeholder="e.g. Review weekly homework", key="mt_title")
+        with t_col2:
+            t_author = st.text_input("Author (optional)", placeholder="e.g. Mum", key="mt_author")
+        t_content = st.text_area(
+            "Details (optional)",
+            placeholder="Anything to remember about this item...",
+            height=80,
+            key="mt_content",
+        )
+        t_submit = st.form_submit_button("Save Template", type="primary", use_container_width=True)
+        if t_submit:
+            if not t_title.strip():
+                st.error("Please enter a title.")
+            else:
+                add_meeting_template(
+                    title=t_title.strip(),
+                    content=t_content.strip() if t_content.strip() else None,
+                    author=t_author.strip() if t_author.strip() else None,
+                )
+                st.success("✅ Template added!")
+                st.rerun()
+
+    st.divider()
+
+    # ── Add selected to meeting list ──
+    st.write("### 📝 Add to Meeting List")
+    if not templates:
+        st.caption("No templates yet. Add one above.")
+    else:
+        t_options = {t["title"]: t for t in templates}
+        selected_titles = st.multiselect("Choose templates to add to the meeting list", list(t_options.keys()))
+        if st.button("➕ Add Selected to Meeting", type="primary", disabled=not selected_titles):
+            if not selected_titles:
+                st.error("Select at least one template.")
+            else:
+                for title in selected_titles:
+                    t = t_options[title]
+                    add_meeting_note(
+                        title=t["title"],
+                        content=(t.get("content") or "").strip() or None,
+                        author=(t.get("author") or "").strip() or None,
+                    )
+                st.success(f"✅ {len(selected_titles)} item(s) added to the Meeting list!")
+                st.rerun()
+
+    st.divider()
+
+    # ── Manage templates ──
+    st.write("### 📚 Your Templates")
+
+    search_templ = st.text_input("🔍 Search templates", placeholder="Type title to filter...", key="mt_search", label_visibility="collapsed")
+    filtered = [t for t in templates if search_templ.lower() in t["title"].lower()] if search_templ else templates
+
+    if not filtered:
+        st.caption("No templates match your search." if search_templ else "No templates yet.")
+    else:
+        st.caption(f"Total {len(templates)} template(s)")
+
+    for template in filtered:
+        template_id = template["id"]
+        is_editing = st.session_state.editing_meeting_template_id == template_id
+        with st.container(border=True):
+            if not is_editing:
+                col_info, col_actions = st.columns([4, 1])
+                with col_info:
+                    st.markdown(f"**📌 {template['title']}**")
+                    if template.get("author"):
+                        st.caption(f"👤 {template['author']}")
+                with col_actions:
+                    act_cols = st.columns(2)
+                    with act_cols[0]:
+                        if st.button("✏️", key=f"edit_btn_mt_{template_id}", help="Edit"):
+                            st.session_state.editing_meeting_template_id = template_id
+                            st.rerun()
+                    with act_cols[1]:
+                        if st.button("🗑️", key=f"del_btn_mt_{template_id}", help="Delete"):
+                            delete_meeting_template(template_id)
+                            st.rerun()
+                if template.get("content"):
+                    st.markdown(template["content"])
+            else:
+                st.markdown(f"**Edit: {template['title']}**")
+                with st.form(f"edit_meeting_template_form_{template_id}"):
+                    et_title = st.text_input("Title", value=template["title"], key=f"emt_{template_id}")
+                    et_content = st.text_area("Details", value=template.get("content") or "", height=80, key=f"emc_{template_id}")
+                    et_author = st.text_input("Author (optional)", value=template.get("author") or "", key=f"ema_{template_id}")
+                    ecol1, ecol2 = st.columns(2)
+                    with ecol1:
+                        et_save = st.form_submit_button("💾 Save", use_container_width=True)
+                    with ecol2:
+                        et_cancel = st.form_submit_button("Cancel", use_container_width=True)
+                if et_save:
+                    if not et_title.strip():
+                        st.error("Please enter a title.")
+                    else:
+                        update_meeting_template(template_id, {
+                            "title": et_title.strip(),
+                            "content": et_content.strip() if et_content.strip() else None,
+                            "author": et_author.strip() if et_author.strip() else None,
+                        })
+                        st.session_state.editing_meeting_template_id = None
+                        st.success("Template updated!")
+                        st.rerun()
+                if et_cancel:
+                    st.session_state.editing_meeting_template_id = None
                     st.rerun()
 
 
