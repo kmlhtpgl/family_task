@@ -1,7 +1,9 @@
 from utils.supabase_client import get_supabase_client
+import streamlit as st
 import time
 
 
+@st.cache_data(show_spinner=False)
 def get_all_data(retries=3, delay=0.5):
     supabase = get_supabase_client()
 
@@ -93,12 +95,18 @@ def get_all_data(retries=3, delay=0.5):
                 raise e
 
 
+def data_changed():
+    """Invalidate the cached data so the next get_all_data() refetches fresh."""
+    get_all_data.clear()
+
+
 # -----------------------
 # Parents
 # -----------------------
 
 def add_parent(name, email=None, phone=None, photo_url=None):
     supabase = get_supabase_client()
+    data_changed()
 
     new_parent = {
         "name": name,
@@ -113,6 +121,7 @@ def add_parent(name, email=None, phone=None, photo_url=None):
 
 def update_parent(parent_id, updates):
     supabase = get_supabase_client()
+    data_changed()
 
     return (
         supabase
@@ -126,6 +135,7 @@ def update_parent(parent_id, updates):
 
 def delete_parent(parent_id):
     supabase = get_supabase_client()
+    data_changed()
 
     return (
         supabase
@@ -143,6 +153,7 @@ def delete_parent(parent_id):
 
 def add_kid(name, age, photo_path=None):
     supabase = get_supabase_client()
+    data_changed()
 
     new_kid = {
         "name": name,
@@ -155,6 +166,7 @@ def add_kid(name, age, photo_path=None):
 
 def update_kid(kid_id, updates):
     supabase = get_supabase_client()
+    data_changed()
 
     return (
         supabase
@@ -168,6 +180,7 @@ def update_kid(kid_id, updates):
 
 def delete_kid(kid_id):
     supabase = get_supabase_client()
+    data_changed()
 
     return (
         supabase
@@ -185,6 +198,7 @@ def delete_kid(kid_id):
 
 def add_task(task, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
 
     for attempt in range(retries):
         try:
@@ -198,6 +212,7 @@ def add_task(task, retries=2, delay=0.3):
 
 def add_tasks(tasks, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
 
     if not tasks:
         return []
@@ -214,6 +229,7 @@ def add_tasks(tasks, retries=2, delay=0.3):
 
 def delete_task(task_id, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
 
     for attempt in range(retries):
         try:
@@ -234,6 +250,7 @@ def delete_task(task_id, retries=2, delay=0.3):
 
 def update_task(task_id, updates):
     supabase = get_supabase_client()
+    data_changed()
 
     return (
         supabase
@@ -251,6 +268,7 @@ def update_task(task_id, updates):
 
 def add_book(book, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
 
     for attempt in range(retries):
         try:
@@ -264,6 +282,7 @@ def add_book(book, retries=2, delay=0.3):
 
 def add_books(books, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
 
     if not books:
         return []
@@ -280,6 +299,7 @@ def add_books(books, retries=2, delay=0.3):
 
 def update_book(book_id, updates):
     supabase = get_supabase_client()
+    data_changed()
 
     return (
         supabase
@@ -297,6 +317,7 @@ def update_book(book_id, updates):
 
 def add_task_template(title, default_points, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
 
     for attempt in range(retries):
         try:
@@ -319,6 +340,7 @@ def add_task_template(title, default_points, retries=2, delay=0.3):
 
 def delete_task_template(template_id, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
 
     for attempt in range(retries):
         try:
@@ -339,6 +361,7 @@ def delete_task_template(template_id, retries=2, delay=0.3):
 
 def update_task_template(template_id, updates):
     supabase = get_supabase_client()
+    data_changed()
 
     return (
         supabase
@@ -352,6 +375,7 @@ def update_task_template(template_id, updates):
 
 def replace_task_templates(templates):
     supabase = get_supabase_client()
+    data_changed()
 
     supabase.table("task_templates").delete().neq("id", 0).execute()
 
@@ -367,6 +391,7 @@ def replace_task_templates(templates):
 
 def add_book_template(title, language, total_pages, writer=None, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
 
     for attempt in range(retries):
         try:
@@ -391,6 +416,7 @@ def add_book_template(title, language, total_pages, writer=None, retries=2, dela
 
 def delete_book_template(template_id, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
 
     for attempt in range(retries):
         try:
@@ -411,6 +437,7 @@ def delete_book_template(template_id, retries=2, delay=0.3):
 
 def replace_book_templates(templates):
     supabase = get_supabase_client()
+    data_changed()
 
     supabase.table("book_templates").delete().neq("id", 0).execute()
 
@@ -422,6 +449,7 @@ def replace_book_templates(templates):
 
 def replace_book_template(template_id, template_data):
     supabase = get_supabase_client()
+    data_changed()
 
     return (
         supabase
@@ -434,6 +462,7 @@ def replace_book_template(template_id, template_data):
 
 def delete_book(book_id):
     supabase = get_supabase_client()
+    data_changed()
 
     return (
         supabase
@@ -451,6 +480,7 @@ def delete_book(book_id):
 
 def add_surah(surah, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return supabase.table("surahs").insert(surah).execute().data
@@ -463,6 +493,7 @@ def add_surah(surah, retries=2, delay=0.3):
 
 def add_surahs(surahs, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     if not surahs:
         return []
     for attempt in range(retries):
@@ -477,6 +508,7 @@ def add_surahs(surahs, retries=2, delay=0.3):
 
 def update_surah(surah_id, updates):
     supabase = get_supabase_client()
+    data_changed()
     return (
         supabase
         .table("surahs")
@@ -489,6 +521,7 @@ def update_surah(surah_id, updates):
 
 def delete_surah(surah_id):
     supabase = get_supabase_client()
+    data_changed()
     return (
         supabase
         .table("surahs")
@@ -505,6 +538,7 @@ def delete_surah(surah_id):
 
 def add_reward_session(session, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return supabase.table("reward_sessions").insert(session).execute().data
@@ -517,6 +551,7 @@ def add_reward_session(session, retries=2, delay=0.3):
 
 def update_reward_session(session_id, updates):
     supabase = get_supabase_client()
+    data_changed()
     return (
         supabase
         .table("reward_sessions")
@@ -533,6 +568,7 @@ def update_reward_session(session_id, updates):
 
 def reset_all_points():
     """Set points to 0 for all Done tasks."""
+    data_changed()
     supabase = get_supabase_client()
     return (
         supabase
@@ -546,6 +582,7 @@ def reset_all_points():
 
 def reset_monthly_points(year, month):
     """Set points to 0 for tasks completed in a specific month."""
+    data_changed()
     supabase = get_supabase_client()
     month_str = f"{year:04d}-{month:02d}"
     return (
@@ -561,6 +598,7 @@ def reset_monthly_points(year, month):
 
 def reset_person_points(person_id, is_kid=True):
     """Set points to 0 for Done tasks of a specific person."""
+    data_changed()
     supabase = get_supabase_client()
     field = "kid_id" if is_kid else "parent_id"
     return (
@@ -576,6 +614,7 @@ def reset_person_points(person_id, is_kid=True):
 
 def delete_done_tasks():
     """Delete all Done tasks."""
+    data_changed()
     supabase = get_supabase_client()
     return (
         supabase
@@ -593,6 +632,7 @@ def delete_done_tasks():
 
 def add_points_adjustment(person_id, person_type, points):
     """Add a bonus (positive) or penalty (negative) point adjustment."""
+    data_changed()
     supabase = get_supabase_client()
     return (
         supabase
@@ -609,6 +649,7 @@ def add_points_adjustment(person_id, person_type, points):
 
 def delete_points_adjustment(adjustment_id):
     """Delete a points adjustment by ID."""
+    data_changed()
     supabase = get_supabase_client()
     return (
         supabase
@@ -626,6 +667,7 @@ def delete_points_adjustment(adjustment_id):
 
 def add_meeting_note(title, content=None, author=None, done=False, session_id=None, week_date=None, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     record = {
         "title": title,
         "content": content,
@@ -648,6 +690,7 @@ def add_meeting_note(title, content=None, author=None, done=False, session_id=No
 
 def update_meeting_note(note_id, updates, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return (
@@ -667,6 +710,7 @@ def update_meeting_note(note_id, updates, retries=2, delay=0.3):
 
 def delete_meeting_note(note_id, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return (
@@ -686,6 +730,7 @@ def delete_meeting_note(note_id, retries=2, delay=0.3):
 
 def add_meeting_comment(meeting_note_id, body, author=None, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return supabase.table("meeting_comments").insert({
@@ -702,6 +747,7 @@ def add_meeting_comment(meeting_note_id, body, author=None, retries=2, delay=0.3
 
 def delete_meeting_comment(comment_id, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return (
@@ -721,6 +767,7 @@ def delete_meeting_comment(comment_id, retries=2, delay=0.3):
 
 def get_or_create_meeting_session(week_date, title=None, retries=2, delay=0.3):
     """Return an existing session for the given Sunday date, or create one."""
+    data_changed()
     supabase = get_supabase_client()
     for attempt in range(retries):
         try:
@@ -746,6 +793,7 @@ def get_or_create_meeting_session(week_date, title=None, retries=2, delay=0.3):
 
 def set_meeting_session_closed(session_id, closed, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return (
@@ -764,6 +812,7 @@ def set_meeting_session_closed(session_id, closed, retries=2, delay=0.3):
 
 def carry_over_unfinished(prev_session_id, new_session_id, retries=2, delay=0.3):
     """Copy all unfinished notes from a previous session into a new one (as undone)."""
+    data_changed()
     supabase = get_supabase_client()
     for attempt in range(retries):
         try:
@@ -806,6 +855,7 @@ def carry_over_unfinished(prev_session_id, new_session_id, retries=2, delay=0.3)
 
 def add_meeting_template(title, content=None, author=None, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return supabase.table("meeting_templates").insert({
@@ -822,6 +872,7 @@ def add_meeting_template(title, content=None, author=None, retries=2, delay=0.3)
 
 def update_meeting_template(template_id, updates, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return (
@@ -841,6 +892,7 @@ def update_meeting_template(template_id, updates, retries=2, delay=0.3):
 
 def delete_meeting_template(template_id, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    data_changed()
     for attempt in range(retries):
         try:
             return (
