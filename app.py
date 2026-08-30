@@ -474,7 +474,6 @@ components.html(f"""
     /* ═══════ AUDIO: plain <audio> element (avoids iOS suspended-AudioContext) ═══════ */
     var audioEl = null;
     var audioUnlocked = false;
-    var unlockOverlay = null;
     function ensureAudioEl() {{
         if (!audioEl) {{
             try {{
@@ -486,24 +485,6 @@ components.html(f"""
             }}
         }}
         return audioEl;
-    }}
-    function removeUnlockOverlay() {{
-        if (unlockOverlay && unlockOverlay.parentNode) unlockOverlay.parentNode.removeChild(unlockOverlay);
-        unlockOverlay = null;
-    }}
-    function showUnlockOverlay() {{
-        if (audioUnlocked || unlockOverlay) return;
-        unlockOverlay = doc.createElement('div');
-        unlockOverlay.className = 'kiosk-adhan-banner';
-        unlockOverlay.style.background = 'rgba(40,60,180,0.95)';
-        unlockOverlay.style.position = 'fixed';
-        unlockOverlay.style.bottom = '20px';
-        unlockOverlay.style.left = '50%';
-        unlockOverlay.style.transform = 'translateX(-50%)';
-        unlockOverlay.style.zIndex = '99999';
-        unlockOverlay.innerHTML = '🔊 Tap the screen once to enable adhan sound';
-        doc.body.appendChild(unlockOverlay);
-        setTimeout(function() {{ if (unlockOverlay && unlockOverlay.parentNode) removeUnlockOverlay(); }}, 20000);
     }}
     function tryAutoUnlock() {{ if (!audioUnlocked) doUnlock(); }}
     function doUnlock() {{
@@ -523,7 +504,6 @@ components.html(f"""
     }}
     function tryUnlockSuccess() {{
         audioUnlocked = true;
-        removeUnlockOverlay();
         doc.removeEventListener('touchstart', doUnlock);
         doc.removeEventListener('click', doUnlock);
         doc.removeEventListener('pointerdown', doUnlock);
@@ -587,7 +567,6 @@ components.html(f"""
     win.__kioskInt = setInterval(checkPrayerTimes, 15000);
     reschedule();
     setTimeout(function() {{ tryAutoUnlock(); }}, 500);
-    setTimeout(function() {{ if (!audioUnlocked) showUnlockOverlay(); }}, 6000);
     doc.addEventListener('pointerdown', doUnlock, {{ passive: true }});
     doc.addEventListener('visibilitychange', function() {{
         if (!doc.hidden) {{ tryAutoUnlock(); reschedule(); }}
