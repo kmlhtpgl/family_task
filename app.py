@@ -393,12 +393,41 @@ components.html(f"""
             if (CONFIG.screensaver_enabled) showDiagBanner(issues.join(' | '));
         }}
     }}
-    function checkPrayerTimes() {{
+    function effectivePrayerTime(prayer, time) {{
+        if (prayer === 'Fajr' && CONFIG.prayer_times.Sunrise) {{
+            var sr = CONFIG.prayer_times.Sunrise.split(':');
+            var srMin = parseInt(sr[0], 10) * 60 + parseInt(sr[1], 10) - 10;
+            var fh = Math.floor(srMin / 60);
+            var fm = srMin % 60;
+            return fh + ':' + (fm < 10 ? '0' : '') + fm;
+        }}
+        return time;
+    }}
+    var __schedTimers = [];
+    function clearSched() {{
+        for (var i = 0; i < __schedTimers.length; i++) clearTimeout(__schedTimers[i]);
+        __schedTimers = [];
+    }}
+    function scheduleAdhan(prayer, h, m) {{
+        var now = new Date();
+        var target = new Date(now);
+        target.setHours(h, m, 0, 0);
+        var ms = target.getTime() - now.getTime();
+        if (ms < 0) return;
+        var id = setTimeout(function() {{
+            if (!lastPrayed[prayer]) {{
+                lastPrayed[prayer] = true;
+                playAdhan(prayer.toLowerCase());
+            }}
+        }}, ms);
+        __schedTimers.push(id);
+    }}
+    function reschedule() {{
         if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_data) {{
             prayerDiag();
             return;
         }}
-        if (!__diagShown) prayerDiag();
+        clearSched();
         var now = new Date();
         var todayKey = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
         if (lastPrayed._date !== todayKey) {{
@@ -409,23 +438,35 @@ components.html(f"""
             var prayer = prayers[pi];
             var time = CONFIG.prayer_times[prayer];
             if (!time) continue;
-            if (prayer === 'Fajr' && CONFIG.prayer_times.Sunrise) {{
-                var sr = CONFIG.prayer_times.Sunrise.split(':');
-                var srMin = parseInt(sr[0], 10) * 60 + parseInt(sr[1], 10) - 10;
-                var fh = Math.floor(srMin / 60);
-                var fm = srMin % 60;
-                time = fh + ':' + (fm < 10 ? '0' : '') + fm;
+            time = effectivePrayerTime(prayer, time);
+            var parts = time.split(':');
+            var h = parseInt(parts[0], 10);
+            var m = parseInt(parts[1], 10);
+            var target = new Date(now);
+            target.setHours(h, m, 0, 0);
+            if (target.getTime() >= now.getTime() && !lastPrayed[prayer]) {{
+                scheduleAdhan(prayer, h, m);
             }}
+        }}
+    }}
+    function checkPrayerTimes() {{
+        reschedule();
+        var now = new Date();
+        var prayers = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
+        for (var pi = 0; pi < prayers.length; pi++) {{
+            var prayer = prayers[pi];
+            var time = CONFIG.prayer_times[prayer];
+            if (!time) continue;
+            time = effectivePrayerTime(prayer, time);
             var parts = time.split(':');
             var h = parseInt(parts[0], 10);
             var m = parseInt(parts[1], 10);
             var prayerDate = new Date(now);
             prayerDate.setHours(h, m, 0, 0);
-            var diff = Math.abs(now - prayerDate);
-            if (diff < 120000 && !lastPrayed[prayer]) {{
+            if (now >= prayerDate && (now - prayerDate) < 60000 && !lastPrayed[prayer]) {{
                 lastPrayed[prayer] = true;
                 playAdhan(prayer.toLowerCase());
-                break;
+                return;
             }}
         }}
     }}
@@ -460,22 +501,32 @@ components.html(f"""
         unlockOverlay.style.left = '50%';
         unlockOverlay.style.transform = 'translateX(-50%)';
         unlockOverlay.style.zIndex = '99999';
-        unlockOverlay.innerHTML = '🔊 Tap once to enable adhan sound';
+        unlockOverlay.innerHTML = '🔊 Tap the screen once to enable adhan sound';
         doc.body.appendChild(unlockOverlay);
+        setTimeout(function() {{ if (unlockOverlay && unlockOverlay.parentNode) removeUnlockOverlay(); }}, 20000);
     }}
+    function tryAutoUnlock() {{ if (!audioUnlocked) doUnlock(); }}
     function doUnlock() {{
         ensureAudioEl();
+        var ok = true;
         try {{
             if (audioEl) {{
                 var silent = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////8AAAA8TEFNRTMuMTAwAAAAAAAA8SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==');
                 var p = silent.play();
-                if (p && p.then) p.catch(function(){{}});
+                if (p && p.then) {{
+                    ok = false;
+                    p.then(function() {{ tryUnlockSuccess(); }}).catch(function() {{}});
+                }}
             }}
         }} catch(e) {{ /* ignore */ }}
+        if (ok) tryUnlockSuccess();
+    }}
+    function tryUnlockSuccess() {{
         audioUnlocked = true;
         removeUnlockOverlay();
         doc.removeEventListener('touchstart', doUnlock);
         doc.removeEventListener('click', doUnlock);
+        doc.removeEventListener('pointerdown', doUnlock);
     }}
     doc.addEventListener('touchstart', doUnlock, {{ passive: true }});
     doc.addEventListener('click', doUnlock);
@@ -502,14 +553,18 @@ components.html(f"""
             var p = el.play();
             if (p && p.then) p.catch(function(err) {{
                 console.error('Kiosk: Adhan play() rejected', err);
-                showUnlockOverlay();
                 doc.body.classList.remove('adhan-playing');
+                setTimeout(function() {{
+                    try {{
+                        var p2 = el.play();
+                        if (p2 && p2.then) p2.catch(function(){{}});
+                    }} catch(e2) {{ /* ignore */ }}
+                }}, 3000);
             }});
         }} catch(e) {{
             console.error('Kiosk: Adhan playback error', e);
             doc.body.classList.remove('adhan-playing');
         }}
-        if (!audioUnlocked) showUnlockOverlay();
     }}
 
     /* ═══════ FAMILY TASK BRAND → HOME (same tab) ═══════ */
@@ -530,6 +585,14 @@ components.html(f"""
     requestWakeLock();
     resetIdleTimer();
     win.__kioskInt = setInterval(checkPrayerTimes, 15000);
+    reschedule();
+    setTimeout(function() {{ tryAutoUnlock(); }}, 500);
+    setTimeout(function() {{ if (!audioUnlocked) showUnlockOverlay(); }}, 6000);
+    doc.addEventListener('pointerdown', doUnlock, {{ passive: true }});
+    doc.addEventListener('visibilitychange', function() {{
+        if (!doc.hidden) {{ tryAutoUnlock(); reschedule(); }}
+    }});
+    win.addEventListener('focus', function() {{ tryAutoUnlock(); reschedule(); }});
     if (CONFIG.trigger_screensaver) {{
         setTimeout(function() {{ showScreensaver(); }}, 500);
     }}
