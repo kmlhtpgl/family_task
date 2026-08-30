@@ -53,6 +53,11 @@ def get_all_data(retries=3, delay=0.5):
             except Exception:
                 meeting_notes = []
 
+            try:
+                meeting_comments = fetch_all("meeting_comments")
+            except Exception:
+                meeting_comments = []
+
             return {
                 "parents": parents,
                 "kids": kids,
@@ -62,6 +67,7 @@ def get_all_data(retries=3, delay=0.5):
                 "reward_sessions": reward_sessions,
                 "points_adjustments": points_adjustments,
                 "meeting_notes": meeting_notes,
+                "meeting_comments": meeting_comments,
                 "task_templates": task_templates,
                 "book_templates": book_templates,
                 "settings": {
@@ -654,6 +660,22 @@ def delete_meeting_note(note_id, retries=2, delay=0.3):
                 .execute()
                 .data
             )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def add_meeting_comment(meeting_note_id, body, author=None, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return supabase.table("meeting_comments").insert({
+                "meeting_note_id": meeting_note_id,
+                "body": body,
+                "author": author,
+            }).execute().data
         except Exception as e:
             if attempt < retries - 1:
                 time.sleep(delay)

@@ -3,7 +3,7 @@ from datetime import datetime
 
 import streamlit as st
 
-from utils.db_helpers import add_meeting_note, update_meeting_note, delete_meeting_note
+from utils.db_helpers import add_meeting_note, update_meeting_note, delete_meeting_note, add_meeting_comment
 
 
 def format_note_date(value):
@@ -105,6 +105,43 @@ def meeting_page(data):
                     content_html = html.escape(note["content"]).replace("\n", "<br>")
                     style = "opacity:0.6;" if is_done else ""
                     st.markdown(f"<div style='{style}'>{content_html}</div>", unsafe_allow_html=True)
+
+                # ── Comments ──
+                note_comments = [
+                    c for c in data.get("meeting_comments", [])
+                    if str(c.get("meeting_note_id")) == str(note_id)
+                ]
+                note_comments.sort(key=lambda c: str(c.get("created_at", "")), reverse=True)
+                with st.expander(f"💬 Comments ({len(note_comments)})", expanded=False):
+                    with st.form(f"add_comment_form_{note_id}"):
+                        c_col1, c_col2 = st.columns([3, 1])
+                        with c_col1:
+                            c_body = st.text_input("Comment", key=f"cb_{note_id}", placeholder="Write a comment...")
+                        with c_col2:
+                            c_author = st.text_input("Name (optional)", key=f"ca_{note_id}", placeholder="e.g. Dad")
+                        c_submit = st.form_submit_button("Add comment", use_container_width=True)
+                    if c_submit:
+                        if not c_body.strip():
+                            st.error("Please write a comment.")
+                        else:
+                            add_meeting_comment(
+                                meeting_note_id=note_id,
+                                body=c_body.strip(),
+                                author=c_author.strip() if c_author.strip() else None,
+                            )
+                            st.success("💬 Comment added!")
+                            st.rerun()
+                    if note_comments:
+                        for c in note_comments:
+                            c_created = format_note_date(c.get("created_at"))
+                            c_author_line = f" — {c['author']}" if c.get("author") else ""
+                            c_meta = (c_created + c_author_line) if c_created else (c_author_line or "Unknown date")
+                            c_body_html = html.escape(c.get("body", "")).replace("\n", "<br>")
+                            st.markdown(
+                                f"<div style='border-left:3px solid var(--border);padding-left:10px;margin:6px 0;'>"
+                                f"<span style='opacity:0.6;font-size:0.85em;'>💬 {c_meta}</span><br>{c_body_html}</div>",
+                                unsafe_allow_html=True,
+                            )
             else:
                 st.markdown(f"**Edit: {note['title']}**")
                 with st.form(f"edit_note_form_{note_id}"):

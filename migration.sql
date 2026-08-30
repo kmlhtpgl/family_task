@@ -48,6 +48,14 @@ CREATE TABLE IF NOT EXISTS public.meeting_notes (
 
 ALTER TABLE public.meeting_notes ADD COLUMN IF NOT EXISTS done BOOLEAN DEFAULT FALSE;
 
+CREATE TABLE IF NOT EXISTS public.meeting_comments (
+    id SERIAL PRIMARY KEY,
+    meeting_note_id INTEGER NOT NULL REFERENCES public.meeting_notes(id) ON DELETE CASCADE,
+    author TEXT,
+    body TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.app_settings (
     key TEXT PRIMARY KEY,
     value TEXT,
