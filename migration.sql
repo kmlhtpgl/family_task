@@ -64,6 +64,44 @@ CREATE TABLE IF NOT EXISTS public.meeting_templates (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.meeting_sessions (
+    id SERIAL PRIMARY KEY,
+    week_date DATE NOT NULL UNIQUE,
+    title TEXT,
+    closed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE public.meeting_notes ADD COLUMN IF NOT EXISTS session_id INTEGER REFERENCES public.meeting_sessions(id) ON DELETE CASCADE;
+ALTER TABLE public.meeting_notes ADD COLUMN IF NOT EXISTS week_date DATE;
+
+-- Backfill: assign any existing notes without a session to the most recent past Sunday
+DO $$
+DECLARE
+    legacy_session INTEGER;
+BEGIN
+    IF EXISTS (SELECT 1 FROM public.meeting_notes WHERE session_id IS NULL) THEN
+        INSERT INTO public.meeting_sessions (week_date, title, closed)
+        SELECT (CURRENT_DATE - (EXTRACT(DOW FROM CURRENT_DATE)::int))::date, 'Legacy meeting', TRUE
+        WHERE NOT EXISTS (
+            SELECT 1 FROM public.meeting_sessions
+            WHERE week_date = (CURRENT_DATE - (EXTRACT(DOW FROM CURRENT_DATE)::int))::date
+        )
+        RETURNING id INTO legacy_session;
+
+        UPDATE public.meeting_notes
+        SET session_id = COALESCE(legacy_session,
+            (SELECT id FROM public.meeting_sessions
+             WHERE week_date = (CURRENT_DATE - (EXTRACT(DOW FROM CURRENT_DATE)::int))::date
+             LIMIT 1))
+        WHERE session_id IS NULL;
+
+        UPDATE public.meeting_notes
+        SET week_date = (SELECT week_date FROM public.meeting_sessions WHERE id = meeting_notes.session_id)
+        WHERE week_date IS NULL;
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.app_settings (
     key TEXT PRIMARY KEY,
     value TEXT,

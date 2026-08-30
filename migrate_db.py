@@ -73,6 +73,17 @@ CREATE TABLE IF NOT EXISTS public.meeting_templates (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.meeting_sessions (
+    id SERIAL PRIMARY KEY,
+    week_date DATE NOT NULL UNIQUE,
+    title TEXT,
+    closed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE public.meeting_notes ADD COLUMN IF NOT EXISTS session_id INTEGER REFERENCES public.meeting_sessions(id) ON DELETE CASCADE;
+ALTER TABLE public.meeting_notes ADD COLUMN IF NOT EXISTS week_date DATE;
+
 CREATE TABLE IF NOT EXISTS public.app_settings (
     key TEXT PRIMARY KEY,
     value TEXT,

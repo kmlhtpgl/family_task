@@ -63,6 +63,11 @@ def get_all_data(retries=3, delay=0.5):
             except Exception:
                 meeting_templates = []
 
+            try:
+                meeting_sessions = fetch_all("meeting_sessions")
+            except Exception:
+                meeting_sessions = []
+
             return {
                 "parents": parents,
                 "kids": kids,
@@ -74,6 +79,7 @@ def get_all_data(retries=3, delay=0.5):
                 "meeting_notes": meeting_notes,
                 "meeting_comments": meeting_comments,
                 "meeting_templates": meeting_templates,
+                "meeting_sessions": meeting_sessions,
                 "task_templates": task_templates,
                 "book_templates": book_templates,
                 "settings": {
@@ -618,16 +624,21 @@ def delete_points_adjustment(adjustment_id):
 # Meeting Notes
 # -----------------------
 
-def add_meeting_note(title, content=None, author=None, done=False, retries=2, delay=0.3):
+def add_meeting_note(title, content=None, author=None, done=False, session_id=None, week_date=None, retries=2, delay=0.3):
     supabase = get_supabase_client()
+    record = {
+        "title": title,
+        "content": content,
+        "author": author,
+        "done": bool(done),
+    }
+    if session_id is not None:
+        record["session_id"] = session_id
+    if week_date is not None:
+        record["week_date"] = week_date
     for attempt in range(retries):
         try:
-            return supabase.table("meeting_notes").insert({
-                "title": title,
-                "content": content,
-                "author": author,
-                "done": bool(done),
-            }).execute().data
+            return supabase.table("meeting_notes").insert(record).execute().data
         except Exception as e:
             if attempt < retries - 1:
                 time.sleep(delay)
@@ -682,6 +693,110 @@ def add_meeting_comment(meeting_note_id, body, author=None, retries=2, delay=0.3
                 "body": body,
                 "author": author,
             }).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def delete_meeting_comment(comment_id, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return (
+                supabase
+                .table("meeting_comments")
+                .delete()
+                .eq("id", comment_id)
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def get_or_create_meeting_session(week_date, title=None, retries=2, delay=0.3):
+    """Return an existing session for the given Sunday date, or create one."""
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            existing = (
+                supabase.table("meeting_sessions")
+                .select("*")
+                .eq("week_date", str(week_date))
+                .execute()
+                .data
+            )
+            if existing:
+                return existing[0]
+            return supabase.table("meeting_sessions").insert({
+                "week_date": str(week_date),
+                "title": title,
+            }).execute().data[0]
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def set_meeting_session_closed(session_id, closed, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            return (
+                supabase.table("meeting_sessions")
+                .update({"closed": bool(closed)})
+                .eq("id", session_id)
+                .execute()
+                .data
+            )
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
+
+def carry_over_unfinished(prev_session_id, new_session_id, retries=2, delay=0.3):
+    """Copy all unfinished notes from a previous session into a new one (as undone)."""
+    supabase = get_supabase_client()
+    for attempt in range(retries):
+        try:
+            prev = (
+                supabase.table("meeting_notes")
+                .select("*")
+                .eq("session_id", prev_session_id)
+                .eq("done", False)
+                .execute()
+                .data
+            )
+            new_session = (
+                supabase.table("meeting_sessions")
+                .select("*")
+                .eq("id", new_session_id)
+                .execute()
+                .data
+            )
+            new_session = new_session[0] if new_session else None
+            week_date = new_session.get("week_date") if new_session else None
+            records = []
+            for note in prev:
+                records.append({
+                    "title": note.get("title"),
+                    "content": note.get("content"),
+                    "author": note.get("author"),
+                    "done": False,
+                    "session_id": new_session_id,
+                    "week_date": week_date,
+                })
+            if records:
+                return supabase.table("meeting_notes").insert(records).execute().data
+            return []
         except Exception as e:
             if attempt < retries - 1:
                 time.sleep(delay)
