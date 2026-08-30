@@ -367,8 +367,38 @@ components.html(f"""
 
     /* ═══════ PRAYER TIME CHECKER ═══════ */
     var lastPrayed = {{}};
+    var __diagShown = false;
+    function showDiagBanner(msg) {{
+        if (__diagShown) return;
+        __diagShown = true;
+        var el = doc.createElement('div');
+        el.className = 'kiosk-adhan-banner';
+        el.style.background = 'rgba(180,60,40,0.95)';
+        el.innerHTML = '⚠️ ' + msg;
+        doc.body.appendChild(el);
+        setTimeout(function() {{ if (el.parentNode) el.remove(); }}, 20000);
+    }}
+    function prayerDiag() {{
+        var issues = [];
+        if (!CONFIG.adhan_enabled) issues.push('Adhan is disabled in Kiosk Settings');
+        if (!CONFIG.prayer_times) issues.push('No prayer times loaded (check network / data/prayer_times_cache.json)');
+        if (!CONFIG.audio_data || Object.keys(CONFIG.audio_data).length === 0) {{
+            issues.push('No adhan audio files in static/adhan/ (need fajr,dhuhr,asr,maghrib,isha mp3)');
+        }} else {{
+            var missing = ['fajr','dhuhr','asr','maghrib','isha'].filter(function(p) {{ return !CONFIG.audio_data[p]; }});
+            if (missing.length) issues.push('Missing audio files: ' + missing.join(', '));
+        }}
+        if (issues.length) {{
+            console.error('[Kiosk] Prayer/diag:', issues);
+            if (CONFIG.screensaver_enabled) showDiagBanner(issues.join(' | '));
+        }}
+    }}
     function checkPrayerTimes() {{
-        if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_data) return;
+        if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_data) {{
+            prayerDiag();
+            return;
+        }}
+        if (!__diagShown) prayerDiag();
         var now = new Date();
         var todayKey = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
         if (lastPrayed._date !== todayKey) {{
@@ -400,46 +430,58 @@ components.html(f"""
         }}
     }}
 
-    var audioCtx = null;
-    function unlockAudio() {{
-        if (!audioCtx) {{
-            try {{ audioCtx = new (win.AudioContext || win.webkitAudioContext)(); }} catch(e) {{
-                console.error('Kiosk: AudioContext creation failed', e);
+    /* ═══════ AUDIO: plain <audio> element (avoids iOS suspended-AudioContext) ═══════ */
+    var audioEl = null;
+    var audioUnlocked = false;
+    var unlockOverlay = null;
+    function ensureAudioEl() {{
+        if (!audioEl) {{
+            try {{
+                audioEl = new Audio();
+                audioEl.preload = 'auto';
+                audioEl.onended = function() {{ doc.body.classList.remove('adhan-playing'); }};
+            }} catch(e) {{
+                console.error('Kiosk: Audio element creation failed', e);
             }}
         }}
-        if (audioCtx && audioCtx.state === 'suspended') {{
-            audioCtx.resume().catch(function(e) {{
-                console.error('Kiosk: AudioContext resume failed', e);
-            }});
-        }}
+        return audioEl;
     }}
-    function reattachAudioUnlock() {{
-        doc.removeEventListener('touchstart', unlockAudio);
-        doc.removeEventListener('click', unlockAudio);
-        doc.addEventListener('touchstart', unlockAudio);
-        doc.addEventListener('click', unlockAudio);
+    function removeUnlockOverlay() {{
+        if (unlockOverlay && unlockOverlay.parentNode) unlockOverlay.parentNode.removeChild(unlockOverlay);
+        unlockOverlay = null;
     }}
-    reattachAudioUnlock();
-
-    function base64ToArrayBuffer(dataUri) {{
-        var commaIdx = dataUri.indexOf(',');
-        var base64 = dataUri.substring(commaIdx + 1);
-        var binaryStr = atob(base64);
-        var len = binaryStr.length;
-        var bytes = new Uint8Array(len);
-        for (var i = 0; i < len; i++) {{
-            bytes[i] = binaryStr.charCodeAt(i);
-        }}
-        return bytes.buffer;
+    function showUnlockOverlay() {{
+        if (audioUnlocked || unlockOverlay) return;
+        unlockOverlay = doc.createElement('div');
+        unlockOverlay.className = 'kiosk-adhan-banner';
+        unlockOverlay.style.background = 'rgba(40,60,180,0.95)';
+        unlockOverlay.style.position = 'fixed';
+        unlockOverlay.style.bottom = '20px';
+        unlockOverlay.style.left = '50%';
+        unlockOverlay.style.transform = 'translateX(-50%)';
+        unlockOverlay.style.zIndex = '99999';
+        unlockOverlay.innerHTML = '🔊 Tap once to enable adhan sound';
+        doc.body.appendChild(unlockOverlay);
     }}
+    function doUnlock() {{
+        ensureAudioEl();
+        try {{
+            if (audioEl) {{
+                var silent = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////8AAAA8TEFNRTMuMTAwAAAAAAAA8SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==');
+                var p = silent.play();
+                if (p && p.then) p.catch(function(){{}});
+            }}
+        }} catch(e) {{ /* ignore */ }}
+        audioUnlocked = true;
+        removeUnlockOverlay();
+        doc.removeEventListener('touchstart', doUnlock);
+        doc.removeEventListener('click', doUnlock);
+    }}
+    doc.addEventListener('touchstart', doUnlock, {{ passive: true }});
+    doc.addEventListener('click', doUnlock);
 
     function playAdhan(prayer) {{
         if (!CONFIG.audio_data || !CONFIG.audio_data[prayer]) return;
-        unlockAudio();
-        if (!audioCtx) {{
-            console.error('Kiosk: No audio context available');
-            return;
-        }}
         var names = {{ fajr:'Fajr', dhuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha' }};
         var banner = doc.createElement('div');
         banner.className = 'kiosk-adhan-banner';
@@ -447,24 +489,27 @@ components.html(f"""
         doc.body.appendChild(banner);
         setTimeout(function() {{ if (banner.parentNode) banner.remove(); }}, 10000);
         doc.body.classList.add('adhan-playing');
+        var el = ensureAudioEl();
+        if (!el) {{
+            console.error('Kiosk: No audio element available');
+            doc.body.classList.remove('adhan-playing');
+            return;
+        }}
         try {{
-            var arrayBuffer = base64ToArrayBuffer(CONFIG.audio_data[prayer]);
-            audioCtx.decodeAudioData(arrayBuffer, function(buffer) {{
-                var source = audioCtx.createBufferSource();
-                source.buffer = buffer;
-                source.connect(audioCtx.destination);
-                source.start(0);
-                source.onended = function() {{
-                    doc.body.classList.remove('adhan-playing');
-                }};
-            }}, function(err) {{
-                console.error('Kiosk: Audio decode failed', err);
+            el.pause();
+            el.currentTime = 0;
+            el.src = CONFIG.audio_data[prayer];
+            var p = el.play();
+            if (p && p.then) p.catch(function(err) {{
+                console.error('Kiosk: Adhan play() rejected', err);
+                showUnlockOverlay();
                 doc.body.classList.remove('adhan-playing');
             }});
         }} catch(e) {{
             console.error('Kiosk: Adhan playback error', e);
             doc.body.classList.remove('adhan-playing');
         }}
+        if (!audioUnlocked) showUnlockOverlay();
     }}
 
     /* ═══════ FAMILY TASK BRAND → HOME (same tab) ═══════ */
