@@ -403,53 +403,18 @@ components.html(f"""
         }}
         return time;
     }}
-    var __schedTimers = [];
-    function clearSched() {{
-        for (var i = 0; i < __schedTimers.length; i++) clearTimeout(__schedTimers[i]);
-        __schedTimers = [];
-    }}
-    function scheduleAdhan(prayer, h, m) {{
-        var now = new Date();
-        var target = new Date(now);
-        target.setHours(h, m, 0, 0);
-        var ms = target.getTime() - now.getTime();
-        if (ms < 0) return;
-        var id = setTimeout(function() {{
-            if (!lastPrayed[prayer]) {{
-                lastPrayed[prayer] = true;
-                playAdhan(prayer.toLowerCase());
-            }}
-        }}, ms);
-        __schedTimers.push(id);
-    }}
     function reschedule() {{
-        if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_data) {{
-            prayerDiag();
-            return;
-        }}
-        clearSched();
         var now = new Date();
         var todayKey = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
         if (lastPrayed._date !== todayKey) {{
             lastPrayed = {{ _date: todayKey }};
         }}
-        var prayers = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
-        for (var pi = 0; pi < prayers.length; pi++) {{
-            var prayer = prayers[pi];
-            var time = CONFIG.prayer_times[prayer];
-            if (!time) continue;
-            time = effectivePrayerTime(prayer, time);
-            var parts = time.split(':');
-            var h = parseInt(parts[0], 10);
-            var m = parseInt(parts[1], 10);
-            var target = new Date(now);
-            target.setHours(h, m, 0, 0);
-            if (target.getTime() >= now.getTime() && !lastPrayed[prayer]) {{
-                scheduleAdhan(prayer, h, m);
-            }}
-        }}
     }}
     function checkPrayerTimes() {{
+        if (!CONFIG.adhan_enabled || !CONFIG.prayer_times || !CONFIG.audio_data) {{
+            prayerDiag();
+            return;
+        }}
         reschedule();
         var now = new Date();
         var prayers = ['Fajr','Dhuhr','Asr','Maghrib','Isha'];
@@ -463,7 +428,7 @@ components.html(f"""
             var m = parseInt(parts[1], 10);
             var prayerDate = new Date(now);
             prayerDate.setHours(h, m, 0, 0);
-            if (now >= prayerDate && (now - prayerDate) < 60000 && !lastPrayed[prayer]) {{
+            if (now >= prayerDate && (now - prayerDate) < 90000 && !lastPrayed[prayer]) {{
                 lastPrayed[prayer] = true;
                 playAdhan(prayer.toLowerCase());
                 return;

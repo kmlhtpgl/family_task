@@ -41,7 +41,7 @@ PRAYER_CITY = "Cambridge"
 PRAYER_COUNTRY = "United Kingdom"
 PRAYER_COUNTRY_CODE = "GB"
 PRAYER_METHOD = 15
-PRAYER_SCHOOL = 1
+PRAYER_SCHOOL = 2
 
 
 def _parse_timings(data):
