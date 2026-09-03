@@ -713,10 +713,6 @@ def apply_custom_styles(dark_mode=False):
         from {{ transform: translateX(-50%) translateY(-100px); opacity: 0; }}
         to {{ transform: translateX(-50%) translateY(0); opacity: 1; }}
     }}
-    body.adhan-playing .stApp {{
-        opacity: 0.7;
-        transition: opacity 0.5s ease;
-    }}
 
     /* ── Kiosk Status Indicators ── */
     .kiosk-status {{

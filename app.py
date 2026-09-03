@@ -478,12 +478,6 @@ components.html(f"""
 
     function playAdhan(prayer) {{
         if (!CONFIG.audio_data || !CONFIG.audio_data[prayer]) return;
-        var names = {{ fajr:'Fajr', dhuhr:'Dhuhr', asr:'Asr', maghrib:'Maghrib', isha:'Isha' }};
-        var banner = doc.createElement('div');
-        banner.className = 'kiosk-adhan-banner';
-        banner.innerHTML = '\\u{{1F54C}} Adhan \\u2014 ' + (names[prayer] || prayer) + ' time!';
-        doc.body.appendChild(banner);
-        setTimeout(function() {{ if (banner.parentNode) banner.remove(); }}, 10000);
         doc.body.classList.add('adhan-playing');
         var el = ensureAudioEl();
         if (!el) {{
