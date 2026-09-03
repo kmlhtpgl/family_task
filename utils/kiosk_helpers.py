@@ -34,14 +34,17 @@ def save_kiosk_settings(**kwargs):
 
 PRAYER_TIMES_CACHE_PATH = Path("data/prayer_times_cache.json")
 
-ALADHAN_URL = "https://api.aladhan.com/v1/timingsByCity"
+ALADHAN_URL = "https://api.aladhan.com/v1/timings"
 ISLAMIC_APP_URL = "https://api.islamic.app/v1/timings/today"
 
+PRAYER_LAT = 52.2053
+PRAYER_LON = 0.1218
+PRAYER_TIMEZONE = "Europe/London"
 PRAYER_CITY = "Cambridge"
 PRAYER_COUNTRY = "United Kingdom"
 PRAYER_COUNTRY_CODE = "GB"
 PRAYER_METHOD = 15
-PRAYER_SCHOOL = 2
+PRAYER_SCHOOL = 1
 
 
 def _parse_timings(data):
@@ -63,12 +66,13 @@ def _parse_timings(data):
 def _fetch_aladhan():
     try:
         response = requests.get(
-            ALADHAN_URL,
+            f"{ALADHAN_URL}/{date.today().strftime('%d-%m-%Y')}",
             params={
-                "city": PRAYER_CITY,
-                "country": PRAYER_COUNTRY,
+                "latitude": PRAYER_LAT,
+                "longitude": PRAYER_LON,
                 "method": PRAYER_METHOD,
                 "school": PRAYER_SCHOOL,
+                "timezone": PRAYER_TIMEZONE,
             },
             timeout=10,
         )
