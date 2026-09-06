@@ -70,6 +70,11 @@ def get_all_data(retries=3, delay=0.5):
             except Exception:
                 meeting_sessions = []
 
+            try:
+                reading_log = fetch_all("reading_log")
+            except Exception:
+                reading_log = []
+
             return {
                 "parents": parents,
                 "kids": kids,
@@ -82,6 +87,7 @@ def get_all_data(retries=3, delay=0.5):
                 "meeting_comments": meeting_comments,
                 "meeting_templates": meeting_templates,
                 "meeting_sessions": meeting_sessions,
+                "reading_log": reading_log,
                 "task_templates": task_templates,
                 "book_templates": book_templates,
                 "settings": {
@@ -472,6 +478,25 @@ def delete_book(book_id):
         .execute()
         .data
     )
+
+
+# -----------------------
+# Reading log
+# -----------------------
+
+def add_reading_log(entry, retries=2, delay=0.3):
+    supabase = get_supabase_client()
+    data_changed()
+
+    for attempt in range(retries):
+        try:
+            return supabase.table("reading_log").insert(entry).execute().data
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
 
 
 # -----------------------

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import streamlit as st
 
@@ -12,8 +12,8 @@ from utils.surah_helpers import (
     get_finished_duas,
 )
 from utils.achievement_helpers import get_kid_achievements
-from utils.data_helpers import today_string
 from utils.styles import avatar_image, achievement_badge
+from utils.summary_helpers import compute_weekly_summary
 
 
 def kids_profiles_page(data):
@@ -101,57 +101,9 @@ def show_kid_profile(data, kid):
             st.caption("Complete tasks and read books to earn badges!")
 
     with col2:
-        show_child_tasks(data, kid)
         show_child_read_books(data, kid)
         show_child_quran(data, kid)
-
-
-def show_child_tasks(data, kid):
-    st.subheader("📋 Current Tasks")
-
-    child_tasks = [
-        task for task in data["tasks"]
-        if task["kid_id"] == kid["id"]
-    ]
-
-    if not child_tasks:
-        st.caption("No tasks assigned yet.")
-        return
-
-    today = today_string()
-    active = [t for t in child_tasks if t["status"] != "Done" and t.get("due_date") == today]
-    done = [t for t in child_tasks if t["status"] == "Done"]
-
-    if active:
-        st.write(f"**Today's Tasks ({len(active)})**")
-
-        for task in active:
-            status_class = task["status"].lower().replace(" ", "-")
-            st.markdown(
-                f'<div class="task-item">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<span>{task["title"]}</span>'
-                f'<span class="status-badge status-{status_class}">{task["status"]}</span>'
-                f'<span>{task["points"]} pts</span>'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-
-    if done:
-        st.write(f"**Completed ({len(done)})**")
-
-        for task in done[:5]:
-            st.markdown(
-                f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                f'<span>✅ {task["title"]}</span>'
-                f'<span style="color:#4CAF50;font-weight:600;">+{task["points"]} pts</span>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-
-        if len(done) > 5:
-            st.caption(f"...and {len(done) - 5} more")
+        show_weekly_summary(data, kid)
 
 
 def show_child_read_books(data, kid):
@@ -260,3 +212,82 @@ def show_child_quran(data, kid):
 
     if not surahs and not duas and memorized == 0:
         st.caption("No surahs or duas assigned yet.")
+
+
+def show_weekly_summary(data, kid):
+    st.divider()
+    st.subheader("📊 Weekly Summary")
+
+    today = date.today()
+    week_offset = st.session_state.get("kid_week_offset", 0)
+
+    col_prev, col_week, col_next = st.columns([1, 5, 1])
+    with col_prev:
+        if st.button("◀", key="kid_prev_week", type="secondary", use_container_width=True):
+            st.session_state.kid_week_offset = week_offset - 1
+            st.rerun()
+    with col_week:
+        monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+        sunday = monday + timedelta(days=6)
+        label = f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}"
+        if week_offset == 0:
+            label = f"This Week · {label}"
+        st.markdown(
+            f"<div style='text-align:center;'><b style='color:var(--primary);'>{label}</b></div>",
+            unsafe_allow_html=True,
+        )
+    with col_next:
+        if st.button("▶", key="kid_next_week", type="secondary", use_container_width=True):
+            st.session_state.kid_week_offset = week_offset + 1
+            st.rerun()
+
+    summary = compute_weekly_summary(data, kid["id"], monday, sunday)
+
+    st.markdown("**📚 Reading this week**")
+    en_a, tr_a, read_tot = st.columns(3)
+    with en_a:
+        st.markdown(
+            f'<div class="metric-card" style="text-align:center;"><div style="font-size:1.4em;">🇬🇧</div>'
+            f'<div class="value">{summary["en_pages"]}</div><div class="label">English pages</div></div>',
+            unsafe_allow_html=True
+        )
+    with tr_a:
+        st.markdown(
+            f'<div class="metric-card" style="text-align:center;"><div style="font-size:1.4em;">🇹🇷</div>'
+            f'<div class="value">{summary["tr_pages"]}</div><div class="label">Turkish pages</div></div>',
+            unsafe_allow_html=True
+        )
+    with read_tot:
+        st.markdown(
+            f'<div class="metric-card" style="text-align:center;"><div style="font-size:1.4em;">📖</div>'
+            f'<div class="value">{summary["en_pages"] + summary["tr_pages"]}</div><div class="label">Total pages</div></div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown("**✅ Tasks completed**")
+    done = summary["done_tasks"]
+    if done:
+        for task in done:
+            st.markdown(
+                f'<div class="task-item" style="border-left-color:#4CAF50;">'
+                f'<span>✅ {task["title"]}</span>'
+                f'<span style="color:#4CAF50;font-weight:600;">+{task.get("points", 0)} pts</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+    else:
+        st.caption("No tasks completed this week.")
+
+    st.markdown("**⏳ Tasks not done**")
+    not_done = summary["not_done_tasks"]
+    if not_done:
+        for task in not_done:
+            st.markdown(
+                f'<div class="task-item">'
+                f'<span>📋 {task["title"]}</span>'
+                f'<span class="status-badge status-backlog">{task["status"]}</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+    else:
+        st.caption("No tasks missed this week.")

@@ -90,6 +90,17 @@ CREATE TABLE IF NOT EXISTS public.app_settings (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS public.reading_log (
+    id SERIAL PRIMARY KEY,
+    book_id INTEGER REFERENCES public.books(id) ON DELETE CASCADE,
+    kid_id INTEGER REFERENCES public.kids(id) ON DELETE CASCADE,
+    parent_id INTEGER REFERENCES public.parents(id) ON DELETE CASCADE,
+    language TEXT NOT NULL,
+    pages_read INTEGER NOT NULL,
+    read_date TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 """
 
 

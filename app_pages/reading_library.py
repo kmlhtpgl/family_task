@@ -10,7 +10,7 @@ from utils.book_helpers import (
     get_finished_books_for_parent,
     split_books_by_language
 )
-from utils.db_helpers import update_book, delete_book
+from utils.db_helpers import update_book, delete_book, add_reading_log
 from utils.data_helpers import today_string
 
 
@@ -91,6 +91,7 @@ def show_books_in_progress(data, reader_id, is_parent=False):
             )
 
             if current_page != book.get("current_page", 0):
+                old_page = int(book.get("current_page", 0))
                 updates = {
                     "current_page": int(current_page)
                 }
@@ -98,6 +99,10 @@ def show_books_in_progress(data, reader_id, is_parent=False):
                 if current_page >= book["total_pages"]:
                     updates["status"] = "Finished"
                     updates["finished_date"] = today_string()
+
+                added = int(current_page) - old_page
+                if added > 0:
+                    log_reading(data, book, reader_id, is_parent, added)
 
                 update_book(book["id"], updates)
                 st.success(f"📖 Updated: {book['title']} ({progress_pct}%)")
@@ -107,11 +112,15 @@ def show_books_in_progress(data, reader_id, is_parent=False):
 
             with col1:
                 if st.button("✅ Mark as finished", key=f"finish_book_{book['id']}"):
+                    remaining = int(book["total_pages"]) - int(book.get("current_page", 0))
                     updates = {
                         "current_page": int(book["total_pages"]),
                         "status": "Finished",
                         "finished_date": today_string()
                     }
+
+                    if remaining > 0:
+                        log_reading(data, book, reader_id, is_parent, remaining)
 
                     update_book(book["id"], updates)
                     st.rerun()
@@ -182,3 +191,20 @@ def show_finished_books(data, reader_id, is_parent=False):
                 )
         else:
             st.caption("No Turkish books finished yet." if not search_finished else "No matches.")
+
+
+def log_reading(data, book, reader_id, is_parent=False, pages_read=0):
+    """Auto-log pages read for a book update, attributed to the correct person."""
+    if pages_read <= 0:
+        return
+    entry = {
+        "book_id": book["id"],
+        "language": book.get("language", "English"),
+        "pages_read": int(pages_read),
+        "read_date": today_string(),
+    }
+    if is_parent:
+        entry["parent_id"] = reader_id
+    else:
+        entry["kid_id"] = reader_id
+    add_reading_log(entry)
