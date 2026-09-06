@@ -376,7 +376,6 @@ components.html(f"""
     var useWebAudio = false;
     var pendingRetry = null;
     var retryTimer = null;
-    var pillEl = null;
     var statusEl = null;
     var soundStarted = false;
     var PRAYER_WINDOW_MS = 6 * 60 * 1000;
@@ -477,7 +476,6 @@ components.html(f"""
                 return;
             }}
         }}
-        if (!audioUnlocked) createPill();
     }}
 
     /* ═══════ AUDIO ENGINE (has one special property: blocks autoplay) ═══════ */
@@ -557,7 +555,6 @@ components.html(f"""
         soundStarted = false;
         if (retryTimer) {{ clearTimeout(retryTimer); retryTimer = null; }}
         doc.body.classList.add('adhan-playing');
-        if (!audioUnlocked) createPill();
         resolveAudioSrc(prayer, function(src) {{
             if (!src) {{
                 doc.body.classList.remove('adhan-playing');
@@ -584,7 +581,6 @@ components.html(f"""
                     p.then(function() {{ soundStartedHandler(prayer); }})
                      .catch(function(err) {{
                         console.error('Kiosk: adhan play() blocked', err);
-                        markNeedsUnlock();
                         scheduleRetry(prayer);
                     }});
                 }} else {{
@@ -622,7 +618,6 @@ components.html(f"""
             audioUnlocked = true;
             saveUnlocked();
         }}
-        hidePill();
         doc.body.classList.remove('adhan-playing');
         flashStatus('Adhan playing: ' + prayer, 'ok');
         var el = audioEl;
@@ -640,7 +635,6 @@ components.html(f"""
             pendingRetry = null;
             doc.body.classList.remove('adhan-playing');
             flashStatus('Adhan could not play (autoplay blocked)', 'err');
-            createPill();
             return;
         }}
         pendingRetry.attempts++;
@@ -682,27 +676,6 @@ components.html(f"""
     }}
 
     /* ═══════ UNLOCK: browsers block unmuted autoplay until a real tap ═══════ */
-    function isUnlockNeeded() {{
-        return CONFIG.adhan_enabled && hasAudio('fajr');
-    }}
-    function createPill() {{
-        if (pillEl || audioUnlocked || !isUnlockNeeded()) return;
-        pillEl = doc.createElement('div');
-        pillEl.className = 'kiosk-audio-pill';
-        pillEl.innerHTML = '🔔 Tap to enable adhan sound';
-        pillEl.addEventListener('click', function(e) {{
-            e.stopPropagation();
-            enableSound();
-        }});
-        doc.body.appendChild(pillEl);
-    }}
-    function hidePill() {{
-        if (pillEl) {{ pillEl.remove(); pillEl = null; }}
-    }}
-    function enableSound() {{
-        getAudioCtx();
-        doUnlock();
-    }}
     function doUnlock() {{
         if (audioUnlocked) return;
         var ok = true;
@@ -711,7 +684,9 @@ components.html(f"""
             var p = silent.play();
             if (p && p.then) {{
                 ok = false;
-                p.then(function() {{ unlockNow(); }}).catch(function() {{ /* blocked: keep pill */ }});
+                p.then(function() {{ unlockNow(); }}).catch(function() {{
+                    audioUnlocked = false;
+                }});
             }}
         }} catch(e) {{ /* ignore */ }}
         if (ok) unlockNow();
@@ -719,17 +694,9 @@ components.html(f"""
     function unlockNow() {{
         audioUnlocked = true;
         saveUnlocked();
-        hidePill();
         var ctx = getAudioCtx();
         if (ctx && ctx.state === 'suspended') {{
             try {{ var r = ctx.resume(); if (r && r.then) r.catch(function(){{}}); }} catch(e) {{}}
-        }}
-        flashStatus('Sound enabled ✓', 'ok');
-    }}
-    function markNeedsUnlock() {{
-        if (!audioUnlocked) {{
-            createPill();
-            flashStatus('Playback blocked — tap the bell 🔔', 'warn');
         }}
     }}
     function onAnyGesture() {{
@@ -762,13 +729,11 @@ components.html(f"""
     doc.addEventListener('visibilitychange', function() {{
         if (!doc.hidden) {{
             audioUnlocked = getSavedUnlocked();
-            if (!audioUnlocked) createPill();
             checkPrayerTimes();
         }}
     }});
     win.addEventListener('focus', function() {{
         audioUnlocked = getSavedUnlocked();
-        if (!audioUnlocked) createPill();
         checkPrayerTimes();
     }});
     if (CONFIG.trigger_screensaver) {{

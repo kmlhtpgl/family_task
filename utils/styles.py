@@ -740,41 +740,6 @@ def apply_custom_styles(dark_mode=False):
         border: 1px solid rgba(245,158,11,0.2);
     }}
 
-    /* ── Adhan unlock pill (tap to enable sound) ── */
-    .kiosk-audio-pill {{
-        position: fixed;
-        right: 24px;
-        bottom: 92px;
-        z-index: 100001;
-        background: linear-gradient(135deg, #6366F1, #EC4899);
-        color: #fff;
-        font-family: var(--font);
-        font-size: 1.05em;
-        font-weight: 700;
-        padding: 14px 24px;
-        border-radius: 100px;
-        box-shadow: 0 10px 40px rgba(99,102,241,0.45), 0 0 0 1px rgba(255,255,255,0.15);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        animation: kioskFadeIn 0.6s ease-out;
-        letter-spacing: 0.3px;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
-    }}
-    .kiosk-audio-pill:hover {{
-        filter: brightness(1.1);
-        animation: kioskPulse 1.4s ease-in-out infinite;
-    }}
-    @keyframes kioskPulse {{
-        0%, 100% {{ box-shadow: 0 10px 40px rgba(99,102,241,0.45); }}
-        50% {{ box-shadow: 0 10px 60px rgba(236,72,153,0.65); }}
-    }}
-    @media (max-width: 768px) {{
-        .kiosk-audio-pill {{ right: 16px; bottom: 120px; font-size: 0.95em; padding: 12px 18px; }}
-    }}
-
     /* ── Adhan status flash ── */
     .kiosk-audio-status {{
         position: fixed;

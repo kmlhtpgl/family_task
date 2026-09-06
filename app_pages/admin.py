@@ -1534,8 +1534,9 @@ def kiosk_settings_tab(data):
             st.session_state.kiosk_test_adhan = True
             st.rerun()
 
-    st.caption("🔔 Tip: on a kiosk (Brave/Samsung), tap the **🔔 Tap to enable adhan sound** pill once — "
-               "browsers only allow sound after a real tap. Test Adhan also shows this pill if sound isn't unlocked yet.")
+    st.caption("🔔 Note: browsers only allow unmuted sound after the page has had at least one tap. "
+               "The app unlocks audio silently on any tap, so adhan will sound normally after the first interaction — "
+               "Test Adhan is useful to confirm it.")
 
     # ── 1b. Weather ──
     st.write("### 🌤️ Screensaver Weather")
