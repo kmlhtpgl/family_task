@@ -89,3 +89,9 @@ def prayer_page(data):
             f"<span style='font-weight:700;font-size:1.1em;'>{total}</span>",
             unsafe_allow_html=True,
         )
+
+    st.markdown("---")
+    st.caption("🔔 Kiosk sounds check")
+    if st.button("🔔 Test Adhan (Fajr) on the kiosk", use_container_width=True):
+        st.session_state.kiosk_test_adhan = True
+        st.rerun()

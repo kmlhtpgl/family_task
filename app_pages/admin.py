@@ -1524,9 +1524,18 @@ def kiosk_settings_tab(data):
         f"Background images loaded: **{_bg_count}**"
     )
 
-    if st.button("🖼️ Test Screensaver Now", use_container_width=True, type="primary"):
-        st.session_state.kiosk_test_screensaver = True
-        st.rerun()
+    _t1, _t2 = st.columns(2)
+    with _t1:
+        if st.button("🖼️ Test Screensaver Now", use_container_width=True, type="primary"):
+            st.session_state.kiosk_test_screensaver = True
+            st.rerun()
+    with _t2:
+        if st.button("🔔 Test Adhan Now", use_container_width=True, type="primary"):
+            st.session_state.kiosk_test_adhan = True
+            st.rerun()
+
+    st.caption("🔔 Tip: on a kiosk (Brave/Samsung), tap the **🔔 Tap to enable adhan sound** pill once — "
+               "browsers only allow sound after a real tap. Test Adhan also shows this pill if sound isn't unlocked yet.")
 
     # ── 1b. Weather ──
     st.write("### 🌤️ Screensaver Weather")
