@@ -1,19 +1,22 @@
 from datetime import date
 
 
-def compute_weekly_summary(data, kid_id, monday, sunday):
+def compute_weekly_summary(data, person_id, monday, sunday, is_kid=True):
     """
-    Returns a weekly summary dict for one child between monday and sunday (inclusive):
+    Returns a weekly summary dict for one person between monday and sunday (inclusive):
       done_tasks    - tasks completed (Done) with completed_date in range
       not_done_tasks- tasks due in range (due_date in range) not completed (status != Done)
       en_pages      - English pages read in range (from reading_log)
       tr_pages      - Turkish pages read in range (from reading_log)
+
+    When is_kid is True the tasks/reading belong to a child (kid_id), otherwise to a parent (parent_id).
     """
     done_tasks = []
     not_done_tasks = []
 
     for task in data.get("tasks", []):
-        if task.get("kid_id") != kid_id:
+        matches = task.get("kid_id") == person_id if is_kid else task.get("parent_id") == person_id
+        if not matches:
             continue
         if task.get("status") == "Done":
             completed = task.get("completed_date")
@@ -27,7 +30,8 @@ def compute_weekly_summary(data, kid_id, monday, sunday):
     en_pages = 0
     tr_pages = 0
     for entry in data.get("reading_log", []):
-        if entry.get("kid_id") != kid_id:
+        matches = entry.get("kid_id") == person_id if is_kid else entry.get("parent_id") == person_id
+        if not matches:
             continue
         read_date = entry.get("read_date")
         if not read_date or not in_range(read_date, monday, sunday):

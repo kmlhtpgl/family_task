@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, timedelta
+from collections import OrderedDict
 
 import streamlit as st
 
@@ -7,6 +8,7 @@ from utils.book_helpers import get_finished_books_for_parent, split_books_by_lan
 from utils.achievement_helpers import get_parent_achievements
 from utils.data_helpers import today_string
 from utils.styles import avatar_image, achievement_badge
+from utils.summary_helpers import compute_weekly_summary
 
 
 def parents_profiles_page(data):
@@ -103,8 +105,97 @@ def show_parent_profile(data, parent):
             st.caption("Complete tasks and read books to earn badges!")
 
     with col2:
+        show_parent_weekly_summary(data, parent)
         show_parent_tasks(data, parent)
         show_parent_books(data, parent)
+
+
+def show_parent_weekly_summary(data, parent):
+    st.divider()
+    st.subheader("📊 Weekly Summary")
+
+    today = date.today()
+    week_offset = st.session_state.get("parent_week_offset", 0)
+
+    col_prev, col_week, col_next = st.columns([1, 5, 1])
+    with col_prev:
+        if st.button("◀", key="parent_prev_week", type="secondary", use_container_width=True):
+            st.session_state.parent_week_offset = week_offset - 1
+            st.rerun()
+    with col_week:
+        monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+        sunday = monday + timedelta(days=6)
+        label = f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}"
+        if week_offset == 0:
+            label = f"This Week · {label}"
+        st.markdown(
+            f"<div style='text-align:center;'><b style='color:var(--primary);'>{label}</b></div>",
+            unsafe_allow_html=True,
+        )
+    with col_next:
+        if st.button("▶", key="parent_next_week", type="secondary", use_container_width=True):
+            st.session_state.parent_week_offset = week_offset + 1
+            st.rerun()
+
+    summary = compute_weekly_summary(data, parent["id"], monday, sunday, is_kid=False)
+
+    st.markdown("**📚 Reading this week**")
+    en_a, tr_a, read_tot = st.columns(3)
+    with en_a:
+        st.markdown(
+            f'<div class="metric-card" style="text-align:center;"><div style="font-size:1.4em;">🇬🇧</div>'
+            f'<div class="value">{summary["en_pages"]}</div><div class="label">English pages</div></div>',
+            unsafe_allow_html=True
+        )
+    with tr_a:
+        st.markdown(
+            f'<div class="metric-card" style="text-align:center;"><div style="font-size:1.4em;">🇹🇷</div>'
+            f'<div class="value">{summary["tr_pages"]}</div><div class="label">Turkish pages</div></div>',
+            unsafe_allow_html=True
+        )
+    with read_tot:
+        st.markdown(
+            f'<div class="metric-card" style="text-align:center;"><div style="font-size:1.4em;">📖</div>'
+            f'<div class="value">{summary["en_pages"] + summary["tr_pages"]}</div><div class="label">Total pages</div></div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown("**📋 Tasks this week**")
+
+    agg = OrderedDict()
+    for task in summary["done_tasks"]:
+        title = task["title"]
+        agg.setdefault(title, [0, 0])[0] += 1
+        agg[title][1] += 1
+    for task in summary["not_done_tasks"]:
+        title = task["title"]
+        agg.setdefault(title, [0, 0])[1] += 1
+
+    total_done = sum(v[0] for v in agg.values())
+    total_assigned = sum(v[1] for v in agg.values())
+
+    if agg:
+        for title, (done, total) in sorted(agg.items()):
+            complete = done == total
+            icon = "✅" if complete else "📋"
+            color = "var(--success)" if complete else "var(--danger)"
+            st.markdown(
+                f'<div class="task-item">'
+                f'<span>{icon} {title}</span>'
+                f'<span style="color:{color};font-weight:700;">{done}/{total}</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+    else:
+        st.caption("No tasks assigned this week.")
+
+    if total_assigned:
+        st.markdown(
+            f'<div style="padding:8px;background:rgba(16,185,129,0.08);border-radius:8px;margin-top:8px;">'
+            f'<strong>🏁 {total_done} of {total_assigned} tasks done this week</strong>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
 
 def show_parent_tasks(data, parent):
