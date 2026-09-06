@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from collections import OrderedDict
 
 import streamlit as st
 
@@ -101,9 +102,9 @@ def show_kid_profile(data, kid):
             st.caption("Complete tasks and read books to earn badges!")
 
     with col2:
+        show_weekly_summary(data, kid)
         show_child_read_books(data, kid)
         show_child_quran(data, kid)
-        show_weekly_summary(data, kid)
 
 
 def show_child_read_books(data, kid):
@@ -264,30 +265,39 @@ def show_weekly_summary(data, kid):
             unsafe_allow_html=True
         )
 
-    st.markdown("**✅ Tasks completed**")
-    done = summary["done_tasks"]
-    if done:
-        for task in done:
-            st.markdown(
-                f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                f'<span>✅ {task["title"]}</span>'
-                f'<span style="color:#4CAF50;font-weight:600;">+{task.get("points", 0)} pts</span>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-    else:
-        st.caption("No tasks completed this week.")
+    st.markdown("**📋 Tasks this week**")
 
-    st.markdown("**⏳ Tasks not done**")
-    not_done = summary["not_done_tasks"]
-    if not_done:
-        for task in not_done:
+    agg = OrderedDict()
+    for task in summary["done_tasks"]:
+        title = task["title"]
+        agg.setdefault(title, [0, 0])[0] += 1
+        agg[title][1] += 1
+    for task in summary["not_done_tasks"]:
+        title = task["title"]
+        agg.setdefault(title, [0, 0])[1] += 1
+
+    total_done = sum(v[0] for v in agg.values())
+    total_assigned = sum(v[1] for v in agg.values())
+
+    if agg:
+        for title, (done, total) in sorted(agg.items()):
+            complete = done == total
+            icon = "✅" if complete else "📋"
+            color = "var(--success)" if complete else "var(--danger)"
             st.markdown(
                 f'<div class="task-item">'
-                f'<span>📋 {task["title"]}</span>'
-                f'<span class="status-badge status-backlog">{task["status"]}</span>'
+                f'<span>{icon} {title}</span>'
+                f'<span style="color:{color};font-weight:700;">{done}/{total}</span>'
                 f'</div>',
                 unsafe_allow_html=True
             )
     else:
-        st.caption("No tasks missed this week.")
+        st.caption("No tasks assigned this week.")
+
+    if total_assigned:
+        st.markdown(
+            f'<div style="padding:8px;background:rgba(16,185,129,0.08);border-radius:8px;margin-top:8px;">'
+            f'<strong>🏁 {total_done} of {total_assigned} tasks done this week</strong>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
