@@ -41,7 +41,7 @@ from utils.db_helpers import (
 from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
 from utils.admin_helpers import load_admin_password, save_admin_password
-from utils.kiosk_helpers import get_prayer_times, get_kiosk_config, get_prayer_names, get_weather
+from utils.kiosk_helpers import get_prayer_times, get_audio_bytes, get_weather
 
 DATA_DIR = Path("data")
 
@@ -1524,19 +1524,26 @@ def kiosk_settings_tab(data):
         f"Background images loaded: **{_bg_count}**"
     )
 
-    _t1, _t2 = st.columns(2)
+    _t1, _t2, _t3 = st.columns([1, 1, 1])
     with _t1:
-        if st.button("🖼️ Test Screensaver Now", use_container_width=True, type="primary"):
+        if st.button("🖼️ Test Screensaver", use_container_width=True, type="primary"):
             st.session_state.kiosk_test_screensaver = True
             st.rerun()
     with _t2:
-        if st.button("🔔 Test Adhan Now", use_container_width=True, type="primary"):
-            st.session_state.kiosk_test_adhan = True
+        _test_prayer = st.selectbox(
+            "Prayer",
+            options=["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"],
+            label_visibility="collapsed",
+        )
+    with _t3:
+        if st.button("🔔 Play Adhan", use_container_width=True, type="primary"):
+            st.session_state.kiosk_test_adhan = _test_prayer
             st.rerun()
 
-    st.caption("🔔 Note: browsers only allow unmuted sound after the page has had at least one tap. "
-               "The app unlocks audio silently on any tap, so adhan will sound normally after the first interaction — "
-               "Test Adhan is useful to confirm it.")
+    st.caption("ℹ️ There is no sound-enabling step. The adhan unlocks itself the first time anyone "
+               "taps anywhere in the app. Apple blocks sound on a freshly loaded page until it has "
+               "been tapped, so on a device that was just opened, tap it once and it will sound from "
+               "then on.")
 
     # ── 1b. Weather ──
     st.write("### 🌤️ Screensaver Weather")
@@ -1644,26 +1651,18 @@ def kiosk_settings_tab(data):
 
     # ── 4. Test Adhan ──
     st.write("### 🔊 Test Adhan Playback")
-    st.caption("Tap play on the audio player below to hear each adhan.")
-    from utils.kiosk_helpers import load_audio_files
-    audio_data = load_audio_files()
-    if audio_data:
-        test_cols = st.columns(5)
-        prayer_names = {"fajr": "Fajr", "dhuhr": "Dhuhr", "asr": "Asr", "maghrib": "Maghrib", "isha": "Isha"}
-        for i, (key, name) in enumerate(prayer_names.items()):
-            has_file = key in audio_data
-            with test_cols[i]:
-                st.write(f"**{name}**")
-                from pathlib import Path
-                audio_path = Path("static/adhan")
-                found = list(audio_path.glob(f"{key}.*"))
-                if found:
-                    audio_bytes = found[0].read_bytes()
-                    st.audio(audio_bytes, format="audio/mp3")
-                else:
-                    st.caption("No file")
-    else:
-        st.warning("No adhan audio files found. Place MP3s in static/adhan/")
+    st.caption("Tap play on the audio player below to hear each adhan file.")
+    from utils.kiosk_helpers import PRAYER_KEYS
+    prayer_names = {"fajr": "Fajr", "dhuhr": "Dhuhr", "asr": "Asr", "maghrib": "Maghrib", "isha": "Isha"}
+    test_cols = st.columns(5)
+    for i, key in enumerate(PRAYER_KEYS):
+        with test_cols[i]:
+            st.write(f"**{prayer_names[key]}**")
+            audio_bytes = get_audio_bytes(key)
+            if audio_bytes:
+                st.audio(audio_bytes, format="audio/mp3")
+            else:
+                st.caption("No file")
 
     st.divider()
 

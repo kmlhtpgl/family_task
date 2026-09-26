@@ -690,30 +690,6 @@ def apply_custom_styles(dark_mode=False):
         to {{ opacity: 1; }}
     }}
 
-    /* ── Adhan Banner ── */
-    .kiosk-adhan-banner {{
-        position: fixed;
-        top: 30px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 99998;
-        background: linear-gradient(135deg, #1E3A5F, #2D5A87);
-        color: white;
-        padding: 18px 36px;
-        border-radius: 16px;
-        font-size: 1.4em;
-        font-weight: 700;
-        text-align: center;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);
-        animation: kioskBannerSlide 0.6s ease-out;
-        pointer-events: none;
-        letter-spacing: 0.5px;
-    }}
-    @keyframes kioskBannerSlide {{
-        from {{ transform: translateX(-50%) translateY(-100px); opacity: 0; }}
-        to {{ transform: translateX(-50%) translateY(0); opacity: 1; }}
-    }}
-
     /* ── Kiosk Status Indicators ── */
     .kiosk-status {{
         display: inline-flex;

@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-import base64
 from pathlib import Path
 import json
 from datetime import date, datetime
@@ -45,6 +44,19 @@ PRAYER_COUNTRY = "United Kingdom"
 PRAYER_COUNTRY_CODE = "GB"
 PRAYER_METHOD = 15
 PRAYER_SCHOOL = 1
+
+PRAYER_KEYS = ["fajr", "dhuhr", "asr", "maghrib", "isha"]
+
+# Cambridge Central Mosque calls the adhan for Fajr ahead of sunrise rather
+# than at the calculated Fajr time. Negative = lead time, in minutes.
+FAJR_OFFSET_MIN = -10
+
+# The iframe that loads static/kiosk/kiosk.js. This string MUST stay
+# byte-identical on every rerun: Streamlit hashes each component, and an
+# unchanged hash means the iframe element is reused instead of recreated.
+# A recreated iframe destroys every timer and the audio element, which is
+# exactly how the previous adhan implementation kept going silent.
+KIOSK_IFRAME_HTML = '<script src="/app/static/kiosk/kiosk.js"></script>'
 
 
 def _parse_timings(data):
@@ -241,43 +253,6 @@ def get_weather(city="Cambridge", unit="celsius"):
         return None
 
 
-@st.cache_data(ttl=3600)
-def load_audio_files():
-    adhan_dir = Path("static/adhan")
-    prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"]
-    audio_data = {}
-    if not adhan_dir.exists():
-        return audio_data
-    for prayer in prayers:
-        found = list(adhan_dir.glob(f"{prayer}.*"))
-        if found:
-            filepath = found[0]
-            with open(filepath, "rb") as f:
-                audio_bytes = f.read()
-                b64 = base64.b64encode(audio_bytes).decode()
-                ext = filepath.suffix[1:].lower()
-                mime = {"mp3": "mpeg", "wav": "wav", "ogg": "ogg", "m4a": "mp4"}
-                audio_data[prayer] = f"data:audio/{mime.get(ext, 'mpeg')};base64,{b64}"
-    return audio_data
-
-
-@st.cache_data(ttl=3600)
-def load_background_images():
-    bg_dir = Path("static/backgrounds")
-    images = []
-    if not bg_dir.exists():
-        return images
-    for filepath in sorted(bg_dir.iterdir()):
-        if filepath.suffix.lower() in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
-            with open(filepath, "rb") as f:
-                img_bytes = f.read()
-                ext = filepath.suffix[1:].lower()
-                mime = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "gif": "gif", "webp": "webp"}
-                b64 = base64.b64encode(img_bytes).decode()
-                images.append(f"data:image/{mime.get(ext, 'jpeg')};base64,{b64}")
-    return images
-
-
 def get_background_filenames():
     bg_dir = Path("static/backgrounds")
     files = []
@@ -290,18 +265,36 @@ def get_background_filenames():
 
 def get_audio_filenames():
     adhan_dir = Path("static/adhan")
-    prayers = ["fajr", "dhuhr", "asr", "maghrib", "isha"]
     result = {}
-    for prayer in prayers:
+    for prayer in PRAYER_KEYS:
         found = list(adhan_dir.glob(f"{prayer}.*"))
         if found:
             result[prayer] = found[0].name
     return result
 
 
-def get_kiosk_config():
+def get_audio_bytes(prayer):
+    """Raw bytes for a single adhan file, for st.audio previews only.
+
+    Playback in the browser streams straight from /app/static/adhan/, so
+    nothing in the runtime path needs base64 any more.
+    """
+    adhan_dir = Path("static/adhan")
+    found = list(adhan_dir.glob(f"{prayer}.*"))
+    if not found:
+        return None
+    return found[0].read_bytes()
+
+
+def get_kiosk_bootstrap():
+    """Config for static/kiosk/kiosk.js, serialised into #kiosk-config.
+
+    Deliberately small. The client fetches prayer times itself (both APIs
+    send `Access-Control-Allow-Origin: *`) and streams adhan audio and
+    background images from /app/static/, so none of that is embedded here.
+    That is what keeps the iframe payload constant across reruns.
+    """
     settings = load_kiosk_settings()
-    prayer_times = get_prayer_times()
 
     screensaver_enabled = st.session_state.get("kiosk_screensaver_enabled", settings["screensaver_enabled"])
     adhan_enabled = st.session_state.get("kiosk_adhan_enabled", settings["adhan_enabled"])
@@ -310,29 +303,19 @@ def get_kiosk_config():
     weather_city = st.session_state.get("kiosk_weather_city", settings["weather_city"])
     weather_unit = st.session_state.get("kiosk_weather_unit", settings["weather_unit"])
 
-    config = {
-        "screensaver_enabled": screensaver_enabled,
-        "adhan_enabled": adhan_enabled,
-        "idle_timeout_ms": idle_timeout * 60 * 1000,
-        "trigger_screensaver": st.session_state.pop("kiosk_test_screensaver", False),
-        "trigger_adhan": st.session_state.pop("kiosk_test_adhan", False),
-        "prayer_times": prayer_times,
-        "audio_data": load_audio_files(),
-        "audio_files": get_audio_filenames(),
-        "background_images": load_background_images(),
-        "weather_enabled": weather_enabled,
-        "weather_city": weather_city,
-        "weather_unit": weather_unit,
-        "weather": get_weather(weather_city or "Cambridge", weather_unit) if weather_enabled else None,
-    }
-    return config
-
-
-def get_prayer_names():
     return {
-        "Fajr": "Fajr",
-        "Dhuhr": "Dhuhr",
-        "Asr": "Asr",
-        "Maghrib": "Maghrib",
-        "Isha": "Isha",
+        "screensaver_enabled": bool(screensaver_enabled),
+        "adhan_enabled": bool(adhan_enabled),
+        "idle_timeout_ms": int(idle_timeout) * 60 * 1000,
+        "trigger_screensaver": st.session_state.pop("kiosk_test_screensaver", False),
+        "trigger_adhan": st.session_state.pop("kiosk_test_adhan", None),
+        "adhan_files": get_audio_filenames(),
+        "backgrounds": get_background_filenames(),
+        "lat": PRAYER_LAT,
+        "lon": PRAYER_LON,
+        "method": PRAYER_METHOD,
+        "school": PRAYER_SCHOOL,
+        "fajr_offset_min": FAJR_OFFSET_MIN,
+        "weather_enabled": bool(weather_enabled),
+        "weather": get_weather(weather_city or "Cambridge", weather_unit) if weather_enabled else None,
     }
