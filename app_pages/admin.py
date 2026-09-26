@@ -1595,6 +1595,31 @@ def kiosk_settings_tab(data):
     # ── 2. Status Indicators ──
     st.write("### 📊 Status")
 
+    st.markdown(
+        '<div class="info-box" style="border-left:3px solid var(--accent);">'
+        '<strong>Why is nothing happening on the tablet?</strong> The runtime lives in the '
+        'browser, so a silent adhan has no server-side trace. Turn on the live readout '
+        'below: it paints the real runtime state onto the page, updated every 4 seconds, '
+        'so you can see exactly which stage is stuck.</div>',
+        unsafe_allow_html=True,
+    )
+
+    diag_cols = st.columns([1, 3])
+    with diag_cols[0]:
+        if st.button("🩺 Show live diagnostics", key="kiosk_diag_toggle",
+                     type="primary" if st.session_state.get("kiosk_diagnostics") else "secondary"):
+            st.session_state.kiosk_diagnostics = not st.session_state.get(
+                "kiosk_diagnostics", False)
+            st.rerun()
+    with diag_cols[1]:
+        if st.session_state.get("kiosk_diagnostics"):
+            st.markdown(
+                '<span class="kiosk-status active">📺 Live readout is on — top-left of the '
+                'screen. Turn it off with the same button.</span>', unsafe_allow_html=True)
+        else:
+            st.caption("Off. On a wall tablet the amber banner at the bottom means the "
+                       "browser is blocking sound until you tap the screen once.")
+
     from pathlib import Path
     adhan_dir = Path("static/adhan")
     bg_dir = Path("static/backgrounds")

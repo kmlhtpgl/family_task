@@ -309,6 +309,7 @@ def get_kiosk_bootstrap():
         "idle_timeout_ms": int(idle_timeout) * 60 * 1000,
         "trigger_screensaver": st.session_state.pop("kiosk_test_screensaver", False),
         "trigger_adhan": st.session_state.pop("kiosk_test_adhan", None),
+        "diagnostics": bool(st.session_state.get("kiosk_diagnostics", False)),
         "adhan_files": get_audio_filenames(),
         "backgrounds": get_background_filenames(),
         "lat": PRAYER_LAT,

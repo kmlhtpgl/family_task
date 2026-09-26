@@ -59,6 +59,62 @@
         pos: 0
     };
 
+    /* ── on-screen diagnostics ──────────────────────────────────────────────
+     * A wall tablet gives you nowhere to read a console. When the Admin tab
+     * asks for it, render the live runtime state straight onto the page, so a
+     * silent adhan can be diagnosed from the device itself. */
+    var diagEl = null;
+
+    function dot(ok, warn) {
+        var bg = ok ? '#10B981' : (warn ? '#F59E0B' : '#EF4444');
+        return '<i style="display:inline-block;width:8px;height:8px;border-radius:50%;' +
+               'background:' + bg + ';margin-right:8px;vertical-align:middle"></i>';
+    }
+
+    function row(label, value, ok, warn) {
+        return '<div style="display:flex;justify-content:space-between;gap:18px;' +
+               'padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.07)">' +
+               '<span style="opacity:0.75">' + label + '</span>' +
+               '<span style="font-weight:600;white-space:nowrap">' +
+               dot(ok, warn) + value + '</span></div>';
+    }
+
+    function hideDiagnostics() {
+        if (diagEl && diagEl.parentNode) diagEl.parentNode.removeChild(diagEl);
+        diagEl = null;
+    }
+
+    function renderDiagnostics() {
+        var c = cfg() || {};
+        if (!diagEl) {
+            diagEl = doc.createElement('div');
+            diagEl.className = 'kiosk-diagnostics';
+            doc.body.appendChild(diagEl);
+        }
+        var np = nextPrayerInfo();
+        var mins = np ? Math.round(np.mins / 60 * 10) / 10 : null;
+        var idleMin = c.idle_timeout_ms ? Math.round(c.idle_timeout_ms / 6000) / 10 : null;
+        var html = '<div style="font-weight:700;font-size:1.05em;margin-bottom:8px;' +
+                   'display:flex;align-items:center;gap:8px">🩺 Kiosk runtime</div>';
+        html += row('Runtime loaded', 'yes', true);
+        html += row('Config parsed', c.adhan_enabled !== undefined ? 'yes' : 'no', !!c.adhan_enabled !== undefined);
+        html += row('Prayer times', K.timings ? 'loaded' : 'MISSING', !!K.timings, true);
+        html += row('Adhan enabled', c.adhan_enabled ? 'on' : 'off', !!c.adhan_enabled, true);
+        html += row('Audio files', Object.keys(c.adhan_files || {}).length + ' / 5',
+                    Object.keys(c.adhan_files || {}).length >= 5, true);
+        html += row('Backgrounds', (c.backgrounds || []).length + ' images',
+                    (c.backgrounds || []).length > 0, true);
+        html += row('Screensaver', K.ssActive ? 'showing' : 'armed in ' + idleMin + ' min',
+                    K.ssActive || !!K.idle, true);
+        html += row('Next adhan', np ? np.name + ' ' + np.label + ' · in ' + mins + 'h' : 'unknown',
+                    !!np, true);
+        html += row('Sound unlocked', K.unlocked ? 'yes' : 'NO — tap the screen',
+                    !!K.unlocked);
+        html += row('Pending retry', K.pendingRetry || 'none', !K.pendingRetry, true);
+        html += row('Wake lock', K.wake ? 'held' : 'not held', !!K.wake, true);
+        diagEl.innerHTML = html;
+    }
+
     /* ── config ─────────────────────────────────────────────────────────── */
 
     function readConfig() {
@@ -297,6 +353,30 @@
         return K.silent;
     }
 
+    /* ── audio unlock hint ──────────────────────────────────────────────────
+     * iOS refuses unmuted playback until the page has been interacted with.
+     * The adhan then sits in pendingRetry waiting for a gesture that, on a
+     * wall-mounted tablet, may never come. A 6-second toast is not enough: it
+     * expires long before anyone notices. This stays on screen, centred at the
+     * bottom, until a gesture actually unlocks the session. */
+    var unlockEl = null;
+
+    function unlockHint(on, text) {
+        if (!on) {
+            if (unlockEl && unlockEl.parentNode) unlockEl.parentNode.removeChild(unlockEl);
+            unlockEl = null;
+            return;
+        }
+        if (unlockEl && unlockEl.parentNode) {
+            if (unlockEl.textContent !== text) unlockEl.textContent = text;
+            return;
+        }
+        unlockEl = doc.createElement('div');
+        unlockEl.className = 'kiosk-unlock-hint';
+        unlockEl.textContent = text;
+        doc.body.appendChild(unlockEl);
+    }
+
     function prime() {
         var a = audio();
         try {
@@ -311,6 +391,10 @@
                         a.el.volume = 1;
                         a.el.removeAttribute('src');
                     }, 90);
+                    /* The silent clip played, so the parent's media session is
+                     * unlocked and later timer-driven playback will be allowed. */
+                    K.unlocked = true;
+                    unlockHint(false);
                 }).catch(function () {});
             }
         } catch (e) { /* ignore */ }
@@ -337,13 +421,17 @@
                 /* A test must not consume the real adhan for that prayer. */
                 if (!isTest) markPlayed(name);
                 K.pendingRetry = null;
+                K.unlocked = true;
+                unlockHint(false);
                 toast('🕌 ' + name + (isTest ? ' adhan (test)' : ' adhan'), 'ok');
             }).catch(function () {
                 /* Autoplay refused. Do not latch a false "unlocked" flag —
                  * keep the request and retry on the next real gesture. */
                 try { a.el.pause(); } catch (e) {}
                 K.pendingRetry = name;
-                toast('🔇 Tap anywhere to let the adhan sound', 'warn');
+                K.unlocked = false;
+                toast('🔇 Autoplay blocked', 'warn');
+                unlockHint(true, '🔇 Tap anywhere once to let the adhan sound');
             });
         } else if (!isTest) {
             markPlayed(name);
@@ -583,20 +671,30 @@
 
     /* Config can change under us (admin toggles, test buttons). Re-arm when
      * it does. Polling a tiny text node is far cheaper than the old design,
-     * which rebuilt a multi-megabyte iframe every time the data changed. */
+     * which rebuilt a multi-megabyte iframe every time the data changed.
+     *
+     * idle() MUST be re-armed here too. It used to run only at startup, so if
+     * the first script pass happened before Streamlit had mounted
+     * #kiosk-config, cfg() was null, no timer was ever created, and nothing
+     * later re-armed it: on a tablet nobody touches, the screensaver could
+     * then never appear at all. */
     K.sync = setInterval(function () {
         var c = readConfig();
         if (!c) return;
         var sig = JSON.stringify([
             c.adhan_enabled, c.screensaver_enabled, c.idle_timeout_ms,
             c.trigger_adhan, c.trigger_screensaver, c.fajr_offset_min,
+            c.diagnostics,
             c.adhan_files, c.backgrounds && c.backgrounds.length
         ]);
         if (sig !== K.sig) {
             K.sig = sig;
             arm();
+            idle();
             if (c.trigger_screensaver) showScreensaver();
         }
+        if (c.diagnostics) renderDiagnostics();
+        else if (diagEl) hideDiagnostics();
         if (c.trigger_adhan) {
             if (K.triggered !== c.trigger_adhan) {
                 K.triggered = c.trigger_adhan;
@@ -606,6 +704,13 @@
             /* Cleared server-side once delivered, so allow the same prayer to
              * be tested again. */
             K.triggered = null;
+        }
+        /* Surface a blocked media session instead of waiting in silence for a
+         * tap that may never arrive. */
+        if (!K.unlocked) {
+            unlockHint(true, K.pendingRetry
+                ? '🔇 Adhan is waiting — tap anywhere once to allow sound'
+                : '🔇 Tap anywhere once to enable the adhan');
         }
     }, 4000);
 
@@ -619,16 +724,39 @@
     idle();
     arm();
 
-    /* Console handle for manual checks. */
+    /* Console handle for manual checks, mirrored by the Admin → Kiosk
+     * diagnostics panel so the real state is readable on the device itself
+     * instead of having to be guessed at. */
     win.Adhan = {
         play: function (n) { playAdhan(n || 'fajr'); },
         state: function () {
+            var list = schedule();
+            var now = Date.now();
+            var next = null;
+            for (var i = 0; i < list.length; i++) {
+                var d = list[i].at.getTime() - now;
+                if (d > 0 && (next === null || d < next.in)) {
+                    next = { name: list[i].name, at: list[i].label, in: d };
+                }
+            }
             return {
-                timings: K.timings,
+                runtimeLoaded: true,
+                configParsed: !!K.cfg,
+                screensaverEnabled: !!(K.cfg && K.cfg.screensaver_enabled),
+                adhanEnabled: !!(K.cfg && K.cfg.adhan_enabled),
+                backgrounds: (K.cfg && K.cfg.backgrounds || []).length,
+                adhanFiles: Object.keys((K.cfg && K.cfg.adhan_files) || {}).length,
+                idleArmed: !!K.idle,
+                idleTimeoutMs: K.cfg ? K.cfg.idle_timeout_ms : null,
+                adhanArmed: !!K.timer,
+                timingsLoaded: !!K.timings,
                 timingsDay: K.timingsDay,
-                fired: K.fired,
+                nextPrayer: next,
+                audioUnlocked: !!K.unlocked,
                 pendingRetry: K.pendingRetry,
-                ctxState: K.el ? 'element' : 'not-created',
+                firedToday: Object.keys(K.fired),
+                wakeLock: !!K.wake,
+                screensaverActive: K.ssActive,
                 audio: audioUrl('fajr')
             };
         }

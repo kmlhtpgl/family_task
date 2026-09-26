@@ -1181,12 +1181,19 @@ _KIOSK_CSS = """
     font-size: 1.15em;
     font-weight: 500;
     padding: 12px 28px;
-    border-radius: 100px;
+    /* Reads as a soft pill on one line and as a rounded panel once the items
+     * wrap, instead of turning into a 132px-tall stadium. */
+    border-radius: 28px;
     text-align: center;
     display: flex;
     align-items: center;
-    gap: 18px;
-    white-space: nowrap;
+    justify-content: center;
+    gap: 10px 18px;
+    /* The pill must never clip. Each item keeps itself on one line, but the
+     * row is allowed to wrap: on an iPad portrait the three items need ~980px
+     * and only ~754px is available, so a nowrap container silently cut the
+     * weather off the end. */
+    flex-wrap: wrap;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08);
     animation: kioskFadeIn 1s ease-out;
     letter-spacing: 0.3px;
@@ -1194,16 +1201,19 @@ _KIOSK_CSS = """
 }
 .kiosk-screensaver-footer .kiosk-ss-time {
     color: #fff;
-    font-weight: 700;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 .kiosk-screensaver-footer .kiosk-ss-prayer {
     color: #A5B4FC;
     font-weight: 600;
+    white-space: nowrap;
 }
 .kiosk-screensaver-footer .kiosk-ss-weather {
     color: #7DD3FC;
     font-weight: 600;
+    white-space: nowrap;
 }
 .kiosk-screensaver-footer .kiosk-audio-status {
     position: static;
@@ -1248,7 +1258,7 @@ _KIOSK_CSS = """
     border-radius: 100px;
     font-family: var(--font);
     font-size: 0.95em;
-    font-weight: 700;
+    font-weight: 600;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
     animation: kioskFadeIn 0.4s ease-out;
     pointer-events: none;
@@ -1256,6 +1266,71 @@ _KIOSK_CSS = """
 .kiosk-audio-status.ok { background: rgba(16, 185, 129, 0.95); color: #fff; }
 .kiosk-audio-status.warn { background: rgba(245, 158, 11, 0.95); color: #fff; }
 .kiosk-audio-status.err { background: rgba(239, 68, 68, 0.95); color: #fff; }
+
+/* Stays on screen until a gesture unlocks the media session. A 6-second toast
+ * expires long before anyone notices on a wall tablet.
+ *
+ * z-index sits just above the app but *below* every kiosk layer: the
+ * screensaver (99999), its footer (100000) and the audio-status chip (100001).
+ * The screensaver is an ambient fullscreen display and should not get a banner
+ * stamped over it. Any tap still unlocks, because the screensaver's own gesture
+ * handler dismisses it and primes audio at the same time, so the hint is only
+ * needed on an ordinary page. */
+.kiosk-unlock-hint {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 99998;
+    padding: 12px 22px;
+    border-radius: 100px;
+    background: rgba(245, 158, 11, 0.96);
+    color: #1A1300;
+    font-family: var(--font);
+    font-size: 0.95em;
+    font-weight: 600;
+    white-space: nowrap;
+    max-width: 92vw;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    animation: kioskFadeIn 0.4s ease-out;
+    pointer-events: none;
+}
+@media (max-width: 768px) {
+    .kiosk-unlock-hint {
+        font-size: 0.8em;
+        padding: 10px 16px;
+        white-space: normal;
+        text-align: center;
+        bottom: 16px;
+    }
+}
+
+/* Live runtime readout, rendered into the page by kiosk.js when the Admin →
+ * Kiosk tab asks for it. Deliberately self-contained: it is written by the
+ * runtime, not by Streamlit, so it must not depend on app tokens.
+ *
+ * This one is intentionally topmost (100003) - it is an explicit, temporary
+ * debugging aid, and it is useless if a screensaver is covering it. */
+.kiosk-diagnostics {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100003;
+    min-width: 340px;
+    max-width: 92vw;
+    padding: 16px 18px;
+    border-radius: 14px;
+    background: rgba(12, 12, 14, 0.95);
+    color: #fff;
+    font-family: var(--font);
+    font-size: 0.9em;
+    line-height: 1.5;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+}
+@media (max-width: 768px) {
+    .kiosk-diagnostics { min-width: 0; font-size: 0.8em; padding: 12px 14px; }
+}
 """
 
 # ── Responsive ───────────────────────────────────────────────────────────────
@@ -1268,6 +1343,16 @@ _RESPONSIVE_CSS = """
     }
 }
 @media (max-width: 768px) {
+    .kiosk-screensaver-footer {
+        font-size: 0.9em;
+        padding: 10px 18px;
+        gap: 6px 10px;
+        bottom: 16px;
+        border-radius: 16px;
+    }
+    .kiosk-screensaver-footer .kiosk-ss-weather,
+    .kiosk-screensaver-footer .kiosk-ss-prayer { white-space: normal; }
+
     .top-navbar {
         padding: 0.75rem 1rem;
         min-height: 3.5rem;
