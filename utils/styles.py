@@ -20,8 +20,8 @@ import streamlit as st
 
 _FONT_IMPORT = (
     "@import url('https://fonts.googleapis.com/css2?"
-    "family=Inter:wght@300;400;500;600;700;800&"
-    "family=JetBrains+Mono:wght@400;600;700&display=swap');"
+    "family=Inter:wght@300;400;475;500;625;700&"
+    "family=JetBrains+Mono:wght@400;600&display=swap');"
 )
 
 # Theme-independent scales: type, radii, motion, layout.
@@ -31,123 +31,139 @@ _SHARED_TOKENS = """
             'Helvetica Neue', Arial, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
+    /* Inter is a variable font, so mid weights are real weights rather than
+     * faux-bold. Todoist leans on 475/625 and never uses 700 for body copy;
+     * heavy weights are what make a Streamlit app read as clumsy. */
+    --weight-regular: 400;
+    --weight-medium: 475;
+    --weight-semibold: 625;
+
+    --leading-body: 1.75;
+    --leading-tight: 1.25;
+
+    /* Small, disciplined radii. Large rounded corners read as toy-like. */
     --radius-xs: 4px;
     --radius-sm: 6px;
     --radius: 8px;
     --radius-md: 10px;
-    --radius-lg: 14px;
-    --radius-xl: 20px;
-    --radius-full: 999px;
+    --radius-lg: 13px;
+    --radius-xl: 15px;
+    --radius-full: 9999px;
 
     --transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: 260ms cubic-bezier(0.16, 1, 0.3, 1);
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-    --navbar-height: 64px;
+    --navbar-height: 60px;
     --max-width: 1200px;
 }
 """
 
+# Palette lifted from Todoist's own published tokens, so the app reads the same
+# way their product does: warm neutrals rather than cold blue-greys, exactly
+# one accent used sparingly, and separation by hairline instead of shadow.
 _LIGHT_TOKENS = """
 :root {
-    --surface-0: #FFFFFF;
+    --surface-0: #FCF8F3;
     --surface-1: #FFFFFF;
-    --surface-2: #F7F8FA;
-    --surface-3: #F0F1F3;
+    --surface-2: #FAFAFA;
+    --surface-3: #F2F2F2;
 
-    --border-subtle: #ECEDEF;
-    --border-default: #E1E3E6;
-    --border-strong: #D2D5DA;
+    --border-subtle: #F2EFED;
+    --border-default: #EBEBEB;
+    --border-strong: #DEDEDE;
 
-    --text-primary: #15171A;
-    --text-secondary: #626A75;
-    --text-tertiary: #8A919C;
+    --text-primary: #1F1F1F;
+    --text-secondary: #575757;
+    --text-tertiary: #999999;
 
-    --accent: #5B5BD6;
-    --accent-hover: #4F4FC4;
-    --accent-active: #4545B0;
-    --accent-subtle: rgba(91, 91, 214, 0.07);
-    --accent-border: rgba(91, 91, 214, 0.28);
+    --accent: #3879FA;
+    --accent-hover: #316FEA;
+    --accent-active: #2064CA;
+    --accent-subtle: #F1F7FE;
+    --accent-border: #E2F0FF;
     --accent-fg: #FFFFFF;
-    --accent-shadow: rgba(91, 91, 214, 0.28);
+    --accent-shadow: rgba(56, 121, 250, 0.28);
     --on-gradient: #FFFFFF;
 
     --gold: #8A6400;
-    --gold-subtle: rgba(180, 130, 0, 0.09);
-    --gold-border: rgba(180, 130, 0, 0.26);
+    --gold-subtle: #FAF6EB;
+    --gold-border: #EFE0B9;
 
-    --success: #0F7A52;
-    --success-subtle: rgba(15, 122, 82, 0.08);
-    --success-border: rgba(15, 122, 82, 0.24);
+    --success: #3D7A4A;
+    --success-subtle: #F6F9F7;
+    --success-border: #CFE3D3;
 
     --warning: #8A5B00;
-    --warning-subtle: rgba(180, 122, 0, 0.09);
-    --warning-border: rgba(180, 122, 0, 0.26);
+    --warning-subtle: #FFFBF1;
+    --warning-border: #F7E4C0;
 
-    --danger: #C02430;
-    --danger-subtle: rgba(192, 36, 48, 0.07);
-    --danger-border: rgba(192, 36, 48, 0.24);
+    --danger: #B3342B;
+    --danger-subtle: #FDF3F2;
+    --danger-border: #F3D3D0;
 
-    --info: #0B6FB8;
-    --info-subtle: rgba(11, 111, 184, 0.08);
-    --info-border: rgba(11, 111, 184, 0.24);
+    --info: #2064CA;
+    --info-subtle: #F1F7FE;
+    --info-border: #E2F0FF;
 
-    --shadow-xs: 0 1px 2px rgba(16, 18, 22, 0.05);
-    --shadow-sm: 0 1px 2px rgba(16, 18, 22, 0.05), 0 1px 3px rgba(16, 18, 22, 0.04);
-    --shadow-md: 0 2px 4px rgba(16, 18, 22, 0.04), 0 6px 16px rgba(16, 18, 22, 0.06);
-    --shadow-lg: 0 10px 32px rgba(16, 18, 22, 0.10);
-    --scrim: rgba(16, 18, 22, 0.04);
+    /* Elevation is a 1px hairline at rest. Shadows are reserved for things
+     * that genuinely float: overlays, menus, dialogs. */
+    --shadow-xs: 0 1px 0 rgba(31, 31, 31, 0.06);
+    --shadow-sm: 0 1px 0 rgba(31, 31, 31, 0.08);
+    --shadow-md: 0 4px 12px rgba(31, 31, 31, 0.10);
+    --shadow-lg: 0 12px 32px rgba(31, 31, 31, 0.14);
+    --scrim: rgba(31, 31, 31, 0.03);
 }
 """
 
 _DARK_TOKENS = """
 :root {
-    --surface-0: #0B0C0E;
-    --surface-1: #131417;
-    --surface-2: #1A1C20;
-    --surface-3: #22252A;
+    --surface-0: #16161A;
+    --surface-1: #1E1E23;
+    --surface-2: #26262C;
+    --surface-3: #2E2E35;
 
-    --border-subtle: #1F2226;
-    --border-default: #2A2E33;
-    --border-strong: #3A3F45;
+    --border-subtle: #26262C;
+    --border-default: #32323A;
+    --border-strong: #43434D;
 
-    --text-primary: #E9EBEE;
-    --text-secondary: #9BA1A6;
-    --text-tertiary: #6E747B;
+    --text-primary: #EDEDF0;
+    --text-secondary: #A8A8B3;
+    --text-tertiary: #77777F;
 
-    --accent: #7C7CF0;
-    --accent-hover: #8E8EF5;
-    --accent-active: #A0A0F8;
-    --accent-subtle: rgba(124, 124, 240, 0.14);
-    --accent-border: rgba(124, 124, 240, 0.34);
-    --accent-fg: #0B0C0E;
-    --accent-shadow: rgba(124, 124, 240, 0.30);
+    --accent: #3879FA;
+    --accent-hover: #5493FB;
+    --accent-active: #7AACFC;
+    --accent-subtle: #16233A;
+    --accent-border: #24406B;
+    --accent-fg: #FFFFFF;
+    --accent-shadow: rgba(56, 121, 250, 0.34);
     --on-gradient: #FFFFFF;
 
     --gold: #E0B04A;
-    --gold-subtle: rgba(224, 176, 74, 0.12);
-    --gold-border: rgba(224, 176, 74, 0.28);
+    --gold-subtle: #2A2418;
+    --gold-border: #453C24;
 
-    --success: #3ECF8E;
-    --success-subtle: rgba(62, 207, 142, 0.12);
-    --success-border: rgba(62, 207, 142, 0.28);
+    --success: #5FB37A;
+    --success-subtle: #18251C;
+    --success-border: #2A3D30;
 
     --warning: #E3A73F;
-    --warning-subtle: rgba(227, 167, 63, 0.12);
-    --warning-border: rgba(227, 167, 63, 0.28);
+    --warning-subtle: #2A2116;
+    --warning-border: #453820;
 
-    --danger: #F26D6D;
-    --danger-subtle: rgba(242, 109, 109, 0.12);
-    --danger-border: rgba(242, 109, 109, 0.28);
+    --danger: #E0685C;
+    --danger-subtle: #2C1A18;
+    --danger-border: #4A2C28;
 
-    --info: #5CA8E6;
-    --info-subtle: rgba(92, 168, 230, 0.12);
-    --info-border: rgba(92, 168, 230, 0.28);
+    --info: #7AACFC;
+    --info-subtle: #16233A;
+    --info-border: #24406B;
 
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.30);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.40);
-    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.50);
+    --shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.30);
+    --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.36);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.44);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
     --scrim: rgba(255, 255, 255, 0.03);
 }
 """
@@ -157,6 +173,15 @@ _DARK_TOKENS = """
 _BASE_CSS = """
 * {
     font-family: var(--font);
+}
+
+/* Streamlit ships its own body font (Source Sans) and wins the cascade over a
+ * bare `*` selector. Without this the design renders in the wrong typeface
+ * even though the token is correct. */
+html, body, .stApp, [data-testid="stAppViewContainer"],
+[data-testid="stHeader"], [data-testid="stToolbar"],
+[data-testid="stSidebar"], [data-testid="stMain"] {
+    font-family: var(--font) !important;
 }
 
 html, body,
@@ -182,11 +207,11 @@ footer { visibility: hidden; }
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font);
     color: var(--text-primary);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     letter-spacing: -0.02em;
     line-height: 1.25;
 }
-h1 { font-size: 1.75rem; font-weight: 650; }
+h1 { font-size: 1.75rem; font-weight: var(--weight-semibold); }
 h2 { font-size: 1.3125rem; }
 h3 { font-size: 1.0625rem; }
 h4 { font-size: 0.9375rem; }
@@ -194,10 +219,13 @@ h5, h6 { font-size: 0.875rem; }
 
 p, li {
     color: var(--text-secondary);
-    line-height: 1.6;
+    /* Todoist runs body copy at 1.75. The extra leading is most of what makes
+     * a dense dashboard feel calm rather than cramped. */
+    line-height: var(--leading-body);
     font-size: 0.9375rem;
+    letter-spacing: 0.005em;
 }
-strong, b { color: var(--text-primary); font-weight: 600; }
+strong, b { color: var(--text-primary); font-weight: var(--weight-semibold); }
 
 hr {
     border: 0;
@@ -223,7 +251,7 @@ hr {
 .stForm label {
     color: var(--text-secondary) !important;
     font-size: 0.8125rem !important;
-    font-weight: 500 !important;
+    font-weight: var(--weight-medium) !important;
     letter-spacing: 0.005em;
 }
 
@@ -272,7 +300,7 @@ _NAV_CSS = """
 }
 .navbar-brand h1 {
     font-size: 1.1875rem;
-    font-weight: 650;
+    font-weight: var(--weight-semibold);
     margin: 0;
     letter-spacing: -0.03em;
     white-space: nowrap;
@@ -285,7 +313,7 @@ _NAV_CSS = """
 .navbar-brand span {
     color: var(--text-tertiary);
     font-size: 0.75rem;
-    font-weight: 400;
+    font-weight: var(--weight-regular);
     margin-left: 0.25rem;
     border-left: 1px solid var(--border-default);
     padding-left: 0.625rem;
@@ -299,7 +327,7 @@ _NAV_CSS = """
 .navbar-actions .nav-date {
     color: var(--text-tertiary);
     font-size: 0.8125rem;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
@@ -315,7 +343,7 @@ _COMPONENT_CSS = """
 [data-testid="stBaseButton-secondary"] {
     font-family: var(--font) !important;
     font-size: 0.875rem !important;
-    font-weight: 500 !important;
+    font-weight: var(--weight-medium) !important;
     letter-spacing: -0.005em;
     border-radius: var(--radius) !important;
     padding: 0.4375rem 0.875rem !important;
@@ -391,7 +419,7 @@ _COMPONENT_CSS = """
     border: 1px solid transparent !important;
     border-radius: var(--radius) !important;
     font-size: 0.8125rem !important;
-    font-weight: 500 !important;
+    font-weight: var(--weight-medium) !important;
     padding: 0.375rem 0.25rem !important;
     min-height: 2.125rem !important;
     letter-spacing: -0.01em;
@@ -408,7 +436,7 @@ _COMPONENT_CSS = """
     background: var(--accent-subtle) !important;
     color: var(--accent) !important;
     border-color: var(--accent-border) !important;
-    font-weight: 600 !important;
+    font-weight: var(--weight-semibold) !important;
     box-shadow: none !important;
 }
 
@@ -426,7 +454,7 @@ _COMPONENT_CSS = """
     border-radius: var(--radius-sm) !important;
     padding: 0.375rem 0.75rem !important;
     font-size: 0.8125rem !important;
-    font-weight: 500 !important;
+    font-weight: var(--weight-medium) !important;
     color: var(--text-secondary) !important;
     transition: all var(--transition) !important;
 }
@@ -438,7 +466,7 @@ _COMPONENT_CSS = """
 .stSegmentedControl label[data-checked="true"] {
     background: var(--surface-1) !important;
     color: var(--text-primary) !important;
-    font-weight: 600 !important;
+    font-weight: var(--weight-semibold) !important;
     box-shadow: var(--shadow-xs) !important;
 }
 
@@ -454,7 +482,7 @@ _COMPONENT_CSS = """
     margin: 0 !important;
     padding: 0.375rem 0.75rem !important;
     font-size: 0.8125rem !important;
-    font-weight: 500 !important;
+    font-weight: var(--weight-medium) !important;
     transition: all var(--transition) !important;
     cursor: pointer !important;
 }
@@ -468,7 +496,7 @@ _COMPONENT_CSS = """
 }
 .stRadio label[data-checked="true"] p {
     color: var(--accent) !important;
-    font-weight: 600 !important;
+    font-weight: var(--weight-semibold) !important;
 }
 
 /* ── Checkbox / toggle ── */
@@ -551,7 +579,7 @@ _COMPONENT_CSS = """
     background: var(--surface-2) !important;
     color: var(--text-primary) !important;
     font-size: 0.875rem !important;
-    font-weight: 600 !important;
+    font-weight: var(--weight-semibold) !important;
     border-radius: var(--radius) !important;
     transition: background-color var(--transition) !important;
 }
@@ -606,11 +634,11 @@ _COMPONENT_CSS = """
 [data-testid="stMetric"] label {
     color: var(--text-secondary) !important;
     font-size: 0.8125rem !important;
-    font-weight: 500 !important;
+    font-weight: var(--weight-medium) !important;
 }
 [data-testid="stMetricValue"] {
     font-family: var(--font-mono) !important;
-    font-weight: 600 !important;
+    font-weight: var(--weight-semibold) !important;
     color: var(--text-primary) !important;
 }
 
@@ -672,7 +700,7 @@ _COMPONENT_CSS = """
 .card .value {
     font-family: var(--font-mono);
     font-size: 1.875rem;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--text-primary);
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
@@ -681,7 +709,7 @@ _COMPONENT_CSS = """
 .card .label {
     font-size: 0.8125rem;
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: var(--weight-medium);
 }
 .card .icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
 .card--stat hr { margin: 0.75rem 0; }
@@ -703,13 +731,13 @@ _COMPONENT_CSS = """
 .metric-card h3 {
     margin: 0;
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     color: var(--text-secondary);
 }
 .metric-card .value {
     font-family: var(--font-mono);
     font-size: 2rem;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--text-primary);
     margin: 0.375rem 0;
     line-height: 1.15;
@@ -719,7 +747,7 @@ _COMPONENT_CSS = """
 .metric-card .label {
     font-size: 0.8125rem;
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: var(--weight-medium);
 }
 
 /* ── Task items ── */
@@ -751,12 +779,12 @@ _COMPONENT_CSS = """
 }
 .row--top { align-items: flex-start; }
 .row-title {
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--text-primary);
     min-width: 0;
     overflow-wrap: anywhere;
 }
-.row-title h4 { margin: 0; font-size: 0.9375rem; font-weight: 600; }
+.row-title h4 { margin: 0; font-size: 0.9375rem; font-weight: var(--weight-semibold); }
 .row-meta {
     color: var(--text-secondary);
     font-size: 0.8125rem;
@@ -827,7 +855,7 @@ _COMPONENT_CSS = """
 .banner--rank .rank-icon { font-size: 2.25rem; display: block; line-height: 1.1; }
 .banner--rank .rank-name {
     font-size: 1.0625rem;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--text-primary);
 }
 
@@ -853,7 +881,7 @@ _COMPONENT_CSS = """
 .entity-icon--tall { height: 4rem; }
 .entity-title {
     font-size: 0.9375rem;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--text-primary);
 }
 .entity-meta {
@@ -872,14 +900,14 @@ _COMPONENT_CSS = """
     text-align: center;
     color: var(--accent);
     font-size: 1.0625rem;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     letter-spacing: -0.01em;
     margin: 0;
 }
 .week-range {
     color: var(--text-secondary);
     font-size: 0.8125rem;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
 }
 
 /* ── Week grid (dashboard) ──
@@ -907,7 +935,7 @@ _COMPONENT_CSS = """
     font-size: 0.8125rem;
     margin-bottom: 0.25rem;
 }
-.day-head b { color: var(--text-primary); font-weight: 600; }
+.day-head b { color: var(--text-primary); font-weight: var(--weight-semibold); }
 .day-head small { color: var(--text-tertiary); font-size: 0.6875rem; }
 .day-head--today {
     background: var(--accent);
@@ -919,7 +947,7 @@ _COMPONENT_CSS = """
 /* ── Data table (prayer report) ── */
 .th {
     font-size: 0.8125rem;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--text-primary);
     padding-bottom: 0.5rem;
 }
@@ -930,13 +958,13 @@ _COMPONENT_CSS = """
 }
 .count {
     font-family: var(--font-mono);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     font-variant-numeric: tabular-nums;
     color: var(--text-primary);
 }
 .count--missed { color: var(--danger); }
 .count--ok { color: var(--success); }
-.count--total { color: var(--text-primary); font-weight: 700; }
+.count--total { color: var(--text-primary); font-weight: var(--weight-semibold); }
 
 /* ── Utility text ── */
 .num {
@@ -947,7 +975,7 @@ _COMPONENT_CSS = """
 .center { text-align: center; }
 .muted { color: var(--text-secondary); }
 .faint { color: var(--text-tertiary); }
-.strong { font-weight: 600; color: var(--text-primary); }
+.strong { font-weight: var(--weight-semibold); color: var(--text-primary); }
 .text-accent { color: var(--accent); }
 .text-success { color: var(--success); }
 .text-danger { color: var(--danger); }
@@ -975,7 +1003,7 @@ _COMPONENT_CSS = """
     padding: 0.125rem 0.5rem;
     border-radius: var(--radius-full);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     letter-spacing: 0.01em;
     white-space: nowrap;
 }
@@ -1052,7 +1080,7 @@ _COMPONENT_CSS = """
     border: 1px solid var(--gold-border);
     border-radius: var(--radius-full);
     margin: 0.25rem 0.25rem 0.25rem 0;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     font-size: 0.8125rem;
     color: var(--gold);
     animation: badgePop 380ms var(--ease-out);
@@ -1063,7 +1091,7 @@ _COMPONENT_CSS = """
 .metric-display .metric-value {
     font-family: var(--font-mono);
     font-size: 2.125rem;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--text-primary);
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
@@ -1071,7 +1099,7 @@ _COMPONENT_CSS = """
 .metric-display .metric-label {
     font-size: 0.8125rem;
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     margin-top: 0.125rem;
 }
 
@@ -1080,7 +1108,7 @@ _COMPONENT_CSS = """
     padding: 0.75rem 1rem;
     border-radius: var(--radius);
     border: 1px solid var(--border-subtle);
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     font-size: 0.875rem;
 }
 .info-box--success { background: var(--success-subtle); border-color: var(--success-border); color: var(--success); }
@@ -1179,7 +1207,7 @@ _KIOSK_CSS = """
     color: #fff;
     font-family: var(--font);
     font-size: 1.15em;
-    font-weight: 500;
+    font-weight: var(--weight-medium);
     padding: 12px 28px;
     /* Reads as a soft pill on one line and as a rounded panel once the items
      * wrap, instead of turning into a 132px-tall stadium. */
@@ -1201,18 +1229,18 @@ _KIOSK_CSS = """
 }
 .kiosk-screensaver-footer .kiosk-ss-time {
     color: #fff;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 .kiosk-screensaver-footer .kiosk-ss-prayer {
     color: #A5B4FC;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     white-space: nowrap;
 }
 .kiosk-screensaver-footer .kiosk-ss-weather {
     color: #7DD3FC;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     white-space: nowrap;
 }
 .kiosk-screensaver-footer .kiosk-audio-status {
@@ -1231,7 +1259,7 @@ _KIOSK_CSS = """
     padding: 6px 16px;
     border-radius: 100px;
     font-size: 0.85em;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
 }
 .kiosk-status.active {
     background: rgba(16, 185, 129, 0.1);
@@ -1258,7 +1286,7 @@ _KIOSK_CSS = """
     border-radius: 100px;
     font-family: var(--font);
     font-size: 0.95em;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
     animation: kioskFadeIn 0.4s ease-out;
     pointer-events: none;
@@ -1288,7 +1316,7 @@ _KIOSK_CSS = """
     color: #1A1300;
     font-family: var(--font);
     font-size: 0.95em;
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     white-space: nowrap;
     max-width: 92vw;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -1443,7 +1471,7 @@ def metric_card(title: str, value: str, subtitle: str = "", emoji: str = ""):
         f"""
         <div class="card card--stat card--center">
             <div class="icon">{emoji}</div>
-            <h3 class="muted" style="margin:0;font-size:0.875rem;font-weight:500;">{title}</h3>
+            <h3 class="muted" style="margin:0;font-size:0.875rem;font-weight: var(--weight-medium);">{title}</h3>
             <div class="value">{value}</div>
             <div class="label">{subtitle}</div>
         </div>
