@@ -193,7 +193,7 @@ def parents_tab(data):
                     )
                 else:
                     st.markdown(
-                        '<div class="avatar-circle" style="width:80px;height:80px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:30px;color:white;">👤</div>',
+                        '<div class="avatar-circle avatar-fallback" style="width:80px;height:80px;font-size:30px;">👤</div>',
                         unsafe_allow_html=True
                     )
 
@@ -347,7 +347,7 @@ def add_child_tab(data):
                     )
                 else:
                     st.markdown(
-                        '<div class="avatar-circle" style="width:80px;height:80px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-size:30px;color:white;">👤</div>',
+                        '<div class="avatar-circle avatar-fallback" style="width:80px;height:80px;font-size:30px;">👤</div>',
                         unsafe_allow_html=True
                     )
 
@@ -488,11 +488,11 @@ def task_list_tab(data):
             with col_info:
                 if st.session_state.editing_task_id != template['id']:
                     st.markdown(
-                        f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
-                        f'<div style="width:50px;height:50px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">📋</div>'
+                        f'<div class="entity-row">'
+                        f'<div class="entity-icon">📋</div>'
                         f'<div>'
-                        f'<div style="font-size:1.1em;font-weight:700;">{template["title"]}</div>'
-                        f'<div style="color:#888;font-size:0.85em;">⭐ {template["default_points"]} points</div>'
+                        f'<div class="entity-title">{template["title"]}</div>'
+                        f'<div class="entity-meta">⭐ {template["default_points"]} points</div>'
                         f'</div>'
                         f'</div>',
                         unsafe_allow_html=True
@@ -1067,11 +1067,11 @@ def book_list_tab(data):
                     writer_line = f"✍️ {book['writer']}" if book.get("writer") else "✍️ Unknown"
 
                     st.markdown(
-                        f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
-                        f'<div style="width:50px;height:65px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">📖</div>'
+                        f'<div class="entity-row">'
+                        f'<div class="entity-icon entity-icon--tall">📖</div>'
                         f'<div>'
-                        f'<div style="font-size:1.1em;font-weight:700;">{book["title"]}</div>'
-                        f'<div style="color:#888;font-size:0.85em;">{writer_line} · {lang_flag} · {book["total_pages"]} pages</div>'
+                        f'<div class="entity-title">{book["title"]}</div>'
+                        f'<div class="entity-meta">{writer_line} · {lang_flag} · {book["total_pages"]} pages</div>'
                         f'</div>'
                         f'</div>',
                         unsafe_allow_html=True
@@ -1338,11 +1338,11 @@ def surah_list_tab(data):
 
             with col_info:
                 st.markdown(
-                    f'<div style="display:flex;align-items:center;gap:15px;padding:8px 0;">'
-                    f'<div style="width:50px;height:50px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5em;flex-shrink:0;">{icon}</div>'
+                    f'<div class="entity-row">'
+                    f'<div class="entity-icon">{icon}</div>'
                     f'<div>'
-                    f'<div style="font-size:1.1em;font-weight:700;">{surah["name"]}</div>'
-                    f'<div style="color:#888;font-size:0.85em;">{assignee_name} · {type_label} · {surah["total_ayahs"]} ayahs · {surah.get("memorized_ayahs", 0)} memorized · {surah.get("status", "In Progress")}</div>'
+                    f'<div class="entity-title">{surah["name"]}</div>'
+                    f'<div class="entity-meta">{assignee_name} · {type_label} · {surah["total_ayahs"]} ayahs · {surah.get("memorized_ayahs", 0)} memorized · {surah.get("status", "In Progress")}</div>'
                     f'</div>'
                     f'</div>',
                     unsafe_allow_html=True
@@ -1462,14 +1462,16 @@ def bonus_penalty_tab(data):
         pts = adj["points"]
         created = adj.get("created_at", "Unknown")[:10]
         sign = "+" if pts > 0 else ""
-        color = "#4CAF50" if pts > 0 else "#FF5252"
+        tone = "text-success" if pts > 0 else "text-danger"
 
         col1, col2, col3, col4 = st.columns([2, 1, 1, 0.7])
         with col1:
             st.write(person_name)
         with col2:
-            st.markdown(f"<span style='color:{color};font-weight:700;'>{sign}{pts}</span>",
-                        unsafe_allow_html=True)
+            st.markdown(
+                f'<span class="num strong {tone}">{sign}{pts}</span>',
+                unsafe_allow_html=True,
+            )
         with col3:
             st.write(created)
         with col4:

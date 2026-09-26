@@ -23,10 +23,9 @@ def prayer_page(data):
         today = date.today()
         monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
         sunday = monday + timedelta(days=6)
+        week_range = f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}"
         st.markdown(
-            f"<h3 style='text-align:center;color:var(--primary);'>"
-            f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}"
-            f"</h3>",
+            f'<div class="week-heading">{week_range}</div>',
             unsafe_allow_html=True,
         )
     with col_next:
@@ -65,27 +64,29 @@ def prayer_page(data):
     kids_sorted = sorted(data["kids"], key=lambda k: k["name"])
 
     header_cols = st.columns([2] + [1] * len(kids_sorted))
-    header_cols[0].markdown("**Prayer**")
+    header_cols[0].markdown('<div class="th">Prayer</div>', unsafe_allow_html=True)
     for i, kid in enumerate(kids_sorted):
-        header_cols[i + 1].markdown(f"**🧒 {kid['name']}**")
+        header_cols[i + 1].markdown(
+            f'<div class="th center">🧒 {kid["name"]}</div>', unsafe_allow_html=True
+        )
 
     for prayer in PRAYER_NAMES:
         cols = st.columns([2] + [1] * len(kids_sorted))
         cols[0].write(prayer)
         for i, kid in enumerate(kids_sorted):
             count = missed[prayer].get(kid["id"], 0)
-            color = "#FF5252" if count > 0 else "#4CAF50"
+            tone = "count--missed" if count > 0 else "count--ok"
             cols[i + 1].markdown(
-                f"<span style='color:{color};font-weight:700;font-size:1.1em;'>{count}</span>",
+                f'<div class="count center {tone}">{count}</div>',
                 unsafe_allow_html=True,
             )
 
     st.markdown("---")
     total_cols = st.columns([2] + [1] * len(kids_sorted))
-    total_cols[0].markdown("**Total**")
+    total_cols[0].markdown('<div class="th">Total</div>', unsafe_allow_html=True)
     for i, kid in enumerate(kids_sorted):
         total = sum(missed[p][kid["id"]] for p in PRAYER_NAMES)
         total_cols[i + 1].markdown(
-            f"<span style='font-weight:700;font-size:1.1em;'>{total}</span>",
+            f'<div class="count count--total center">{total}</div>',
             unsafe_allow_html=True,
         )

@@ -68,7 +68,7 @@ def show_kid_profile(data, kid):
         monthly_pts = get_monthly_points_for_kid(data, kid["id"], today.year, today.month)
         gbp = monthly_pts / 300
         st.markdown(
-            f'<div style="padding:12px;background:rgba(255,215,0,0.1);border-radius:12px;border:1px solid #FFD700;margin-top:8px;">'
+            f'<div class="banner banner--gold">'
             f'<strong>💰 This Month:</strong> {monthly_pts} pts = £{gbp:.2f}'
             f'</div>',
             unsafe_allow_html=True
@@ -77,15 +77,15 @@ def show_kid_profile(data, kid):
         overdue = get_overdue_task_count(data, kid["id"], is_kid=True)
         if overdue > 0:
             st.markdown(
-                f'<div style="padding:12px;background:rgba(255,0,0,0.08);border-radius:12px;border:1px solid #FF4444;margin-top:8px;">'
+                f'<div class="banner banner--warn">'
                 f'<strong>⚠️ Overdue:</strong> {overdue} task(s) past due date'
                 f'</div>',
                 unsafe_allow_html=True
             )
         st.markdown(
-            f'<div style="text-align:center;padding:12px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:12px;color:white;margin-top:8px;">'
-            f'<span style="font-size:2.5em;">{icon}</span><br>'
-            f'<strong style="font-size:1.2em;">{rank}</strong>'
+            f'<div class="banner banner--rank">'
+            f'<span class="rank-icon">{icon}</span>'
+            f'<span class="rank-name">{rank}</span>'
             f'</div>',
             unsafe_allow_html=True
         )
@@ -129,10 +129,10 @@ def show_child_read_books(data, kid):
 
             st.markdown(
                 f'<div class="task-item">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<span>{book["title"]}{writer}</span>'
-                f'<span>{book["language"]}</span>'
-                f'<span>{progress_pct}%</span>'
+                f'<div class="row">'
+                f'<span class="row-title">{book["title"]}{writer}</span>'
+                f'<span class="row-meta">{book["language"]}</span>'
+                f'<span class="row-meta num">{progress_pct}%</span>'
                 f'</div>'
                 f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
                 f'</div>',
@@ -175,9 +175,9 @@ def show_child_quran(data, kid):
 
             st.markdown(
                 f'<div class="task-item">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<span>{s["name"]}</span>'
-                f'<span>{s.get("memorized_ayahs", 0)}/{s["total_ayahs"]} ({progress_pct}%)</span>'
+                f'<div class="row">'
+                f'<span class="row-title">{s["name"]}</span>'
+                f'<span class="row-meta num">{s.get("memorized_ayahs", 0)}/{s["total_ayahs"]} ({progress_pct}%)</span>'
                 f'</div>'
                 f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
                 f'</div>',
@@ -193,9 +193,9 @@ def show_child_quran(data, kid):
 
             st.markdown(
                 f'<div class="task-item">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<span>{d["name"]}</span>'
-                f'<span>{d.get("memorized_ayahs", 0)}/{d["total_ayahs"]} ({progress_pct}%)</span>'
+                f'<div class="row">'
+                f'<span class="row-title">{d["name"]}</span>'
+                f'<span class="row-meta num">{d.get("memorized_ayahs", 0)}/{d["total_ayahs"]} ({progress_pct}%)</span>'
                 f'</div>'
                 f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
                 f'</div>',
@@ -205,7 +205,7 @@ def show_child_quran(data, kid):
     memorized = len(finished_surahs) + len(finished_duas)
     if memorized > 0:
         st.markdown(
-            f'<div style="padding:8px;background:rgba(76,175,80,0.08);border-radius:8px;margin-top:8px;">'
+            f'<div class="banner banner--ok">'
             f'<strong>✨ Memorized:</strong> {len(finished_surahs)} surahs, {len(finished_duas)} duas'
             f'</div>',
             unsafe_allow_html=True
@@ -230,11 +230,11 @@ def show_weekly_summary(data, kid):
     with col_week:
         monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
         sunday = monday + timedelta(days=6)
-        label = f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}"
+        week_range = f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}"
         if week_offset == 0:
-            label = f"This Week · {label}"
+            week_range = f"This Week · {week_range}"
         st.markdown(
-            f"<div style='text-align:center;'><b style='color:var(--primary);'>{label}</b></div>",
+            f'<div class="week-heading">{week_range}</div>',
             unsafe_allow_html=True,
         )
     with col_next:
@@ -248,19 +248,19 @@ def show_weekly_summary(data, kid):
     en_a, tr_a, read_tot = st.columns(3)
     with en_a:
         st.markdown(
-            f'<div class="metric-card" style="text-align:center;"><div style="font-size:1.4em;">🇬🇧</div>'
+            f'<div class="metric-card"><div class="icon">🇬🇧</div>'
             f'<div class="value">{summary["en_pages"]}</div><div class="label">English pages</div></div>',
             unsafe_allow_html=True
         )
     with tr_a:
         st.markdown(
-            f'<div class="metric-card" style="text-align:center;"><div style="font-size:1.4em;">🇹🇷</div>'
+            f'<div class="metric-card"><div class="icon">🇹🇷</div>'
             f'<div class="value">{summary["tr_pages"]}</div><div class="label">Turkish pages</div></div>',
             unsafe_allow_html=True
         )
     with read_tot:
         st.markdown(
-            f'<div class="metric-card" style="text-align:center;"><div style="font-size:1.4em;">📖</div>'
+            f'<div class="metric-card"><div class="icon">📖</div>'
             f'<div class="value">{summary["en_pages"] + summary["tr_pages"]}</div><div class="label">Total pages</div></div>',
             unsafe_allow_html=True
         )
@@ -283,11 +283,11 @@ def show_weekly_summary(data, kid):
         for title, (done, total) in sorted(agg.items()):
             complete = done == total
             icon = "✅" if complete else "📋"
-            color = "var(--success)" if complete else "var(--danger)"
+            tone = "text-success" if complete else "text-danger"
             st.markdown(
-                f'<div class="task-item">'
-                f'<span>{icon} {title}</span>'
-                f'<span style="color:{color};font-weight:700;">{done}/{total}</span>'
+                f'<div class="task-item row">'
+                f'<span class="row-title">{icon} {title}</span>'
+                f'<span class="num strong {tone}">{done}/{total}</span>'
                 f'</div>',
                 unsafe_allow_html=True
             )
@@ -296,7 +296,7 @@ def show_weekly_summary(data, kid):
 
     if total_assigned:
         st.markdown(
-            f'<div style="padding:8px;background:rgba(16,185,129,0.08);border-radius:8px;margin-top:8px;">'
+            f'<div class="banner banner--ok">'
             f'<strong>🏁 {total_done} of {total_assigned} tasks done this week</strong>'
             f'</div>',
             unsafe_allow_html=True

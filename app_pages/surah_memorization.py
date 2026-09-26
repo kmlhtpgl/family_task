@@ -60,9 +60,9 @@ def show_surahs_common(data, reader_id, is_parent):
         st.markdown("**✨ Memorized**")
         for surah in finished:
             st.markdown(
-                f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                f'<span>✅ {surah["name"]}</span>'
-                f' <span style="color:#666;">{surah["total_ayahs"]} ayahs</span>'
+                f'<div class="task-item task-done row">'
+                f'<span class="row-title">✅ {surah["name"]}</span>'
+                f'<span class="row-meta num">{surah["total_ayahs"]} ayahs</span>'
                 f'</div>',
                 unsafe_allow_html=True
             )
@@ -90,8 +90,8 @@ def show_duas_common(data, reader_id, is_parent):
         st.markdown("**✨ Memorized**")
         for dua in finished:
             st.markdown(
-                f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                f'<span>✅ {dua["name"]}</span>'
+                f'<div class="task-item task-done">'
+                f'<span class="row-title">✅ {dua["name"]}</span>'
                 f'</div>',
                 unsafe_allow_html=True
             )
@@ -109,12 +109,12 @@ def show_surah_item(item, is_dua=False):
 
         st.markdown(
             f'<div class="task-item">'
-            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-            f'<h4 style="margin:0;">{item["name"]}</h4>'
-            f'<span style="color:#666;">{item["total_ayahs"]} {label}</span>'
+            f'<div class="row">'
+            f'<span class="row-title"><h4>{item["name"]}</h4></span>'
+            f'<span class="row-meta">{item["total_ayahs"]} {label}</span>'
             f'</div>'
-            f'<div style="margin-top:10px;">'
-            f'<span style="font-size:0.9em;color:#666;">{item.get("memorized_ayahs", 0)} / {item["total_ayahs"]} {label} ({progress_pct}%)</span>'
+            f'<div class="progress-line">'
+            f'<span>{item.get("memorized_ayahs", 0)} / {item["total_ayahs"]} {label} ({progress_pct}%)</span>'
             f'</div>'
             f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
             f'</div>',

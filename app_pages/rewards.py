@@ -43,7 +43,10 @@ def rewards_page(data):
             target_year += 1
 
         month_name = datetime(target_year, target_month, 1).strftime("%B %Y")
-        st.markdown(f"<h3 style='text-align:center;'>{month_name}</h3>", unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="week-heading" style="font-size:1.25rem;">{month_name}</div>',
+            unsafe_allow_html=True,
+        )
 
     st.divider()
 
@@ -64,16 +67,12 @@ def show_kid_reward(data, kid, year, month):
 
     with st.container():
         st.markdown(
-            f'<div class="task-item">'
-            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-            f'<div>'
-            f'<h4 style="margin:0;">🧒 {kid["name"]}</h4>'
-            f'</div>'
-            f'<div style="text-align:right;">'
-            f'<span style="font-size:1.5em;font-weight:700;color:var(--primary);">{pts} pts</span><br>'
-            f'<span style="font-size:1.2em;font-weight:600;">= £{gbp:.2f}</span>'
-            f'</div>'
-            f'</div>'
+            f'<div class="task-item row">'
+            f'<span class="row-title"><h4>🧒 {kid["name"]}</h4></span>'
+            f'<span class="row-end">'
+            f'<span class="num strong text-accent" style="font-size:1.375rem;">{pts} pts</span><br>'
+            f'<span class="num" style="font-size:1.0625rem;">= £{gbp:.2f}</span>'
+            f'</span>'
             f'</div>',
             unsafe_allow_html=True
         )
@@ -109,16 +108,12 @@ def show_parent_reward(data, parent, year, month):
 
     with st.container():
         st.markdown(
-            f'<div class="task-item">'
-            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-            f'<div>'
-            f'<h4 style="margin:0;">👨‍👩‍👧 {parent["name"]}</h4>'
-            f'</div>'
-            f'<div style="text-align:right;">'
-            f'<span style="font-size:1.5em;font-weight:700;color:var(--primary);">{pts} pts</span><br>'
-            f'<span style="font-size:1.2em;font-weight:600;">= £{gbp:.2f}</span>'
-            f'</div>'
-            f'</div>'
+            f'<div class="task-item row">'
+            f'<span class="row-title"><h4>👨‍👩‍👧 {parent["name"]}</h4></span>'
+            f'<span class="row-end">'
+            f'<span class="num strong text-accent" style="font-size:1.375rem;">{pts} pts</span><br>'
+            f'<span class="num" style="font-size:1.0625rem;">= £{gbp:.2f}</span>'
+            f'</span>'
             f'</div>',
             unsafe_allow_html=True
         )

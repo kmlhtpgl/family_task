@@ -65,18 +65,22 @@ def show_books_in_progress(data, reader_id, is_parent=False):
 
             elapsed_display = f"· ⏱️ {elapsed} ago" if elapsed else ""
 
+            # Built outside the f-string: a backslash inside an f-string
+            # expression is a syntax error before Python 3.12.
+            writer_html = f'<p class="writer-line">✍️ {writer_info}</p>' if writer_info else ""
+
             st.markdown(
                 f'<div class="task-item">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-                f'<h4 style="margin:0;">{book["title"]}</h4>'
-                f'<span style="color:#666;">{language_flag} {book["total_pages"]} pages</span>'
+                f'<div class="row">'
+                f'<span class="row-title"><h4>{book["title"]}</h4></span>'
+                f'<span class="row-meta">{language_flag} {book["total_pages"]} pages</span>'
                 f'</div>'
-                f'{"<p style=\"margin:5px 0 0 0;color:#888;font-size:0.9em;\">" + writer_info + "</p>" if writer_info else ""}'
-                f'<div style="margin-top:10px;">'
-                f'<span style="font-size:0.9em;color:#666;">{book.get("current_page", 0)} / {book["total_pages"]} pages ({progress_pct}%)</span>'
+                f'{writer_html}'
+                f'<div class="progress-line">'
+                f'<span>{book.get("current_page", 0)} / {book["total_pages"]} pages ({progress_pct}%)</span>'
                 f'</div>'
                 f'<div class="book-progress-bar"><div class="book-progress-fill" style="width:{progress_pct}%"></div></div>'
-                f'<div style="margin-top:6px;font-size:0.8em;color:#888;">📅 Assigned: {assigned_date}{" " + elapsed_display if elapsed_display else ""}</div>'
+                f'<div class="assigned-line">📅 Assigned: {assigned_date}{elapsed_display}</div>'
                 f'</div>',
                 unsafe_allow_html=True
             )
@@ -161,10 +165,10 @@ def show_finished_books(data, reader_id, is_parent=False):
                 elapsed = format_elapsed(book.get("created_at", ""), book.get("finished_date"))
                 elapsed_display = f"· ⏱️ {elapsed}" if elapsed else ""
                 st.markdown(
-                    f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                    f'<div><span>✅ {book["title"]}{writer}</span>'
-                    f' <span style="color:#666;">{book["total_pages"]} pages</span></div>'
-                    f'<div style="font-size:0.8em;color:#888;margin-top:3px;">📅 {assigned_date} → {finished_date} {elapsed_display}</div>'
+                    f'<div class="task-item task-done">'
+                    f'<div><span class="row-title">✅ {book["title"]}{writer}</span>'
+                    f' <span class="row-meta">{book["total_pages"]} pages</span></div>'
+                    f'<div class="row-faint" style="margin-top:0.25rem;">📅 {assigned_date} → {finished_date} {elapsed_display}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
@@ -182,10 +186,10 @@ def show_finished_books(data, reader_id, is_parent=False):
                 elapsed = format_elapsed(book.get("created_at", ""), book.get("finished_date"))
                 elapsed_display = f"· ⏱️ {elapsed}" if elapsed else ""
                 st.markdown(
-                    f'<div class="task-item" style="border-left-color:#4CAF50;">'
-                    f'<div><span>✅ {book["title"]}{writer}</span>'
-                    f' <span style="color:#666;">{book["total_pages"]} pages</span></div>'
-                    f'<div style="font-size:0.8em;color:#888;margin-top:3px;">📅 {assigned_date} → {finished_date} {elapsed_display}</div>'
+                    f'<div class="task-item task-done">'
+                    f'<div><span class="row-title">✅ {book["title"]}{writer}</span>'
+                    f' <span class="row-meta">{book["total_pages"]} pages</span></div>'
+                    f'<div class="row-faint" style="margin-top:0.25rem;">📅 {assigned_date} → {finished_date} {elapsed_display}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )

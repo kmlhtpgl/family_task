@@ -42,22 +42,15 @@ def dashboard_page(data):
             st.rerun()
     with col_week:
         if week_offset == 0:
-            range_html = (
-                f"<span style='color:var(--text-secondary);font-size:0.7em;font-weight:500;'>"
-                f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}</span>"
-            )
+            week_range = f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}"
             st.markdown(
-                f"<div style='text-align:center;'>"
-                f"<h3 style='color:var(--primary);margin:0;font-size:1.15em;'>📅 This Week {range_html}</h3>"
-                f"</div>",
+                f'<div class="week-heading">📅 This Week <span class="week-range">{week_range}</span></div>',
                 unsafe_allow_html=True,
             )
         else:
+            week_range = f"{monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}"
             st.markdown(
-                f"<div style='text-align:center;'>"
-                f"<h3 style='color:var(--primary);margin:0;font-size:1.15em;'>"
-                f"📅 {monday.strftime('%b %d')} – {sunday.strftime('%b %d, %Y')}</h3>"
-                f"</div>",
+                f'<div class="week-heading">📅 {week_range}</div>',
                 unsafe_allow_html=True,
             )
     with col_next:
@@ -121,15 +114,7 @@ def dashboard_page(data):
             else:
                 st.info(f"No tasks for {selected_person} due yesterday, today or tomorrow.")
         else:
-            st.markdown("""
-            <style>
-            div[data-testid="stHorizontalBlock"]:has(> :nth-child(7)) > div {
-                border: 1px solid rgba(128, 128, 128, 0.15) !important;
-                border-radius: 8px !important;
-                padding: 4px 6px !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+            st.markdown('<div class="week-grid"></div>', unsafe_allow_html=True)
             DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
             cols = st.columns(len(display_dates))
             for col, current_date in zip(cols, display_dates):
@@ -138,10 +123,11 @@ def dashboard_page(data):
                 is_today = current_date == date.today()
 
                 with col:
-                    header_bg = "background:var(--primary);color:white;border-radius:8px;padding:6px 4px;" if is_today else ""
+                    head_class = "day-head day-head--today" if is_today else "day-head"
                     st.markdown(
-                        f"<div style='text-align:center;{header_bg}'>"
-                        f"<b>{DAY_SHORT[current_date.weekday()]}</b> <small>{current_date.strftime('%m/%d')}</small>"
+                        f'<div class="{head_class}">'
+                        f"<b>{DAY_SHORT[current_date.weekday()]}</b> "
+                        f"<small>{current_date.strftime('%m/%d')}</small>"
                         f"</div>",
                         unsafe_allow_html=True,
                     )
@@ -230,16 +216,16 @@ def dashboard_page(data):
     for i, (emoji, name, pts, rank, icon, missed) in enumerate(people):
         with card_cols[i]:
             st.markdown(f"""
-            <div class="card card--stat" style="text-align:center;padding:16px;">
-                <div style="font-size:2em;">{emoji}</div>
-                <h4 style="margin:4px 0;font-size:0.95em;">{name}</h4>
-                <div class="value" style="font-size:1.6em;">{pts}</div>
+            <div class="card card--stat card--center card--pad-sm">
+                <div class="icon">{emoji}</div>
+                <h4 class="row-title" style="margin:0.25rem 0;">{name}</h4>
+                <div class="value">{pts}</div>
                 <div class="label">pts this week</div>
-                <hr style="margin:8px 0;">
-                <div style="font-size:1.3em;">{icon}</div>
-                <div style="font-size:0.8em;color:var(--text-secondary);">{rank}</div>
-                <hr style="margin:8px 0;">
-                <div style="font-size:1.1em;color:var(--danger);">🕌 {missed}</div>
+                <hr>
+                <div style="font-size:1.25rem;">{icon}</div>
+                <div class="row-faint">{rank}</div>
+                <hr>
+                <div class="num strong" style="font-size:1.0625rem;color:var(--danger);">🕌 {missed}</div>
                 <div class="label">missed prayers</div>
             </div>
             """, unsafe_allow_html=True)
@@ -274,27 +260,27 @@ def dashboard_page(data):
 
     if kids_sorted:
         header_cols = st.columns([2] + [1] * len(kids_sorted))
-        header_cols[0].markdown("**Prayer**")
+        header_cols[0].markdown('<div class="th">Prayer</div>', unsafe_allow_html=True)
         for i, kid in enumerate(kids_sorted):
-            header_cols[i + 1].markdown(f"**🧒 {kid['name']}**")
+            header_cols[i + 1].markdown(f'<div class="th center">🧒 {kid["name"]}</div>', unsafe_allow_html=True)
 
         for prayer in PRAYER_NAMES:
             cols = st.columns([2] + [1] * len(kids_sorted))
             cols[0].write(prayer)
             for i, kid in enumerate(kids_sorted):
                 count = missed[prayer].get(kid["id"], 0)
-                color = "var(--danger)" if count > 0 else "var(--success)"
+                tone = "count--missed" if count > 0 else "count--ok"
                 cols[i + 1].markdown(
-                    f"<span style='color:{color};font-weight:700;'>{count}</span>",
+                    f'<div class="count center {tone}">{count}</div>',
                     unsafe_allow_html=True,
                 )
 
         total_cols = st.columns([2] + [1] * len(kids_sorted))
-        total_cols[0].markdown("**Total**")
+        total_cols[0].markdown('<div class="th">Total</div>', unsafe_allow_html=True)
         for i, kid in enumerate(kids_sorted):
             total = sum(missed[p][kid["id"]] for p in PRAYER_NAMES)
             total_cols[i + 1].markdown(
-                f"<span style='font-weight:700;'>{total}</span>",
+                f'<div class="count count--total center">{total}</div>',
                 unsafe_allow_html=True,
             )
 
@@ -305,17 +291,17 @@ def dashboard_page(data):
     mini_cols = st.columns(2)
     with mini_cols[0]:
         st.markdown(f"""
-        <div class="card" style="text-align:center;padding:12px;">
-            <div style="font-size:1.5em;">📚</div>
-            <div class="value" style="font-size:1.4em;">{book_count}</div>
+        <div class="card card--center card--pad-sm">
+            <div class="icon">📚</div>
+            <div class="value">{book_count}</div>
             <div class="label">Books in progress</div>
         </div>
         """, unsafe_allow_html=True)
     with mini_cols[1]:
         st.markdown(f"""
-        <div class="card" style="text-align:center;padding:12px;">
-            <div style="font-size:1.5em;">📖</div>
-            <div class="value" style="font-size:1.4em;">{surah_count}</div>
+        <div class="card card--center card--pad-sm">
+            <div class="icon">📖</div>
+            <div class="value">{surah_count}</div>
             <div class="label">Surahs in progress</div>
         </div>
         """, unsafe_allow_html=True)

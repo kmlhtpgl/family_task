@@ -7,6 +7,122 @@ from utils.task_helpers import TASK_STATUSES, get_effective_points, OVERDUE_DAYS
 from utils.db_helpers import update_task
 
 
+# Mirrors the board palette in utils/styles.py. Kept as literals because the
+# board lives in its own iframe; update both together if the palette changes.
+_BOARD_PALETTE = {
+    "light": {
+        "col_backlog_bg": "#F7F8FA",
+        "col_backlog_border": "#D2D5DA",
+        "col_backlog_head": "#626A75",
+        "col_backlog_head_bg": "#F0F1F3",
+        "col_done_bg": "#F2FAF6",
+        "col_done_border": "#0F7A52",
+        "col_done_head": "#0F7A52",
+        "col_done_head_bg": "#E7F5EF",
+        "item_bg": "#FFFFFF",
+        "item_fg": "#15171A",
+        "item_border": "#E1E3E6",
+        "item_shadow": "0 1px 2px rgba(16,18,22,0.05)",
+        "item_shadow_hover": "0 4px 12px rgba(16,18,22,0.10)",
+    },
+    "dark": {
+        "col_backlog_bg": "#1A1C20",
+        "col_backlog_border": "#3A3F45",
+        "col_backlog_head": "#9BA1A6",
+        "col_backlog_head_bg": "#22252A",
+        "col_done_bg": "#12211A",
+        "col_done_border": "#3ECF8E",
+        "col_done_head": "#3ECF8E",
+        "col_done_head_bg": "#16301F",
+        "item_bg": "#131417",
+        "item_fg": "#E9EBEE",
+        "item_border": "#2A2E33",
+        "item_shadow": "0 1px 2px rgba(0,0,0,0.35)",
+        "item_shadow_hover": "0 4px 12px rgba(0,0,0,0.50)",
+    },
+}
+
+
+def _board_css(dark_mode: bool) -> str:
+    p = _BOARD_PALETTE["dark" if dark_mode else "light"]
+    return f"""
+    .sortable-component {{
+        display: flex;
+        gap: 16px;
+        width: 100%;
+        height: 100%;
+        align-items: stretch;
+    }}
+
+    .sortable-container {{
+        flex: 1;
+        min-width: 0;
+        min-height: 720px;
+        border-radius: 14px;
+        padding: 14px;
+        border: 1px solid;
+        display: flex;
+        flex-direction: column;
+    }}
+
+    .sortable-container[data-header="Backlog"] {{
+        background: {p['col_backlog_bg']};
+        border-color: {p['col_backlog_border']};
+    }}
+
+    .sortable-container[data-header*="Done"] {{
+        background: {p['col_done_bg']};
+        border-color: {p['col_done_border']};
+    }}
+
+    .sortable-container-header {{
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+        margin-bottom: 12px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        text-align: center;
+    }}
+
+    .sortable-container[data-header="Backlog"] .sortable-container-header {{
+        color: {p['col_backlog_head']};
+        background: {p['col_backlog_head_bg']};
+    }}
+
+    .sortable-container[data-header*="Done"] .sortable-container-header {{
+        color: {p['col_done_head']};
+        background: {p['col_done_head_bg']};
+    }}
+
+    .sortable-container-body {{ flex: 1; }}
+
+    .sortable-item {{
+        background: {p['item_bg']};
+        color: {p['item_fg']} !important;
+        border: 1px solid {p['item_border']};
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 13.5px;
+        font-weight: 500;
+        line-height: 1.45;
+        cursor: grab;
+        transition: box-shadow 0.16s ease, transform 0.16s ease;
+        box-shadow: {p['item_shadow']};
+    }}
+
+    .sortable-item:hover {{
+        transform: translateY(-1px);
+        box-shadow: {p['item_shadow_hover']};
+    }}
+
+    .sortable-item:active {{ cursor: grabbing; }}
+    """
+
+
 def kanban_page(data):
     st.header("🎯 Daily Board")
     st.caption("Drag tasks between Backlog and Done.")
@@ -70,81 +186,12 @@ def kanban_page(data):
             }
         )
 
-    custom_style = """
-    .sortable-component {
-        display: flex;
-        gap: 20px;
-        width: 100%;
-        height: 100%;
-        align-items: stretch;
-    }
+    # This board renders inside a streamlit-sortables iframe, a separate
+    # document that does NOT inherit the app's CSS custom properties. The values
+    # below are therefore literals, resolved per theme from session state, rather
+    # than var(--...) references.
+    custom_style = _board_css(dark_mode=bool(st.session_state.get("dark_mode")))
 
-    .sortable-container {
-        flex: 1;
-        min-width: 0;
-        min-height: 720px;
-        border-radius: var(--radius-lg, 16px);
-        padding: 15px;
-        border: 2px solid;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .sortable-container[data-header="Backlog"] {
-        background: rgba(148,163,184,0.04);
-        border-color: #94A3B8;
-    }
-
-    .sortable-container[data-header*="Done"] {
-        background: rgba(16,185,129,0.04);
-        border-color: #10B981;
-    }
-
-    .sortable-container-header {
-        font-weight: 700;
-        font-size: 18px;
-        margin-bottom: 15px;
-        padding: 10px;
-        border-radius: 10px;
-        text-align: center;
-    }
-
-    .sortable-container[data-header="Backlog"] .sortable-container-header {
-        color: #94A3B8;
-        background: rgba(148,163,184,0.08);
-    }
-
-    .sortable-container[data-header*="Done"] .sortable-container-header {
-        color: #10B981;
-        background: rgba(16,185,129,0.08);
-    }
-
-    .sortable-container-body {
-        flex: 1;
-    }
-
-    .sortable-item {
-        background: linear-gradient(135deg, #6366F1 0%, #EC4899 100%);
-        color: white !important;
-        border-radius: var(--radius, 12px);
-        padding: 12px;
-        margin-bottom: 10px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: grab;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(99,102,241,0.2);
-    }
-
-    .sortable-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(99,102,241,0.3);
-    }
-
-    .sortable-item:active {
-        cursor: grabbing;
-    }
-    """
     sorted_containers = sort_items(
         containers,
         multi_containers=True,

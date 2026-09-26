@@ -201,14 +201,17 @@ def meeting_page(data):
                 meta = (created + author_line) if created else (author_line or "Unknown date")
                 title_html = html.escape(note["title"])
                 if is_done:
-                    st.markdown(f"<span style='text-decoration:line-through;opacity:0.6;'><b>📌 {title_html}</b></span>", unsafe_allow_html=True)
+                    st.markdown(f'<span class="strike"><b>📌 {title_html}</b></span>', unsafe_allow_html=True)
                 else:
                     st.markdown(f"**📌 {title_html}**")
                 st.caption(f"🕐 {meta}")
                 if note.get("content"):
                     content_html = html.escape(note["content"]).replace("\n", "<br>")
-                    style = "opacity:0.6;" if is_done else ""
-                    st.markdown(f"<div style='{style}'>{content_html}</div>", unsafe_allow_html=True)
+                    body_class = "dim" if is_done else ""
+                    st.markdown(
+                        f'<div class="{body_class}">{content_html}</div>',
+                        unsafe_allow_html=True,
+                    )
                 render_comments(note, data, allow_edit=False)
             st.markdown("")
         return
@@ -294,7 +297,7 @@ def meeting_page(data):
                     title_html = html.escape(note["title"])
                     if is_done:
                         st.markdown(
-                            f"<span style='text-decoration:line-through;opacity:0.6;'><b>📌 {title_html}</b></span>",
+                            f'<span class="strike"><b>📌 {title_html}</b></span>',
                             unsafe_allow_html=True,
                         )
                     else:
@@ -312,8 +315,11 @@ def meeting_page(data):
                             st.rerun()
                 if note.get("content"):
                     content_html = html.escape(note["content"]).replace("\n", "<br>")
-                    style = "opacity:0.6;" if is_done else ""
-                    st.markdown(f"<div style='{style}'>{content_html}</div>", unsafe_allow_html=True)
+                    body_class = "dim" if is_done else ""
+                    st.markdown(
+                        f'<div class="{body_class}">{content_html}</div>',
+                        unsafe_allow_html=True,
+                    )
                 render_comments(note, data)
             else:
                 st.markdown(f"**Edit: {note['title']}**")
@@ -395,8 +401,8 @@ def render_comments(note, data, allow_edit=True):
                     c_meta = (c_created + c_author_line) if c_created else (c_author_line or "Unknown date")
                     c_body_html = html.escape(c.get("body", "")).replace("\n", "<br>")
                     st.markdown(
-                        f"<div style='border-left:3px solid var(--border);padding-left:10px;margin:6px 0;'>"
-                        f"<span style='opacity:0.6;font-size:0.85em;'>💬 {c_meta}</span><br>{c_body_html}</div>",
+                        f'<div class="comment">'
+                        f'<span class="comment-meta">💬 {c_meta}</span><br>{c_body_html}</div>',
                         unsafe_allow_html=True,
                     )
                 if allow_edit and len(c_row) > 1:
