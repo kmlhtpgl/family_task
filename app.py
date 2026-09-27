@@ -30,32 +30,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Dark mode toggle
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = False
+# One stylesheet for the whole app, mounted before anything renders so every
+# page below inherits the same design. There is no theme argument: the Board's
+# palette is the only one (utils/styles.py).
+apply_custom_styles()
 
-# Apply custom styles based on dark mode
-apply_custom_styles(dark_mode=st.session_state.dark_mode)
-
-st.markdown("""
-    <style>
-    .family-bg {
-        position: fixed;
-        bottom: 0;
-        right: 0;
-        width: 260px;
-        height: 260px;
-        opacity: 0.05;
-        pointer-events: none;
-        z-index: -1;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cg fill='%233879FA'%3E%3Ccircle cx='200' cy='80' r='25'/%3E%3Cpath d='M175 130 Q200 110 225 130 L220 180 Q200 170 180 180 Z'/%3E%3Cpath d='M160 180 L145 240 L170 240 L180 190 Z'/%3E%3Cpath d='M240 180 L255 240 L230 240 L220 190 Z'/%3E%3C/g%3E%3Cg fill='%237AACFC'%3E%3Ccircle cx='130' cy='140' r='18'/%3E%3Cpath d='M112 180 Q130 165 148 180 L144 220 Q130 215 116 220 Z'/%3E%3Cpath d='M104 220 L95 270 L115 270 L112 230 Z'/%3E%3Cpath d='M156 220 L165 270 L145 270 L148 230 Z'/%3E%3C/g%3E%3Cg fill='%237AACFC'%3E%3Ccircle cx='270' cy='140' r='18'/%3E%3Cpath d='M252 180 Q270 165 288 180 L284 220 Q270 215 256 220 Z'/%3E%3Cpath d='M244 220 L235 270 L255 270 L252 230 Z'/%3E%3Cpath d='M296 220 L305 270 L285 270 L288 230 Z'/%3E%3C/g%3E%3Ccircle cx='100' cy='300' r='30' fill='%233879FA' opacity='0.5'/%3E%3Ccircle cx='300' cy='320' r='25' fill='%237AACFC' opacity='0.5'/%3E%3C/svg%3E");
-        background-size: contain;
-        background-repeat: no-repeat;
-    }
-    </style>
-
-    <div class="family-bg"></div>
-""", unsafe_allow_html=True)
+st.markdown("""<div class="family-bg"></div>""", unsafe_allow_html=True)
 
 # Portable date: '%-d' is a glibc-only strftime flag and renders literally as
 # "-d" on macOS/BSD, so the day number is formatted separately.
@@ -112,8 +92,12 @@ components.html(KIOSK_IFRAME_HTML, height=0)
 
 if _on_board:
     # Streamlit's own header and block padding would otherwise frame the board
-    # in a page it is trying to replace. Scoped to the board: the classic app
-    # keeps its header.
+    # in a page it is trying to replace. Scoped to the board: the other pages
+    # keep their header and their padded body.
+    #
+    # Layout only. The board's colours come from utils/styles.py like
+    # everything else's; they used to be written out again here, which is how
+    # the same Board ended up two palettes depending on which file you read.
     st.markdown(
         """
         <style>
@@ -128,7 +112,6 @@ if _on_board:
             max-width: none !important;
             width: 100% !important;
         }
-        [data-testid="stAppViewContainer"] { background: oklch(0.17 0.018 265); }
         /* No global gap: app.py mounts several zero-height containers for the
            kiosk handoff above the board, and a gap charges 8px for each one even
            when it renders nothing. That was 48px of dead space on a wall
@@ -136,19 +119,6 @@ if _on_board:
         [data-testid="stVerticalBlock"] { gap: 0; }
         [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"]
             > [data-testid="stLayoutWrapper"] { margin-top: 10px; }
-        .board-flag {
-            display: flex; align-items: center; gap: 8px;
-            font-size: 13px; font-weight: 600; color: oklch(0.775 0.012 265);
-        }
-        .board-flag b { color: #fff; font-weight: 800; letter-spacing: -0.01em; }
-        .board-flag span {
-            font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
-            opacity: 0.7;
-        }
-        .board-flag__dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: oklch(0.82 0.17 152);
-        }
         </style>
         """,
         unsafe_allow_html=True,

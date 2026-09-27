@@ -20,7 +20,15 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from shoot import ROUTES, VIEWS, free_port, kill, settle, start_app  # noqa: E402
+from shoot import (  # noqa: E402
+    ROUTES,
+    VIEWS,
+    free_port,
+    kill,
+    settle,
+    start_app,
+    unlock_admin,
+)
 
 # ── the checks ─────────────────────────────────────────────────────────────
 # Each is (name, fn) where fn returns a list of problem strings. Empty list
@@ -47,12 +55,31 @@ def contrast(fg, bg):
 
 JS_MEASURE = r"""
 () => {
-  const parseRGB = (s) => {
-    const m = s.match(/rgba?\(([^)]+)\)/);
-    if (!m) return null;
-    const p = m[1].split(',').map(x => parseFloat(x));
-    return {rgb: p.slice(0, 3), a: p.length > 3 ? p[3] : 1};
+  // Colors are resolved by painting one, not by parsing the computed string.
+  // getComputedStyle hands back whatever syntax the author wrote, so oklch(),
+  // color-mix() and lab() all arrived here as unparseable text, the node was
+  // skipped, and the contrast check silently compared nothing. The board is
+  // authored in oklch, which means its "ok contrast" was a pass with no
+  // measurements behind it. A 1x1 canvas is exact for every syntax the browser
+  // can paint, and it clips out-of-gamut colors the same way the display does.
+  const swatch = document.createElement('canvas');
+  swatch.width = swatch.height = 1;
+  const ctx = swatch.getContext('2d', {willReadFrequently: true});
+  const parseRGB = (css) => {
+    if (!css || css === 'transparent' || css === 'none') return null;
+    // An unparseable value leaves fillStyle at its previous value, so it has to
+    // be reset each time or a bad color is measured as the previous node's.
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = '#000000';
+    ctx.fillStyle = css;
+    if (ctx.fillStyle === '#000000' && css !== '#000000' && !/^#0{6}$|^black$/i.test(css)) {
+      return null;
+    }
+    ctx.fillRect(0, 0, 1, 1);
+    const d = ctx.getImageData(0, 0, 1, 1).data;
+    return {rgb: [d[0], d[1], d[2]], a: d[3] / 255};
   };
+  const over = (fg, bg) => fg.rgb.map((c, i) => c * fg.a + bg[i] * (1 - fg.a));
   const effectiveBg = (el) => {
     let node = el;
     while (node && node !== document.documentElement) {
@@ -60,7 +87,10 @@ JS_MEASURE = r"""
       if (c && c.a > 0.95) return c.rgb;
       node = node.parentElement;
     }
-    return [255, 255, 255];
+    // A document with no opaque background of its own is painted on the
+    // browser's white canvas, so that is the correct answer, not a default.
+    const html = parseRGB(getComputedStyle(document.documentElement).backgroundColor);
+    return html && html.a > 0.95 ? html.rgb : [255, 255, 255];
   };
   const visible = (el) => {
     const s = getComputedStyle(el);
@@ -71,8 +101,20 @@ JS_MEASURE = r"""
 
   const texts = [];
   const all = document.querySelectorAll('body *');
+  // Overlays that are up on their own schedule, not on the page's. The adhan and
+  // the screensaver are time-boxed events: whichever one happens to be showing
+  // when the audit lands decides how many font sizes and how much text the page
+  // appears to have, so a run can fail on quran and pass on admin for no reason
+  // connected to either page. They have their own coverage in
+  // tools/spike_check.py, which triggers the adhan deliberately, so the page
+  // audit leaves them out and measures the page.
+  const transient = (el) => !!el.closest(
+    '.adhan, .kiosk-screensaver, .kiosk-audio-status, .kiosk-status,'
+    + ' .kiosk-unlock-hint'
+  );
   for (const el of all) {
     if (!visible(el)) continue;
+    if (transient(el)) continue;
     // only leaf-ish nodes that directly carry text
     const own = Array.from(el.childNodes)
       .filter(n => n.nodeType === 3)
@@ -81,6 +123,8 @@ JS_MEASURE = r"""
     if (!own) continue;
     const s = getComputedStyle(el);
     const r = el.getBoundingClientRect();
+    const bg = effectiveBg(el);
+    const fg = parseRGB(s.color);
     texts.push({
       tag: el.tagName.toLowerCase(),
       cls: el.className && typeof el.className === 'string' ? el.className : '',
@@ -88,8 +132,10 @@ JS_MEASURE = r"""
       fontSize: parseFloat(s.fontSize),
       fontWeight: s.fontWeight,
       lineHeight: s.lineHeight,
-      color: parseRGB(s.color)?.rgb ?? null,
-      bg: effectiveBg(el),
+      // A translucent text color has to be read as the color it actually paints,
+      // which is the blend of itself and the surface behind it.
+      color: fg ? (fg.a < 1 ? over(fg, bg).map(Math.round) : fg.rgb) : null,
+      bg,
       box: {x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height)},
     });
   }
@@ -164,9 +210,11 @@ JS_MEASURE = r"""
 
 def check_contrast(measurement):
     problems = []
+    measured = 0
     for t in measurement["texts"]:
         if t["color"] is None:
             continue
+        measured += 1
         ratio = contrast(t["color"], t["bg"])
         large = t["fontSize"] >= 24 or (t["fontSize"] >= 18.66 and int(t["fontWeight"]) >= 700)
         floor = MIN_CONTRAST_LARGE if large else MIN_CONTRAST
@@ -175,6 +223,14 @@ def check_contrast(measurement):
                 f"{ratio:.2f}:1 (needs {floor}) {t['fontSize']}px "
                 f"'{t['text']}' fg={t['color']} bg={t['bg']}"
             )
+    # A check that could not read a single color must not report a pass. This is
+    # what let the board's oklch palette be declared accessible while nothing was
+    # being compared at all.
+    if measurement["texts"] and not measured:
+        problems.append(
+            f"no text color could be read (unparseable colour syntax?) -- "
+            f"this is a pass with no measurements behind it"
+        )
     return problems
 
 
@@ -229,6 +285,14 @@ def report_scroll_depth(measurement):
 
 def check_type_scale(measurement):
     """The type ramp has to have real steps, not one size used everywhere."""
+    # A page holding a heading, a nav row and an empty-state line has three
+    # sizes because that is all the text on it -- a fresh database, not a flat
+    # design. Demanding four steps of a page with eleven words in it is how a
+    # useful heuristic gets ignored: the same check then cries wolf on whichever
+    # page happened to be nearly empty, and stops being read on the ones that
+    # are not.
+    if len(measurement["texts"]) < 15:
+        return []
     sizes = sorted({t["fontSize"] for t in measurement["texts"]}, reverse=True)
     if len(sizes) < 4:
         return [f"only {len(sizes)} distinct font size(s) in use: {sizes}"]
@@ -286,6 +350,13 @@ def audit(route="board", view="kiosk", out=None):
                     if target.count():
                         target.click()
                         settle(page)
+                    # Admin is a fifth of the app's pages and sits behind a
+                    # password, so auditing it without unlocking measured the
+                    # login form and called the page covered.
+                    if route == "admin" and not unlock_admin(page):
+                        raise SystemExit(
+                            "admin is locked; set FAMILY_TASK_ADMIN_PASSWORD to audit it"
+                        )
                 measurement = page.evaluate(JS_MEASURE)
 
             report[route] = {"view": view, "measurement": measurement, "checks": {}}

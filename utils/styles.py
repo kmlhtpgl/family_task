@@ -1,15 +1,24 @@
 """Design system for the Family Task Tracker UI.
 
 Everything visual lives here as plain CSS strings so the stylesheet stays
-readable and diffable. Only the palette block is swapped per theme, which
-means every component rule below it is written once and works in both light
-and dark mode.
+readable and diffable.
+
+There is one theme, and it is the Board's. The Board was built as its own
+visual system first, in ``static/board/board.css``, and the rest of the app
+was still wearing the light Todoist palette it had grown up with, so tapping
+Board in the nav row moved you into a different-looking application. The
+tokens below are now the Board's, re-expressed under the semantic names this
+file's component rules already use, so the whole app is restyled by editing
+one block.
+
+That block is the only place a colour is defined. Pages reference classes,
+never literals, which is what lets a palette change reach every page at once.
 
 Layout note: Streamlit components live in the same document as this stylesheet,
 so components reference semantic custom properties (``var(--surface-1)``)
 instead of hardcoded colors. The board is the exception: it is a separate
-document with its own visual system in ``static/board/board.css``, and inherits
-nothing from here.
+document with its own copy of the same palette, and inherits nothing from
+here. ``tests/test_one_design.py`` holds the two to the same values.
 """
 
 import streamlit as st
@@ -20,7 +29,7 @@ import streamlit as st
 
 _FONT_IMPORT = (
     "@import url('https://fonts.googleapis.com/css2?"
-    "family=Inter:wght@300;400;475;500;625;700&"
+    "family=Inter:wght@400;500;600;700;800&"
     "family=JetBrains+Mono:wght@400;600&display=swap');"
 )
 
@@ -31,140 +40,116 @@ _SHARED_TOKENS = """
             'Helvetica Neue', Arial, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-    /* Inter is a variable font, so mid weights are real weights rather than
-     * faux-bold. Todoist leans on 475/625 and never uses 700 for body copy;
-     * heavy weights are what make a Streamlit app read as clumsy. */
+    /* The Board's ramp: 400 for body copy, 500 for labels, 600 for titles, and
+     * 700/800 reserved for figures big enough to be read across a room. */
     --weight-regular: 400;
-    --weight-medium: 475;
-    --weight-semibold: 625;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+    --weight-display: 800;
 
-    --leading-body: 1.75;
+    --leading-body: 1.6;
     --leading-tight: 1.25;
 
-    /* Small, disciplined radii. Large rounded corners read as toy-like. */
-    --radius-xs: 4px;
-    --radius-sm: 6px;
-    --radius: 8px;
-    --radius-md: 10px;
-    --radius-lg: 13px;
-    --radius-xl: 15px;
+    /* The Board's radii. Larger than the light theme's, and deliberately so:
+     * the roundness is most of what makes the same controls read as the same
+     * product on two different pages. */
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius: 16px;
+    --radius-lg: 24px;
     --radius-full: 9999px;
 
     --transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: 260ms cubic-bezier(0.16, 1, 0.3, 1);
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
-    --navbar-height: 60px;
     --max-width: 1200px;
 }
 """
 
-# Palette lifted from Todoist's own published tokens, so the app reads the same
-# way their product does: warm neutrals rather than cold blue-greys, exactly
-# one accent used sparingly, and separation by hairline instead of shadow.
-_LIGHT_TOKENS = """
+# The Board's palette, on the semantic names the component rules below already
+# use. Authored in oklch so the accent hues stay perceptually even as lightness
+# is swept for hover and pressed states, and so every contrast ratio here is a
+# number that can be checked rather than guessed.
+#
+# Muted text is held at or above 4.5:1 on every surface it can land on, which
+# is why --text-tertiary is 0.68 and not "the same colour, dimmer": the old
+# light theme's mid grey measured 2.85:1 on white. tools/audit.py measures
+# this, and now
+# genuinely can -- it could not read oklch() at all until this palette landed,
+# so the Board's own contrast pass had been vacuous.
+#
+#   surface-0 0.17    the page floor, near-black
+#   surface-1 0.212   a card sitting on it
+#   surface-2 0.256   a raised header, a hover
+#   surface-3 0.305   pressed, and the highest step
+#
+# Depth comes from these steps rather than from shadows: at rest a card is a
+# hairline, and a shadow means something is genuinely floating.
+_TOKENS = """
 :root {
-    --surface-0: #FCF8F3;
-    --surface-1: #FFFFFF;
-    --surface-2: #FAFAFA;
-    --surface-3: #F2F2F2;
+    --surface-0: oklch(0.17 0.018 265);
+    --surface-1: oklch(0.212 0.021 265);
+    --surface-2: oklch(0.256 0.024 265);
+    --surface-3: oklch(0.305 0.026 265);
 
-    --border-subtle: #F2EFED;
-    --border-default: #EBEBEB;
-    --border-strong: #DEDEDE;
+    --border-subtle: oklch(0.97 0 0 / 0.09);
+    --border-default: oklch(0.97 0 0 / 0.12);
+    --border-strong: oklch(0.97 0 0 / 0.16);
 
-    --text-primary: #1F1F1F;
-    --text-secondary: #575757;
-    --text-tertiary: #999999;
+    /* Chroma rises as the neutral darkens, the same progression the Board uses:
+     * a darker grey needs a little colour in it to read as a colour. */
+    --text-primary: oklch(0.97 0.004 265);
+    --text-secondary: oklch(0.775 0.012 265);
+    --text-tertiary: oklch(0.68 0.014 265);
 
-    --accent: #3879FA;
-    --accent-hover: #316FEA;
-    --accent-active: #2064CA;
-    --accent-subtle: #F1F7FE;
-    --accent-border: #E2F0FF;
-    --accent-fg: #FFFFFF;
-    --accent-shadow: rgba(56, 121, 250, 0.28);
-    --on-gradient: #FFFFFF;
+    --accent: oklch(0.78 0.16 232);
+    /* Lighter on hover, darker pressed: the same hue held even as lightness
+     * moves, which a hex ramp cannot do. */
+    --accent-hover: oklch(0.84 0.15 232);
+    --accent-active: oklch(0.73 0.16 232);
+    --accent-subtle: oklch(0.25 0.055 232);
+    --accent-border: oklch(0.36 0.08 232);
+    /* Near-black on the accent, not white. The accent is a bright cyan on a
+     * dark surface and white on it measures 1.98:1. */
+    --accent-fg: oklch(0.17 0.018 265);
+    --accent-shadow: oklch(0.78 0.16 232 / 0.28);
+    --on-gradient: oklch(0.17 0.018 265);
 
-    --gold: #8A6400;
-    --gold-subtle: #FAF6EB;
-    --gold-border: #EFE0B9;
+    --gold: oklch(0.85 0.13 92);
+    --gold-subtle: oklch(0.26 0.05 92);
+    --gold-border: oklch(0.36 0.065 92);
 
-    --success: #3D7A4A;
-    --success-subtle: #F6F9F7;
-    --success-border: #CFE3D3;
+    --success: oklch(0.82 0.17 152);
+    --success-subtle: oklch(0.24 0.045 152);
+    --success-border: oklch(0.34 0.06 152);
 
-    --warning: #8A5B00;
-    --warning-subtle: #FFFBF1;
-    --warning-border: #F7E4C0;
+    --warning: oklch(0.84 0.15 82);
+    --warning-subtle: oklch(0.25 0.05 82);
+    --warning-border: oklch(0.35 0.065 82);
 
-    --danger: #B3342B;
-    --danger-subtle: #FDF3F2;
-    --danger-border: #F3D3D0;
+    --danger: oklch(0.72 0.19 22);
+    --danger-subtle: oklch(0.25 0.06 22);
+    --danger-border: oklch(0.35 0.08 22);
 
-    --info: #2064CA;
-    --info-subtle: #F1F7FE;
-    --info-border: #E2F0FF;
+    /* Info is the accent. The Board has exactly one accent, and two of them is
+     * how a palette starts looking like a design system nobody chose. */
+    --info: oklch(0.78 0.16 232);
+    --info-subtle: oklch(0.25 0.055 232);
+    --info-border: oklch(0.36 0.08 232);
 
-    /* Elevation is a 1px hairline at rest. Shadows are reserved for things
-     * that genuinely float: overlays, menus, dialogs. */
-    --shadow-xs: 0 1px 0 rgba(31, 31, 31, 0.06);
-    --shadow-sm: 0 1px 0 rgba(31, 31, 31, 0.08);
-    --shadow-md: 0 4px 12px rgba(31, 31, 31, 0.10);
-    --shadow-lg: 0 12px 32px rgba(31, 31, 31, 0.14);
-    --scrim: rgba(31, 31, 31, 0.03);
-}
-"""
+    /* Nothing is floating at rest. These are for the two things that do:
+     * dialogs and menus, and the keyboard focus ring's cast. */
+    --shadow-xs: none;
+    --shadow-sm: none;
+    --shadow-md: 0 18px 48px oklch(0 0 0 / 0.45);
+    --shadow-lg: 0 24px 64px oklch(0 0 0 / 0.55);
+    --scrim: oklch(0.97 0 0 / 0.04);
 
-_DARK_TOKENS = """
-:root {
-    --surface-0: #16161A;
-    --surface-1: #1E1E23;
-    --surface-2: #26262C;
-    --surface-3: #2E2E35;
-
-    --border-subtle: #26262C;
-    --border-default: #32323A;
-    --border-strong: #43434D;
-
-    --text-primary: #EDEDF0;
-    --text-secondary: #A8A8B3;
-    --text-tertiary: #77777F;
-
-    --accent: #3879FA;
-    --accent-hover: #5493FB;
-    --accent-active: #7AACFC;
-    --accent-subtle: #16233A;
-    --accent-border: #24406B;
-    --accent-fg: #FFFFFF;
-    --accent-shadow: rgba(56, 121, 250, 0.34);
-    --on-gradient: #FFFFFF;
-
-    --gold: #E0B04A;
-    --gold-subtle: #2A2418;
-    --gold-border: #453C24;
-
-    --success: #5FB37A;
-    --success-subtle: #18251C;
-    --success-border: #2A3D30;
-
-    --warning: #E3A73F;
-    --warning-subtle: #2A2116;
-    --warning-border: #453820;
-
-    --danger: #E0685C;
-    --danger-subtle: #2C1A18;
-    --danger-border: #4A2C28;
-
-    --info: #7AACFC;
-    --info-subtle: #16233A;
-    --info-border: #24406B;
-
-    --shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.30);
-    --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.36);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.44);
-    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
-    --scrim: rgba(255, 255, 255, 0.03);
+    /* The one place white is still allowed: the travelling sheen on a filling
+     * progress bar, which is a highlight and not a surface. */
+    --shine: oklch(1 0 0 / 0.22);
 }
 """
 
@@ -203,6 +188,49 @@ footer { visibility: hidden; }
 [data-testid="stHeader"] { display: none !important; }
 [data-testid="collapsedControl"] { z-index: 100; }
 
+/* ── The page behind the page ──
+   Two very wide, very soft washes, and the same answer the Board gives to a
+   large dark surface: depth you can feel rather than a texture that fights the
+   type. This replaces a 5%-opacity SVG of three people that had been sitting in
+   app.py since before the redesign, drawn in the old theme's blue -- invisible
+   on a near-black page, and a second palette besides. */
+.family-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+}
+.family-bg::before,
+.family-bg::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+}
+.family-bg::before {
+    width: 60vw;
+    height: 46vh;
+    top: -16vh;
+    left: -10vw;
+    background: radial-gradient(
+        circle at 50% 50%,
+        oklch(0.5 0.15 258 / 0.26),
+        transparent 70%
+    );
+}
+.family-bg::after {
+    width: 52vw;
+    height: 42vh;
+    bottom: -18vh;
+    right: -8vw;
+    background: radial-gradient(
+        circle at 50% 50%,
+        oklch(0.48 0.14 195 / 0.2),
+        transparent 70%
+    );
+}
+
 /* ── Typography ── */
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font);
@@ -211,7 +239,7 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.02em;
     line-height: 1.25;
 }
-h1 { font-size: 1.75rem; font-weight: var(--weight-semibold); }
+h1 { font-size: 1.75rem; font-weight: var(--weight-bold); letter-spacing: -0.03em; }
 h2 { font-size: 1.3125rem; }
 h3 { font-size: 1.0625rem; }
 h4 { font-size: 0.9375rem; }
@@ -269,25 +297,30 @@ hr {
 _NAV_CSS = """
 .nav-scope { display: none; }
 
+/* The header on every page except the Board, and it is the Board's flag row in
+   another costume: one compact line, one hairline, nothing floating. It used to
+   be a 4.25rem rounded card with a border and a shadow, which is the light
+   theme's idea of a header and the clearest single reason the two halves of
+   this app looked like two products. */
 .top-navbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    background: var(--surface-1);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 0.875rem 1.25rem;
-    margin-bottom: 0.875rem;
-    box-shadow: var(--shadow-sm);
-    min-height: 4.25rem;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    border-radius: 0;
+    padding: 0 0 0.75rem;
+    margin-bottom: 1rem;
+    min-height: 0;
     position: relative;
     z-index: 10;
 }
 
 .navbar-brand {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 0.625rem;
     text-decoration: none;
     color: inherit;
@@ -300,21 +333,19 @@ _NAV_CSS = """
 }
 .navbar-brand h1 {
     font-size: 1.1875rem;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     margin: 0;
     letter-spacing: -0.03em;
     white-space: nowrap;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--text-primary) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
+    /* Flat, in the Board's text colour. This was an accent-to-white gradient
+     * clipped to the type, which is not in the Board's language and cannot be
+     * contrast-checked: the audit reads a painted colour or nothing. */
+    color: var(--text-primary);
 }
 .navbar-brand span {
     color: var(--text-tertiary);
     font-size: 0.75rem;
     font-weight: var(--weight-regular);
-    margin-left: 0.25rem;
     border-left: 1px solid var(--border-default);
     padding-left: 0.625rem;
 }
@@ -324,10 +355,13 @@ _NAV_CSS = """
     gap: 0.75rem;
     flex-shrink: 0;
 }
+/* The Board's small-caps label, on the date rather than on the page name. */
 .navbar-actions .nav-date {
     color: var(--text-tertiary);
-    font-size: 0.8125rem;
-    font-weight: var(--weight-medium);
+    font-size: 0.6875rem;
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
@@ -336,11 +370,20 @@ _NAV_CSS = """
 # ── Components ───────────────────────────────────────────────────────────────
 
 _COMPONENT_CSS = """
-/* ── Buttons ── */
+/* ── Buttons ──
+   Every button variant is named explicitly, including the two form-submit
+   testids. They are not covered by a [kind] attribute, so a selector list that
+   left them out left Streamlit's own white-on-primaryColor label in place --
+   1.98:1 on the accent, which is the one button in the app you most need to be
+   able to read. */
 [data-testid="stButton"] button,
 [data-testid="stFormSubmitButton"] button,
+[data-testid="stDownloadButton"] button,
+[data-testid="stLinkButton"] a,
 [data-testid="stBaseButton-primary"],
-[data-testid="stBaseButton-secondary"] {
+[data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-primaryFormSubmit"],
+[data-testid="stBaseButton-secondaryFormSubmit"] {
     font-family: var(--font) !important;
     font-size: 0.875rem !important;
     font-weight: var(--weight-medium) !important;
@@ -361,49 +404,102 @@ _COMPONENT_CSS = """
     outline-offset: 2px;
 }
 
+/* The label has to take the button's size, and it will not do it on its own.
+   Streamlit renders a button's text as its own markdown paragraph nested three
+   elements deep, and that container re-establishes 1rem -- so every label in
+   the app rendered at 16px whatever size the button asked for, and every
+   button-size rule above was decorative. The nav row measured 16px on a phone
+   next to a 13px button box. `inherit` alone is not enough either: it inherits
+   from the container, which is the thing setting 1rem. Both links in the chain
+   have to be told to pass the size along. */
+[data-testid="stButton"] [data-testid="stMarkdownContainer"],
+[data-testid="stFormSubmitButton"] [data-testid="stMarkdownContainer"],
+[data-testid="stDownloadButton"] [data-testid="stMarkdownContainer"],
+[data-testid="stLinkButton"] [data-testid="stMarkdownContainer"],
+[data-testid^="stBaseButton"] [data-testid="stMarkdownContainer"] {
+    font-size: inherit !important;
+    line-height: inherit !important;
+}
+[data-testid="stButton"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stFormSubmitButton"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stDownloadButton"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stLinkButton"] [data-testid="stMarkdownContainer"] p,
+[data-testid^="stBaseButton"] [data-testid="stMarkdownContainer"] p {
+    font-size: inherit !important;
+    line-height: inherit !important;
+    font-family: inherit !important;
+    font-weight: inherit !important;
+}
+
 [data-testid="stButton"] button[kind="primary"],
-[data-testid="stBaseButton-primary"] {
+[data-testid="stBaseButton-primary"],
+[data-testid="stBaseButton-primaryFormSubmit"] {
     background: var(--accent) !important;
     color: var(--accent-fg) !important;
     border-color: var(--accent) !important;
 }
 [data-testid="stButton"] button[kind="primary"]:hover,
-[data-testid="stBaseButton-primary"]:hover {
+[data-testid="stBaseButton-primary"]:hover,
+[data-testid="stBaseButton-primaryFormSubmit"]:hover {
     background: var(--accent-hover) !important;
     border-color: var(--accent-hover) !important;
-    box-shadow: 0 1px 2px rgba(16, 18, 22, 0.10), 0 4px 12px var(--accent-shadow) !important;
+    box-shadow: none !important;
 }
 [data-testid="stButton"] button[kind="primary"]:active,
-[data-testid="stBaseButton-primary"]:active {
+[data-testid="stBaseButton-primary"]:active,
+[data-testid="stBaseButton-primaryFormSubmit"]:active {
     background: var(--accent-active) !important;
     box-shadow: none !important;
     transform: translateY(0.5px);
 }
 
 [data-testid="stButton"] button[kind="secondary"],
-[data-testid="stBaseButton-secondary"] {
+[data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-secondaryFormSubmit"] {
     background: var(--surface-1) !important;
     color: var(--text-primary) !important;
     border-color: var(--border-default) !important;
     box-shadow: var(--shadow-xs) !important;
 }
 [data-testid="stButton"] button[kind="secondary"]:hover,
-[data-testid="stBaseButton-secondary"]:hover {
+[data-testid="stBaseButton-secondary"]:hover,
+[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
     background: var(--surface-2) !important;
     border-color: var(--border-strong) !important;
     color: var(--text-primary) !important;
 }
 [data-testid="stButton"] button[kind="secondary"]:active,
-[data-testid="stBaseButton-secondary"]:active {
+[data-testid="stBaseButton-secondary"]:active,
+[data-testid="stBaseButton-secondaryFormSubmit"]:active {
     background: var(--surface-3) !important;
     transform: translateY(0.5px);
 }
 
 [data-testid="stButton"] button:disabled,
 [data-testid="stBaseButton-primary"]:disabled,
-[data-testid="stBaseButton-secondary"]:disabled {
+[data-testid="stBaseButton-secondary"]:disabled,
+[data-testid="stBaseButton-primaryFormSubmit"]:disabled,
+[data-testid="stBaseButton-secondaryFormSubmit"]:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+}
+
+/* A button label is a <p>, and the `p, li` rule above recoloured every one of
+ * them to --text-secondary -- which is fine on a page and 1.13:1 on a filled
+ * primary button. The label takes the button's own colour and type instead. */
+[data-testid="stButton"] button p,
+[data-testid="stFormSubmitButton"] button p,
+[data-testid="stDownloadButton"] button p,
+[data-testid="stBaseButton-primary"] p,
+[data-testid="stBaseButton-secondary"] p,
+[data-testid="stBaseButton-primaryFormSubmit"] p,
+[data-testid="stBaseButton-secondaryFormSubmit"] p {
+    color: inherit !important;
+    font-family: var(--font) !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    line-height: inherit !important;
+    margin: 0 !important;
 }
 
 /* ── App navigation ──
@@ -557,6 +653,131 @@ _COMPONENT_CSS = """
     color: var(--text-primary) !important;
 }
 
+/* ── Selectbox ──
+   Streamlit hangs the selected value off a bare <div value="..."> that is a
+   flex item with overflow:hidden, and overflow:hidden zeroes a flex item's
+   automatic minimum height. The value could therefore be squeezed below its own
+   line box: on the parents page "Havva Nur" was rendering in an 8px box for
+   14px type, so the name was unreadable. min-height is the whole fix. */
+.stSelectbox div[value] {
+    min-height: 1.375rem;
+    display: flex;
+    align-items: center;
+}
+
+/* ── Multiselect ──
+   Its chips are the one place a control carries several values at once, and the
+   Board's rounded geometry has to reach them or the control reads as a
+   different product from every input beside it. */
+.stMultiSelect [data-baseweb="tag"] {
+    background: var(--accent-subtle) !important;
+    border: 1px solid var(--accent-border) !important;
+    border-radius: var(--radius-full) !important;
+    color: var(--accent) !important;
+    font-size: 0.8125rem !important;
+    font-weight: var(--weight-medium) !important;
+}
+.stMultiSelect [data-baseweb="tag"] svg { fill: var(--accent) !important; }
+.stMultiSelect [data-baseweb="tag"] + [data-baseweb="tag"] { margin-left: 0.25rem; }
+.stMultiSelect div[role="combobox"] {
+    background: var(--surface-1) !important;
+    border: 1px solid var(--border-default) !important;
+    border-radius: var(--radius) !important;
+    min-height: 2.3125rem;
+    color: var(--text-primary) !important;
+}
+/* ── Dropdowns and the date calendar ──
+   These float above the page in a portal, so they inherit nothing from the
+   stylesheet's component rules and have to be told what they are. Streamlit
+   paints a selected day in the accent, and its own white label on the accent is
+   1.98:1 -- the same mistake the primary button was making. */
+[data-baseweb="popover"],
+[data-testid="stDateInput"] [data-baseweb="calendar"] {
+    background: var(--surface-2) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-default) !important;
+}
+[data-baseweb="popover"] li,
+[data-baseweb="popover"] [role="option"],
+[data-baseweb="popover"] [role="menuitem"] {
+    background: var(--surface-2) !important;
+    color: var(--text-primary) !important;
+    font-size: 0.875rem !important;
+}
+[data-baseweb="popover"] li:hover,
+[data-baseweb="popover"] [role="option"]:hover { background: var(--surface-3) !important; }
+[data-baseweb="popover"] li[aria-selected="true"],
+[data-baseweb="popover"] [aria-selected="true"] {
+    background: var(--accent) !important;
+    color: var(--accent-fg) !important;
+}
+
+[data-testid="stDateInput"] [data-baseweb="calendar"] button,
+[data-testid="stDateInput"] [data-baseweb="calendar"] [role="gridcell"] {
+    color: var(--text-secondary) !important;
+    border-radius: var(--radius-sm) !important;
+}
+[data-testid="stDateInput"] [data-baseweb="calendar"] button:hover {
+    background: var(--surface-3) !important;
+    color: var(--text-primary) !important;
+}
+[data-testid="stDateInput"] [data-baseweb="calendar"] button[aria-pressed="true"],
+[data-testid="stDateInput"] [data-baseweb="calendar"] [aria-selected="true"] {
+    background: var(--accent) !important;
+    color: var(--accent-fg) !important;
+    font-weight: var(--weight-semibold) !important;
+}
+[data-testid="stDateInput"] [data-baseweb="calendar"] [role="button"]:disabled {
+    color: var(--text-tertiary) !important;
+    opacity: 0.55;
+}
+
+/* ── File uploader ──
+   A drop zone is a dashed invitation to interact, so it keeps the dashed edge
+   and the accent tint rather than pretending to be a field. */
+[data-testid="stFileUploaderDropzone"] {
+    background: var(--surface-1) !important;
+    border: 1px dashed var(--border-strong) !important;
+    border-radius: var(--radius) !important;
+    color: var(--text-secondary) !important;
+    transition: border-color var(--transition), background-color var(--transition);
+}
+[data-testid="stFileUploaderDropzone"]:hover {
+    border-color: var(--accent) !important;
+    background: var(--accent-subtle) !important;
+}
+[data-testid="stFileUploaderDropzone"] small,
+[data-testid="stFileUploaderDropzoneInstructions"] { color: var(--text-tertiary) !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] span,
+[data-testid="stFileUploaderDropzoneInstructions"] div { color: var(--text-secondary) !important; }
+
+/* ── Toggle ──
+   Streamlit draws the track with its own greys, which on a near-black surface
+   is a light bar with a light thumb on it. */
+[data-testid="stToggle"] label { color: var(--text-secondary) !important; }
+[data-testid="stToggle"] [data-baseweb="checkbox"] {
+    background: var(--surface-3) !important;
+    border-color: var(--border-strong) !important;
+}
+[data-testid="stToggle"] [data-checked="true"] [data-baseweb="checkbox"] {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+}
+[data-testid="stToggle"] [data-baseweb="checkbox"] span { background: var(--surface-1) !important; }
+[data-testid="stToggle"] [data-checked="true"] [data-baseweb="checkbox"] span {
+    background: var(--accent-fg) !important;
+}
+
+/* ── Slider ── */
+[data-testid="stSlider"] [data-baseweb="slider"] { background: var(--surface-3) !important; }
+[data-testid="stSlider"] [role="slider"] { background: var(--accent) !important; }
+[data-testid="stSlider"] [data-testid="stTickBarMin"],
+[data-testid="stSlider"] [data-testid="stTickBarMax"] { color: var(--text-tertiary) !important; }
+
+/* ── Progress ── */
+[data-testid="stProgress"] > div > div { background: var(--surface-3) !important; }
+[data-testid="stProgress"] [role="progressbar"] { background: var(--accent) !important; }
+
 /* ── Form ── */
 [data-testid="stForm"] {
     background: var(--surface-1) !important;
@@ -662,13 +883,16 @@ _COMPONENT_CSS = """
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     padding: 1.25rem 1.5rem;
-    box-shadow: var(--shadow-sm);
-    transition: box-shadow var(--transition-slow), border-color var(--transition-slow),
-                transform var(--transition-slow);
+    box-shadow: none;
+    transition: background-color var(--transition-slow), border-color var(--transition-slow);
     animation: fadeIn 320ms var(--ease-out);
 }
+/* Hover is a step up the surface ladder. It used to be a shadow, which is a cue
+ * from the light theme: on a near-black page a drop shadow is invisible, so the
+ * lift has to come from the surface itself. */
 .card:hover {
-    box-shadow: var(--shadow-md);
+    background: var(--surface-2);
+    border-color: var(--border-default);
 }
 .card--hover { cursor: pointer; }
 .card--hover:hover { border-color: var(--accent-border); }
@@ -679,19 +903,6 @@ _COMPONENT_CSS = """
     position: relative;
     overflow: hidden;
 }
-.card--stat::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 5rem;
-    height: 5rem;
-    border-radius: 50%;
-    background: var(--accent);
-    opacity: 0.05;
-    transform: translate(1.25rem, -1.25rem);
-    pointer-events: none;
-}
 .card--progress { border-left: 3px solid var(--success); }
 .card--danger { border-left: 3px solid var(--danger); }
 .card--success { border-left: 3px solid var(--success); }
@@ -700,7 +911,7 @@ _COMPONENT_CSS = """
 .card .value {
     font-family: var(--font-mono);
     font-size: 1.875rem;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     color: var(--text-primary);
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
@@ -721,13 +932,16 @@ _COMPONENT_CSS = """
     border-left: 3px solid var(--accent) !important;
     border-radius: var(--radius-lg) !important;
     padding: 1.25rem !important;
-    box-shadow: var(--shadow-sm) !important;
+    box-shadow: none !important;
     text-align: center;
     position: relative;
     overflow: hidden;
-    transition: box-shadow var(--transition-slow), border-color var(--transition-slow);
+    transition: background-color var(--transition-slow), border-color var(--transition-slow);
 }
-.metric-card:hover { box-shadow: var(--shadow-md); }
+.metric-card:hover {
+    background: var(--surface-2) !important;
+    border-color: var(--border-default) !important;
+}
 .metric-card h3 {
     margin: 0;
     font-size: 0.875rem;
@@ -737,7 +951,7 @@ _COMPONENT_CSS = """
 .metric-card .value {
     font-family: var(--font-mono);
     font-size: 2rem;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     color: var(--text-primary);
     margin: 0.375rem 0;
     line-height: 1.15;
@@ -758,13 +972,13 @@ _COMPONENT_CSS = """
     border-radius: var(--radius);
     padding: 0.875rem 1rem;
     margin: 0.375rem 0;
-    box-shadow: var(--shadow-xs);
+    box-shadow: none;
     color: var(--text-primary);
     font-size: 0.875rem;
     animation: fadeIn 300ms var(--ease-out);
-    transition: box-shadow var(--transition), border-color var(--transition);
+    transition: background-color var(--transition), border-color var(--transition);
 }
-.task-item:hover { box-shadow: var(--shadow-sm); }
+.task-item:hover { background: var(--surface-2); }
 .task-item p { color: var(--text-secondary); }
 .task-item.task-done { border-left-color: var(--success); }
 .task-item.task-overdue { border-left-color: var(--danger); }
@@ -1009,7 +1223,7 @@ _COMPONENT_CSS = """
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+    background: linear-gradient(90deg, transparent, var(--shine), transparent);
     animation: shimmer 2.4s infinite;
 }
 
@@ -1018,21 +1232,22 @@ _COMPONENT_CSS = """
     border-radius: 50%;
     object-fit: cover;
     border: 1px solid var(--border-default);
-    box-shadow: var(--shadow-sm);
-    transition: transform var(--transition), box-shadow var(--transition);
+    box-shadow: none;
+    transition: transform var(--transition), border-color var(--transition);
 }
 .avatar-circle:hover {
     transform: scale(1.03);
-    box-shadow: var(--shadow-md);
+    border-color: var(--border-strong);
 }
 .avatar-fallback {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--info) 100%);
+    /* Flat accent, not an accent-to-info gradient: the Board has one accent. */
+    background: var(--accent);
     color: var(--on-gradient);
     border: none;
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
     line-height: 1;
 }
 
@@ -1057,7 +1272,7 @@ _COMPONENT_CSS = """
 .metric-display .metric-value {
     font-family: var(--font-mono);
     font-size: 2.125rem;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-display);
     color: var(--text-primary);
     line-height: 1.15;
     font-variant-numeric: tabular-nums;
@@ -1085,13 +1300,14 @@ _COMPONENT_CSS = """
 /* ── Dividers ── */
 .divider-gradient {
     border: 0;
-    height: 2px;
+    height: 1px;
+    /* A hairline that fades out at both ends. It used to be a 2px accent line,
+     * which is a section break the Board does not use anywhere. */
     background: linear-gradient(90deg,
         transparent 0%,
-        var(--accent) 50%,
+        var(--border-default) 50%,
         transparent 100%);
     margin: 1.75rem 0;
-    border-radius: 2px;
 }
 
 /* ── Motion ── */
@@ -1115,6 +1331,42 @@ _COMPONENT_CSS = """
         animation: none !important;
         transition: none !important;
     }
+}
+"""
+
+# ── Board chrome ─────────────────────────────────────────────────────────────
+# The Board's host-side furniture: the flag above the canvas and the full-bleed
+# layout the canvas needs. It used to be a style block inside app.py's board
+# branch, which meant the Board's colours were written twice -- once here in
+# oklch and once in the shell -- and the shell's copy was the one that drifted.
+# The layout half has to stay where it is: it is scoped to the board branch,
+# because the other pages keep the padded body.
+
+_BOARD_CSS = """
+.board-flag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: var(--weight-semibold);
+    color: var(--text-secondary);
+}
+.board-flag b {
+    color: var(--text-primary);
+    font-weight: var(--weight-bold);
+    letter-spacing: -0.01em;
+}
+.board-flag span {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-tertiary);
+}
+.board-flag__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
 }
 """
 
@@ -1348,8 +1600,7 @@ _RESPONSIVE_CSS = """
     .kiosk-screensaver-footer .kiosk-ss-prayer { white-space: normal; }
 
     .top-navbar {
-        padding: 0.75rem 1rem;
-        min-height: 3.5rem;
+        padding: 0 0 0.625rem;
         flex-wrap: wrap;
     }
     .navbar-brand h1 { font-size: 1.0625rem; }
@@ -1368,24 +1619,24 @@ _RESPONSIVE_CSS = """
 """
 
 
-def _build_css(dark_mode: bool) -> str:
-    palette = _DARK_TOKENS if dark_mode else _LIGHT_TOKENS
+def _build_css() -> str:
     return "\n".join(
         (
             _FONT_IMPORT,
             _SHARED_TOKENS,
-            palette,
+            _TOKENS,
             _BASE_CSS,
             _NAV_CSS,
             _COMPONENT_CSS,
+            _BOARD_CSS,
             _KIOSK_CSS,
             _RESPONSIVE_CSS,
         )
     )
 
 
-def apply_custom_styles(dark_mode: bool = False):
-    st.markdown(f"<style>{_build_css(dark_mode)}</style>", unsafe_allow_html=True)
+def apply_custom_styles():
+    st.markdown(f"<style>{_build_css()}</style>", unsafe_allow_html=True)
 
 
 # ── Presentation helpers ─────────────────────────────────────────────────────

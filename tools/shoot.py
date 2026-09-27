@@ -120,6 +120,25 @@ def kill(proc):
             pass
 
 
+def dom_signature(page):
+    """A cheap fingerprint of what is on the page right now.
+
+    Element count, scroll height and text length together change whenever
+    Streamlit mounts a different amount of page, which is what we need to know
+    about -- not whether a particular selector exists.
+    """
+    return page.evaluate(
+        """() => {
+            const main = document.querySelector('[data-testid="stMain"]');
+            return [
+                document.querySelectorAll('[data-testid="stAppViewContainer"] *').length,
+                Math.round(document.documentElement.scrollHeight),
+                (main ? main.innerText : '').length,
+            ].join(':');
+        }"""
+    )
+
+
 def settle(page, timeout=45_000, frames=True):
     """Wait for the current Streamlit run to finish.
 
@@ -131,6 +150,15 @@ def settle(page, timeout=45_000, frames=True):
     has its own document, so a page-level `document.fonts.status === 'loaded'`
     says nothing about the type actually being rendered inside it -- which is
     how a fallback face can survive a screenshot unnoticed.
+
+    Then it waits for the page to stop changing. The waits above are all racy in
+    the same direction: right after a click, Streamlit has not necessarily
+    started its rerun yet, so "no status widget" and "network idle" are both
+    still true from the *previous* page and the run is measured mid-swap. That
+    is not a cosmetic problem -- a half-mounted page reports fewer font sizes
+    than the page has, so the type-scale check fails on whichever page happened
+    to be caught in flight. Same failure mode as a screenshot of a half-painted
+    page, one level up.
     """
     page.wait_for_selector('[data-testid="stAppViewContainer"]', timeout=timeout)
     page.wait_for_load_state("networkidle")
@@ -159,6 +187,15 @@ def settle(page, timeout=45_000, frames=True):
             except Exception:
                 # A cross-origin frame cannot be inspected. Nothing to assert.
                 pass
+    # Now wait for the page to hold still: two identical fingerprints in a row.
+    deadline = time.time() + timeout
+    previous = None
+    while time.time() < deadline:
+        current = dom_signature(page)
+        if current == previous:
+            break
+        previous = current
+        page.wait_for_timeout(500)
     page.wait_for_timeout(700)
 
 

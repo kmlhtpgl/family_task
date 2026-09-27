@@ -1,8 +1,17 @@
+# Streamlit's own theme, which styles the widgets utils/styles.py does not reach:
+# the file uploader's drop zone, the slider track, the toggle, popovers and the
+# sidebar. Left on the old light palette they rendered as light islands in a dark
+# app, which is most of what "the tabs take me to the old UI" was looking at.
+#
+# These are the Board's tokens written as hex, because that is all this file
+# accepts. tests/test_one_design.py converts the oklch in utils/styles.py and
+# fails if the two drift apart, so the values below are checked rather than
+# remembered.
 [theme]
-primaryColor = "#3879FA"
-backgroundColor = "#FCF8F3"
-secondaryBackgroundColor = "#F2F2F2"
-textColor = "#1F1F1F"
+primaryColor = "#00C7FF"           # --accent
+backgroundColor = "#0C0F17"        # --surface-0
+secondaryBackgroundColor = "#141923" # --surface-1
+textColor = "#F4F5F8"              # --text-primary
 font = "sans serif"
 
 [server]

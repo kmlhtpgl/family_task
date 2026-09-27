@@ -5,5 +5,8 @@ __pycache__/
 .DS_Store
 profile_photos/
 data/family_task_data.json
+# The admin password lives here. It is written at runtime, per machine, and it is
+# a credential: it has no business in the repository.
+data/admin_settings.json
 .streamlit/secrets.toml
 .screens/

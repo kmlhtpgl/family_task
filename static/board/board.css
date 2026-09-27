@@ -22,7 +22,10 @@
   --text: oklch(0.97 0.004 265);
   /* 9.1:1 on --surface-0. The old app shipped #999 at 2.85:1. */
   --muted: oklch(0.775 0.012 265);
-  --faint: oklch(0.66 0.014 265);
+  /* 0.68, not 0.66: at 0.66 this measured 4.30:1 on the app's --surface-3,
+     which is where 12px captions land. The app's --text-tertiary is this same
+     value, and tests/test_one_design.py holds the two files to it. */
+  --faint: oklch(0.68 0.014 265);
 
   --accent: oklch(0.78 0.16 232);
   --good: oklch(0.82 0.17 152);
