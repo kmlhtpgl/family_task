@@ -27,9 +27,10 @@
  * #kiosk-config, and watched with a MutationObserver so new data paints the
  * moment it lands.
  *
- * This first pass is read-only: selecting a person is local state, and nothing
- * is written. Ticking lands on the send() channel below, which Phase 1 proved
- * end to end.
+ * Selecting a person is local state and never round-trips. Ticking a task sends
+ * an intent and waits: no row changes here, because the only thing that may
+ * change a task is the server accepting it and the payload saying so on the way
+ * back down. tools/spike_check.py drives that round trip in a real browser.
  */
 (function () {
   "use strict";
@@ -616,6 +617,40 @@
       row.classList.add("task--worthless");
     }
 
+    /* The verb comes from the payload, not from the row's own status: the
+       canvas cannot be trusted to work out whether a click means "do this" or
+       "undo this", and getting it wrong would file somebody's points under the
+       wrong task. A locked task is not clickable at all, so the wall board
+       cannot collect refusals. */
+    if (task.action) {
+      row.classList.add("task--live");
+      row.setAttribute("role", "button");
+      row.setAttribute("tabindex", "0");
+      row.setAttribute(
+        "aria-label",
+        task.action === "reopen"
+          ? "Reopen " + task.title
+          : "Complete " + task.title + ", " + task.effective_points + " points"
+      );
+      row.addEventListener("click", function () {
+        send(task.action, { task_id: task.id });
+      });
+      row.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          send(task.action, { task_id: task.id });
+        }
+      });
+    }
+
+    if (task.action) {
+      var tick = el(
+        "span",
+        "task__tick" + (task.action === "reopen" ? " task__tick--reopen" : "")
+      );
+      row.appendChild(tick);
+    }
+
     row.appendChild(el("div", "task__title", task.title));
 
     if (task.lock) {
@@ -657,11 +692,28 @@
     next.appendChild(buildHead(payload));
     next.appendChild(buildRail(payload));
     next.appendChild(buildStage(payload));
+    /* A row is not allowed to tick itself, so the confirmation that the server
+       accepted it arrives here instead -- and only for the one render that
+       carries it. */
+    if (payload.flash) next.appendChild(buildFlash(payload.flash));
 
     root.textContent = "";
     root.appendChild(next);
 
     cachedOverdueDays = payload.overdue_days || 2;
+  }
+
+  function buildFlash(flash) {
+    var toast = el("div", "flash" + (flash.ok ? "" : " flash--bad"), flash.message);
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    /* Removed on a timer as well as by the next repaint: the repaint may be a
+       while away, and a message that outlives the task it describes is worse
+       than no message. */
+    setTimeout(function () {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 4200);
+    return toast;
   }
 
   function paint() {

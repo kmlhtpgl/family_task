@@ -8,8 +8,6 @@ from utils.db_helpers import get_all_data
 from utils.styles import apply_custom_styles
 from utils.kiosk_helpers import get_kiosk_bootstrap, KIOSK_IFRAME_HTML
 from utils.admin_helpers import load_admin_password
-from app_pages.dashboard import dashboard_page
-from app_pages.kanban import kanban_page
 from app_pages.kids_profiles import kids_profiles_page
 from app_pages.parents_profiles import parents_profiles_page
 from app_pages.reading_library import reading_library_page
@@ -18,7 +16,12 @@ from app_pages.rewards import rewards_page
 from app_pages.meeting import meeting_page
 from app_pages.admin import admin_page
 from app_pages.prayer import prayer_page
-from app_pages.board import board_enabled, board_page, toggle_board
+from app_pages.board import (
+    CLASSIC_LANDING,
+    board_enabled,
+    board_page,
+    toggle_board,
+)
 
 st.set_page_config(
     page_title="Family Task Tracker",
@@ -68,7 +71,7 @@ _board_on = board_enabled()
 if not _board_on:
     st.markdown(f"""
         <div class="top-navbar">
-            <a href="?nav=dashboard" class="navbar-brand">
+            <a href="?nav=board" class="navbar-brand">
                 <h1>Family Task</h1>
             </a>
             <div class="navbar-actions">
@@ -94,8 +97,6 @@ st.markdown(
 )
 
 components.html(KIOSK_IFRAME_HTML, height=0)
-
-data = get_all_data()
 
 if _board_on:
     # Streamlit's own header and block padding would otherwise frame the board
@@ -140,16 +141,19 @@ if _board_on:
         """,
         unsafe_allow_html=True,
     )
-    board_page(data)
+    board_page(get_all_data)
     st.stop()
+
+data = get_all_data()
 
 # Page navigation bar
 if "page" not in st.session_state:
-    st.session_state.page = "dashboard"
+    st.session_state.page = "board" if _board_on else CLASSIC_LANDING
 
+# The board and the old Daily Board are gone from here: the board is the app's
+# landing page in its own right, and the Daily Board duplicated it.
 pages = [
-    ("dashboard", "📊", "Dashboard"),
-    ("kanban", "🎯", "Daily Board"),
+    ("board", "🗂️", "Board"),
     ("parents", "👨‍👩‍👧", "Parents"),
     ("kids", "🧒", "Kids"),
     ("reading", "📚", "Reading"),
@@ -180,20 +184,23 @@ with st.container():
             st.rerun()
 
 # Handle nav query param (clicking the Family Task header)
-if st.query_params.get("nav") == "dashboard":
-    st.session_state.page = "dashboard"
+if st.query_params.get("nav") == "board":
+    st.session_state.page = "board"
     st.query_params.clear()
     st.rerun()
 
 # Determine page from session state
-page = st.session_state.get("page", "dashboard")
+page = st.session_state.get("page", "board")
+
+# The classic shell cannot render the board: its one route is full-bleed and
+# belongs to the board shell, so a stale "board" here falls through to the
+# classic landing rather than nesting a full-screen canvas in the old chrome.
+if page == "board" and not _board_on:
+    page = CLASSIC_LANDING
 
 # Route to pages
-if page == "dashboard":
-    dashboard_page(data)
-
-elif page == "kanban":
-    kanban_page(data)
+if page == "board":
+    board_page(get_all_data)
 
 elif page == "parents":
     parents_profiles_page(data)

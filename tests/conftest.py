@@ -86,9 +86,9 @@ def _insert(data, table, row):
 
 # How each writer maps onto the in-memory store, expressed against the real
 # function's own signature so that a caller may pass arguments positionally or
-# by keyword and get the same result. Pages are not consistent about this:
-# dashboard.py calls update_task(id, updates) positionally while admin.py uses
-# keywords, and the stub has to honour both.
+# by keyword and get the same result. Callers are not consistent about this:
+# the board's actions call update_task(id, updates) positionally while
+# admin.py uses keywords, and the stub has to honour both.
 UPDATES = {
     "update_task": ("tasks", "task_id"),
     "update_book": ("books", "book_id"),
@@ -134,7 +134,7 @@ FIELD_INSERTS = {
 def fresh_page_modules():
     """Drop app_pages from sys.modules so every test re-imports them.
 
-    AppTest executes app.py fresh, but Python caches `app_pages.dashboard` and
+    AppTest executes app.py fresh, but Python caches `app_pages.board` and
     friends in sys.modules across tests. Those modules bind the data-layer
     functions at import time (`from utils.db_helpers import update_task`), so
     without this, the second test in a session would still be calling the
@@ -161,7 +161,7 @@ def store(monkeypatch):
     calls = []
     # Signatures captured before patching, so recorded calls can be normalised
     # the same way the real function would have bound them. Callers in this app
-    # are inconsistent about positional vs keyword (dashboard.py calls
+    # are inconsistent about positional vs keyword (the board's actions call
     # update_task(id, updates), admin.py uses keywords), so a test that asserts
     # on raw call tuples is asserting on trivia.
     signatures = {
@@ -306,7 +306,22 @@ def stub_assets(monkeypatch):
 
 @pytest.fixture
 def app(store, stub_assets):
-    """AppTest over the real app.py with the data layer stubbed."""
+    """AppTest over the real app.py with the data layer stubbed.
+
+    The board is the default shell, so this lands on the board. Tests about the
+    pages it does not replace want `classic` instead.
+    """
+    return AppTest.from_file(str(APP), default_timeout=30)
+
+
+@pytest.fixture
+def classic(store, stub_assets, monkeypatch):
+    """AppTest over the real app.py, started in the classic shell.
+
+    The board owns the landing page, so a test that clicks `nav_kids` would
+    otherwise be looking for a button the board has no reason to draw.
+    """
+    monkeypatch.setenv("FAMILY_TASK_CLASSIC", "1")
     return AppTest.from_file(str(APP), default_timeout=30)
 
 

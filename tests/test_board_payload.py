@@ -190,6 +190,7 @@ def test_lane_groups_are_ordered_past_due_today_then_coming_up():
         "later": 1,
         "anytime": 0,
         "scheduled": 0,
+        "done": 0,
     }
 
 
@@ -198,6 +199,7 @@ def test_empty_groups_are_left_out_entirely():
     to be absent rather than present and empty."""
     lane = next(l for l in payload()["lanes"] if l["person_id"] == 2)
     assert group(lane, "overdue") is None
+    assert group(lane, "done") is None
     assert group(lane, "anytime") is None
     for g in lane["groups"]:
         assert g["tasks"], f"empty group survived: {g['key']}"
@@ -297,6 +299,8 @@ def test_no_open_task_falls_between_the_buckets():
     # used rather than the rendered tasks, because the rendered lists are capped
     # for the wall display and would hide the very loss being checked for.
     counts = lane["counts"]
+    # `done` is the one bucket that is not open work, and it is empty here.
+    assert counts["done"] == 0
     assert sum(counts.values()) == len(tasks)
     assert counts == {
         # Three or more days late. `is_task_overdue` asks whether the task is
@@ -309,6 +313,8 @@ def test_no_open_task_falls_between_the_buckets():
         # Offsets 4..10 are pre-generated chores past the horizon: counted only.
         "scheduled": 7,
         "anytime": 1,
+        # Completed today, so it can be undone from the board.
+        "done": 0,
     }
     # And no task is in two of them.
     seen = [t["id"] for g in lane["groups"] for t in g["tasks"]]
@@ -486,6 +492,7 @@ def test_a_day_with_no_data_still_renders_every_cell():
             "later": 0,
             "anytime": 0,
             "scheduled": 0,
+            "done": 0,
         }
     assert empty["totals"]["progress"] is None
     assert empty["totals"]["overdue"] == 0
@@ -562,3 +569,72 @@ def test_orphan_parent_tasks_do_not_crash_a_lane():
     assert "parent:4242" not in [l["key"] for l in result["lanes"]]
     # Still counted in the family-wide totals, because the work is real.
     assert result["totals"]["open_today"] >= 1
+
+
+def test_a_task_finished_today_stays_on_the_board_to_be_undone():
+    """Otherwise a mis-click on a wall tablet is only fixable in the database.
+
+    The task leaves the open buckets the moment it is done, so without this group
+    it would vanish -- and with it the only affordance for putting it back.
+    """
+    data = sample_data()
+    # Task 1 is "Set the table", due today, and open.
+    task = next(t for t in data["tasks"] if t["id"] == 1)
+    task["status"] = "Done"
+    task["completed_date"] = date.today().isoformat()
+
+    lane = next(l for l in build_board_payload(data)["lanes"] if l["key"] == "kid:1")
+    done = group(lane, "done")
+    assert done is not None
+    # Zayd also finished "Read 20 pages" today, so this is a list rather than
+    # a single row.
+    assert "Set the table" in [t["title"] for t in done["tasks"]]
+    # It has left the outstanding work. Zayd's prayers are still there, so this
+    # is about the one task, not about the group being empty.
+    assert "Set the table" not in [t["title"] for t in group(lane, "today")["tasks"]]
+    assert lane["counts"]["done"] == 2
+
+
+def test_only_todays_completions_are_kept_for_undo():
+    """A wall board cannot show a year of finished chores.
+
+    Yesterday's work is gone from the board, which is the point: this is a
+    record of what is outstanding, not an archive.
+    """
+    data = sample_data()
+    # Bilal, who has nothing completed today, so the only candidate is the task
+    # being pushed into the past here.
+    task = next(t for t in data["tasks"] if t["id"] == 3)
+    task["status"] = "Done"
+    task["completed_date"] = (date.today() - timedelta(days=1)).isoformat()
+
+    lane = next(l for l in build_board_payload(data)["lanes"] if l["key"] == "kid:3")
+    assert group(lane, "done") is None
+
+
+def test_a_finished_task_offers_undo_even_when_it_cannot_be_completed():
+    """can_mark_done would refuse a task this overdue, and it must refuse a
+    finished one too -- but the row still has to be clickable, or the only way
+    to undo is the database."""
+    data = sample_data()
+    task = next(t for t in data["tasks"] if t["id"] == 3)  # five days overdue
+    task["status"] = "Done"
+    task["completed_date"] = date.today().isoformat()
+
+    lane = next(l for l in build_board_payload(data)["lanes"] if l["key"] == "kid:3")
+    entry = group(lane, "done")["tasks"][0]
+    assert entry["action"] == "reopen"
+
+
+def test_the_action_verb_is_stated_not_inferred():
+    """The canvas must not work out "complete" or "reopen" from the status."""
+    payload = build_board_payload(sample_data())
+    for lane in payload["lanes"]:
+        for group_ in lane["groups"]:
+            for entry in group_["tasks"]:
+                if entry["status"] == "Done":
+                    assert entry["action"] == "reopen"
+                elif entry["lock"] is None:
+                    assert entry["action"] == "complete"
+                else:
+                    assert entry["action"] is None

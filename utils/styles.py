@@ -7,9 +7,9 @@ and dark mode.
 
 Layout note: Streamlit components live in the same document as this stylesheet,
 so components reference semantic custom properties (``var(--surface-1)``)
-instead of hardcoded colors. The one exception is the kanban board, which is
-rendered inside a ``streamlit-sortables`` iframe where CSS variables do not
-inherit - that file carries literal values on purpose.
+instead of hardcoded colors. The board is the exception: it is a separate
+document with its own visual system in ``static/board/board.css``, and inherits
+nothing from here.
 """
 
 import streamlit as st
@@ -909,40 +909,6 @@ _COMPONENT_CSS = """
     font-size: 0.8125rem;
     font-weight: var(--weight-medium);
 }
-
-/* ── Week grid (dashboard) ──
-   The day columns are the column block that directly follows the .week-grid
-   marker. This replaces an older ":has(> :nth-child(7))" hack that styled
-   whichever 7-wide row it happened to find. */
-.week-grid { display: none; }
-[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.week-grid)
-    + [data-testid="stHorizontalBlock"] {
-    gap: 0.5rem !important;
-}
-[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(.week-grid)
-    + [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
-    background: var(--surface-2);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius);
-    padding: 0.375rem 0.5rem 0.5rem;
-}
-
-.day-head {
-    text-align: center;
-    padding: 0.375rem 0.25rem;
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    font-size: 0.8125rem;
-    margin-bottom: 0.25rem;
-}
-.day-head b { color: var(--text-primary); font-weight: var(--weight-semibold); }
-.day-head small { color: var(--text-tertiary); font-size: 0.6875rem; }
-.day-head--today {
-    background: var(--accent);
-    color: var(--accent-fg);
-}
-.day-head--today b,
-.day-head--today small { color: var(--accent-fg); }
 
 /* ── Data table (prayer report) ── */
 .th {

@@ -243,14 +243,18 @@ CHECKS = {
 }
 
 
-def audit(route="dashboard", view="kiosk", out=None):
+def audit(route="board", view="kiosk", out=None):
     from playwright.sync_api import sync_playwright
 
     width, height = VIEWS[view]
     port = free_port()
     board = route == "board"
+    # The board is the default shell, so auditing a classic page means asking
+    # for the classic shell explicitly. Without this the classic routes would
+    # quietly measure the board instead and report a clean pass for a page
+    # nobody ever looked at.
     proc = start_app(
-        port, env_overrides={"FAMILY_TASK_BOARD": "1"} if board else None
+        port, env_overrides=None if board else {"FAMILY_TASK_CLASSIC": "1"}
     )
     base = f"http://127.0.0.1:{port}"
     report = {}
@@ -273,11 +277,11 @@ def audit(route="dashboard", view="kiosk", out=None):
                     if f.evaluate("() => !!document.getElementById('board')")
                 ]
                 if not board_frames:
-                    raise SystemExit("no board frame found; is FAMILY_TASK_BOARD set?")
+                    raise SystemExit("no board frame found; is the board shell serving?")
                 target = board_frames[-1]
                 measurement = target.evaluate(JS_MEASURE)
             else:
-                if route != "dashboard" and route in ROUTES:
+                if route in ROUTES:
                     target = page.locator("button", has_text=ROUTES[route]).first
                     if target.count():
                         target.click()
@@ -299,7 +303,7 @@ def audit(route="dashboard", view="kiosk", out=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--route", default="dashboard")
+    ap.add_argument("--route", default="board", choices=["board", *ROUTES])
     ap.add_argument("--view", default="kiosk", choices=list(VIEWS))
     ap.add_argument("--json")
     ap.add_argument("--show-text", action="store_true", help="print every text node")

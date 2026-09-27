@@ -45,7 +45,7 @@ WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 # list. The cap is decided here rather than in the canvas so it can be asserted
 # without a browser, and so the "+N more" count is computed from the same list
 # that was truncated.
-GROUP_LIMITS = {"overdue": 6, "today": 14, "later": 6, "anytime": 6}
+GROUP_LIMITS = {"overdue": 6, "today": 14, "later": 6, "anytime": 6, "done": 8}
 
 # Order is the order a person wants them in: what went wrong, what is on today,
 # what is coming.
@@ -54,6 +54,10 @@ GROUP_META = (
     ("today", "Today", ""),
     ("later", "Coming up", ""),
     ("anytime", "Anytime", ""),
+    # Last, and only ever today's. It exists so a tick can be undone: without
+    # it a completed task leaves the board entirely and a mis-click on a wall
+    # tablet is only fixable by going to the database.
+    ("done", "Done today", "done"),
 )
 
 
@@ -91,6 +95,15 @@ def _task_entry(task, on_date: date) -> dict:
         # None when the task may be ticked. "future" / "overdue" otherwise, so
         # the canvas can explain a locked task instead of just greying it out.
         "lock": None if allowed else reason,
+        # What a click on this row should ask for. Stated here so the canvas
+        # never infers it from the status and cannot offer the wrong verb. A
+        # completed task is always reopenable: undoing a mis-click must not be
+        # gated by the same rule that gates earning points.
+        "action": (
+            "reopen"
+            if task.get("status") == "Done"
+            else ("complete" if allowed else None)
+        ),
     }
 
 
@@ -128,7 +141,14 @@ def _bucket(tasks, on_date: date) -> dict:
     counts by definition, but `can_mark_done` has always allowed them, so hiding
     them from the board would make live work look like it does not exist.
     """
-    out = {"overdue": [], "today": [], "later": [], "anytime": [], "scheduled": 0}
+    out = {
+        "overdue": [],
+        "today": [],
+        "later": [],
+        "anytime": [],
+        "done": [],
+        "scheduled": 0,
+    }
     # A task stays tickable until OVERDUE_DAYS have passed, so anything due
     # inside that window is still live work. The late-but-tickable tail of the
     # past therefore belongs in "today" alongside the rest of what needs doing
@@ -145,6 +165,8 @@ def _bucket(tasks, on_date: date) -> dict:
     for task in tasks:
         due = task.get("due_date")
         if task.get("status") == "Done":
+            if task.get("completed_date") == today:
+                out["done"].append(_task_entry(task, on_date))
             continue
         if is_task_overdue(task):
             out["overdue"].append(_task_entry(task, on_date))
@@ -292,12 +314,14 @@ def _build_lane(kind: str, person: dict, tasks: list, on_date: date) -> dict:
     }
 
 
-def build_board_payload(data, on_date: date | None = None) -> dict:
-    """The whole read-only Board, as JSON-ready primitives.
+def build_board_payload(data, on_date: date | None = None, flash: dict | None = None) -> dict:
+    """The whole Board, as JSON-ready primitives.
 
-    Read-only by design for this first pass: it reports what is due, what is
-    done, and what cannot be ticked yet, and issues no writes. Ticking lands on
-    the same bridge that Phase 1 proved, with the same seq de-duplication.
+    Reports what is due, what is done, and what may be ticked, and issues no
+    writes. Each task carries the `action` it would send, decided here by the
+    same rules the write path enforces, so the canvas never has to work out what
+    is allowed. `tools/spike_check.py` drives the resulting round trip in a
+    real browser.
     """
     on_date = on_date or date.today()
     tasks = data.get("tasks", [])
@@ -324,6 +348,8 @@ def build_board_payload(data, on_date: date | None = None) -> dict:
 
     return {
         "generated_at": on_date.isoformat(),
+        # The result of the last tick, shown once. Null on every other render.
+        "flash": flash,
         "today": iso,
         "today_label": f"{WEEKDAYS[on_date.weekday()]} {on_date.day} {on_date:%b %Y}",
         "overdue_days": OVERDUE_DAYS,

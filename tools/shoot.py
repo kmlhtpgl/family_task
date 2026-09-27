@@ -39,7 +39,6 @@ VIEWS = {
 
 # Classic nav labels, in the order app.py defines them.
 ROUTES = {
-    "dashboard": "📊 Dashboard",
     "parents": "👨‍👩‍👧 Parents",
     "kids": "🧒 Kids",
     "reading": "📚 Reading",
@@ -48,7 +47,6 @@ ROUTES = {
     "rewards": "💰 Rewards",
     "meeting": "👪 Meeting",
     "admin": "⚙️ Admin",
-    "kanban": "🎯 Daily Board",
 }
 
 ADMIN_PASSWORD_HINT = "set FAMILY_TASK_ADMIN_PASSWORD to shoot the admin page"
@@ -73,7 +71,7 @@ def wait_for_health(port, timeout=90):
     return False
 
 
-def start_app(port, script="app.py", env_overrides=None):
+def start_app(port, script="app.py", env_overrides=None, script_args=()):
     env = dict(os.environ)
     env["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
     if env_overrides:
@@ -84,6 +82,7 @@ def start_app(port, script="app.py", env_overrides=None):
             str(REPO_ROOT / "path/to/venv/bin/streamlit"),
             "run",
             script,
+            *script_args,
             "--server.port",
             str(port),
             "--server.address",
@@ -193,58 +192,81 @@ def unlock_admin(page):
     return True
 
 
+def shoot_phase(browser, base, routes, views, args):
+    """Shoot one shell's worth of routes. Returns the shots taken."""
+    written = []
+    for view in views:
+        target = OUT / view if not args.baseline else BASELINE / view
+        target.mkdir(parents=True, exist_ok=True)
+
+        for route in routes:
+            page = browser.new_page(
+                viewport={"width": VIEWS[view][0], "height": VIEWS[view][1]},
+                device_scale_factor=2 if args.retina else 1,
+            )
+            errors = []
+            page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+            page.on("pageerror", lambda e: errors.append(str(e)))
+
+            page.goto(base, wait_until="domcontentloaded")
+            settle(page)
+
+            # The board is the landing page, so it needs no nav click. Every
+            # other route is a classic page and has to be clicked to.
+            if route != "board":
+                if not click_nav(page, ROUTES[route]):
+                    print(f"  {view}/{route}: nav button not found, skipping")
+                    page.close()
+                    continue
+                if route == "admin" and not unlock_admin(page):
+                    page.close()
+                    continue
+
+            out = target / f"{route}.png"
+            page.screenshot(path=str(out))
+            status = "ok"
+            if errors:
+                status = f"{len(errors)} console error(s)"
+            print(f"  {view}/{route}: {out.relative_to(REPO_ROOT)} [{status}]")
+            for e in errors[:3]:
+                print(f"      {e[:160]}")
+            written.append((view, route, out, errors))
+            page.close()
+    return written
+
+
 def shoot(args):
     from playwright.sync_api import sync_playwright
 
-    routes = [args.route] if args.route else list(ROUTES)
+    routes = [args.route] if args.route else ["board", *ROUTES]
     views = [args.view] if args.view else list(VIEWS)
-    port = free_port()
-    proc = start_app(port)
-    base = f"http://127.0.0.1:{port}"
+
+    # The board and the classic pages are two different shells, so they are two
+    # different app runs. Screenshotting a classic route against the default
+    # board shell would quietly save a picture of the board under a classic
+    # page's name.
+    phases = [
+        ([r for r in routes if r == "board"], None),
+        ([r for r in routes if r != "board"], {"FAMILY_TASK_CLASSIC": "1"}),
+    ]
 
     written = []
-    try:
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch()
-            for view in views:
-                width, height = VIEWS[view]
-                target = OUT / view if not args.baseline else BASELINE / view
-                target.mkdir(parents=True, exist_ok=True)
-
-                for route in routes:
-                    page = browser.new_page(
-                        viewport={"width": width, "height": height},
-                        device_scale_factor=2 if args.retina else 1,
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        try:
+            for wanted, env in phases:
+                if not wanted:
+                    continue
+                port = free_port()
+                proc = start_app(port, env_overrides=env)
+                try:
+                    written += shoot_phase(
+                        browser, f"http://127.0.0.1:{port}", wanted, views, args
                     )
-                    errors = []
-                    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
-                    page.on("pageerror", lambda e: errors.append(str(e)))
-
-                    page.goto(base, wait_until="domcontentloaded")
-                    settle(page)
-
-                    if route != "dashboard":
-                        if not click_nav(page, ROUTES[route]):
-                            print(f"  {view}/{route}: nav button not found, skipping")
-                            page.close()
-                            continue
-                        if route == "admin" and not unlock_admin(page):
-                            page.close()
-                            continue
-
-                    out = target / f"{route}.png"
-                    page.screenshot(path=str(out))
-                    status = "ok"
-                    if errors:
-                        status = f"{len(errors)} console error(s)"
-                    print(f"  {view}/{route}: {out.relative_to(REPO_ROOT)} [{status}]")
-                    for e in errors[:3]:
-                        print(f"      {e[:160]}")
-                    written.append((view, route, out, errors))
-                    page.close()
+                finally:
+                    kill(proc)
+        finally:
             browser.close()
-    finally:
-        kill(proc)
 
     if args.compare:
         diff(written)

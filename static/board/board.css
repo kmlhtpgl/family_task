@@ -574,6 +574,21 @@ body {
   color: var(--good);
 }
 
+/* Finished work recedes. It is still there to be undone, so it must not
+   disappear, but it should not compete with what is outstanding. */
+.group--done .group__name {
+  color: var(--good);
+}
+
+.group--done .task {
+  opacity: 0.62;
+}
+
+.group--done .task:hover,
+.group--done .task:focus-visible {
+  opacity: 1;
+}
+
 .group__items {
   display: flex;
   flex-direction: column;
@@ -584,7 +599,7 @@ body {
 /* ── Task rows ────────────────────────────────────────────────────────────── */
 .task {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: 14px;
   padding: 13px 16px;
@@ -596,6 +611,49 @@ body {
 
 .task:hover {
   background: var(--surface-2);
+}
+
+/* A tickable row. The target is the whole row, not a checkbox: this is read
+   from across a room and aimed at with a finger. */
+.task--live {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.task--live:hover,
+.task--live:focus-visible {
+  background: var(--surface-2);
+  border-color: var(--hairline-strong);
+}
+
+.task--live:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Pending, not optimistic. The row does not tick itself: the server decides
+   whether it may, and the repaint that follows is the truth. A row that filled
+   in and then un-filled would be worse than one that waits. */
+.task--live:active {
+  background: var(--surface-3);
+}
+
+.task__tick {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--hairline-strong);
+  position: relative;
+  transition: border-color 180ms var(--ease), background 180ms var(--ease);
+}
+
+.task--live:hover .task__tick {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+.task__tick--reopen {
+  border-style: dashed;
 }
 
 .task__title {
@@ -705,6 +763,41 @@ body {
   font-weight: 650;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Result toast ────────────────────────────────────────────────────────────
+   Sits over the stage rather than in it: a confirmation must not move the work
+   around while it is being read. */
+.flash {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, 78%);
+  padding: 14px 20px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--good) 20%, var(--surface-2));
+  border: 1px solid color-mix(in oklab, var(--good) 45%, transparent);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.45);
+  animation: flash-in 260ms var(--ease);
+}
+
+.flash--bad {
+  background: color-mix(in oklab, var(--late) 22%, var(--surface-2));
+  border-color: color-mix(in oklab, var(--late) 50%, transparent);
+}
+
+@keyframes flash-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 /* ── Empty state ──────────────────────────────────────────────────────────── */
