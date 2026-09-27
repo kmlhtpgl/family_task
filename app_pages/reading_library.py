@@ -12,10 +12,11 @@ from utils.book_helpers import (
 )
 from utils.db_helpers import update_book, delete_book, add_reading_log
 from utils.data_helpers import today_string
+from utils.page_chrome import render_page_header
 
 
 def reading_library_page(data):
-    st.header("📚 Reading Library")
+    render_page_header("Reading", "Keep books, pages, and progress moving together.")
 
     if not data["kids"] and not data.get("parents"):
         st.info("Add children or parents first in Admin.")

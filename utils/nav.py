@@ -10,15 +10,15 @@ in it.
 import streamlit as st
 
 PAGES = (
-    ("board", "🗂️", "Board"),
-    ("parents", "👨‍👩‍👧", "Parents"),
-    ("kids", "🧒", "Kids"),
-    ("reading", "📚", "Reading"),
-    ("quran", "📖", "Quran"),
-    ("prayer", "🕌", "Prayer"),
-    ("rewards", "💰", "Rewards"),
-    ("meeting", "👪", "Meeting"),
-    ("admin", "⚙️", "Admin"),
+    ("board", "", "Board"),
+    ("parents", "", "Parents"),
+    ("kids", "", "Kids"),
+    ("reading", "", "Reading"),
+    ("quran", "", "Quran"),
+    ("prayer", "", "Prayer"),
+    ("rewards", "", "Rewards"),
+    ("meeting", "", "Meeting"),
+    ("admin", "", "Admin"),
 )
 
 
@@ -39,7 +39,7 @@ def render_nav(active: str) -> None:
         for col, (page_key, icon, label) in zip(cols, PAGES):
             btn_type = "primary" if page_key == active else "secondary"
             if col.button(
-                f"{icon} {label}",
+                label,
                 key=f"nav_{page_key}",
                 use_container_width=True,
                 type=btn_type,

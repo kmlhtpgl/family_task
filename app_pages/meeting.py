@@ -2,6 +2,7 @@ import html
 from datetime import date, datetime, timedelta
 
 import streamlit as st
+from utils.page_chrome import render_page_header
 
 from utils.db_helpers import (
     add_meeting_note,
@@ -54,8 +55,7 @@ def most_recent_past_session(sessions, week_date):
 
 
 def meeting_page(data):
-    st.header("👪 Meeting")
-    st.caption("Weekly family meeting, held every Sunday. Set up the week, tick items off, keep a record.")
+    render_page_header("Meeting", "Set the family agenda, carry unfinished items forward, and keep the record.")
 
     sessions = list(data.get("meeting_sessions", []))
     notes = list(data.get("meeting_notes", []))

@@ -321,7 +321,12 @@ def _build_lane(kind: str, person: dict, tasks: list, on_date: date) -> dict:
     }
 
 
-def build_board_payload(data, on_date: date | None = None, flash: dict | None = None) -> dict:
+def build_board_payload(
+    data,
+    on_date: date | None = None,
+    flash: dict | None = None,
+    compact: bool = False,
+) -> dict:
     """The whole Board, as JSON-ready primitives.
 
     Reports what is due, what is done, and what may be ticked, and issues no
@@ -333,22 +338,26 @@ def build_board_payload(data, on_date: date | None = None, flash: dict | None = 
     on_date = on_date or date.today()
     tasks = data.get("tasks", [])
     iso = on_date.isoformat()
+    # The wall is a short-horizon action surface, not an archive. Selecting a
+    # day shows only work due on that day; the day picker is the way to move to
+    # the neighbouring two days.
+    visible_tasks = [task for task in tasks if task.get("due_date") == iso] if compact else tasks
 
     # Kids and parents get lanes too. They are the same shape of work, and
     # leaving parents out meant two of the five buttons in the rail fell through
     # to the everyone view. Identity is (kind, id) rather than id alone: the two
     # tables number independently, so kid 1 and parent 1 are different people.
     lanes = [
-        _build_lane("kid", kid, tasks, on_date) for kid in data.get("kids", [])
+        _build_lane("kid", kid, visible_tasks, on_date) for kid in data.get("kids", [])
     ] + [
-        _build_lane("parent", parent, tasks, on_date)
+        _build_lane("parent", parent, visible_tasks, on_date)
         for parent in data.get("parents", [])
     ]
 
-    open_today = [t for t in tasks if t.get("due_date") == iso and t.get("status") != "Done"]
+    day_tasks = [t for t in visible_tasks if t.get("due_date") == iso]
+    open_today = [t for t in day_tasks if t.get("status") != "Done"]
     done_today = [
-        t
-        for t in tasks
+        t for t in day_tasks
         if t.get("status") == "Done" and t.get("completed_date") == iso
     ]
     all_overdue = [t for t in tasks if is_task_overdue(t)]

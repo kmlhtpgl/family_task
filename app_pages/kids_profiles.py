@@ -15,10 +15,11 @@ from utils.surah_helpers import (
 from utils.achievement_helpers import get_kid_achievements
 from utils.styles import avatar_image, achievement_badge
 from utils.summary_helpers import compute_weekly_summary
+from utils.page_chrome import render_page_header
 
 
 def kids_profiles_page(data):
-    st.header("👨‍👩‍👧‍👦 Kids Profiles")
+    render_page_header("Kids", "See each child’s momentum, commitments, and wins.")
 
     if not data["kids"]:
         st.info("No children added yet. Go to Admin to add a child.")

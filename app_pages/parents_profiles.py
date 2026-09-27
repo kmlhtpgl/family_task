@@ -9,10 +9,11 @@ from utils.achievement_helpers import get_parent_achievements
 from utils.data_helpers import today_string
 from utils.styles import avatar_image, achievement_badge
 from utils.summary_helpers import compute_weekly_summary
+from utils.page_chrome import render_page_header
 
 
 def parents_profiles_page(data):
-    st.header("👨‍👩‍👧‍👦 Parents Profiles")
+    render_page_header("Parents", "A clear view of household progress, tasks, and reading.")
 
     parents = data.get("parents", [])
 

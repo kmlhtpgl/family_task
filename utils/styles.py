@@ -317,6 +317,19 @@ _NAV_CSS = """
     position: relative;
     z-index: 10;
 }
+.kiosk-direct-test {
+    width: 100%;
+    min-height: 2.5rem;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: var(--accent-fg);
+    font: 600 0.8125rem var(--font);
+    cursor: pointer;
+    transition: transform var(--transition), background var(--transition);
+}
+.kiosk-direct-test:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.kiosk-direct-test:active { transform: translateY(0); }
 
 .navbar-brand {
     display: flex;
@@ -364,6 +377,50 @@ _NAV_CSS = """
     letter-spacing: 0.1em;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+}
+.page-heading {
+    display: grid;
+    gap: 0.3rem;
+    margin: 0.5rem 0 1.5rem;
+    padding: 1.25rem 1.35rem 1.3rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    background: linear-gradient(120deg, var(--surface-1), var(--surface-0));
+    position: relative;
+    overflow: hidden;
+}
+.page-heading::after {
+    content: "";
+    position: absolute;
+    width: 18rem;
+    height: 10rem;
+    right: -7rem;
+    top: -6rem;
+    border-radius: 50%;
+    background: var(--accent-subtle);
+    filter: blur(12px);
+}
+.page-heading__eyebrow {
+    color: var(--accent);
+    font: 600 0.68rem var(--font);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 1;
+}
+.page-heading__title {
+    color: var(--text-primary);
+    font: 700 clamp(1.55rem, 3vw, 2.2rem)/1.1 var(--font);
+    letter-spacing: -0.045em;
+    position: relative;
+    z-index: 1;
+}
+.page-heading__description {
+    max-width: 44rem;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    position: relative;
+    z-index: 1;
 }
 """
 

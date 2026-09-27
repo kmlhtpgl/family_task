@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 import streamlit as st
+from utils.page_chrome import render_page_header
 
 from utils.task_helpers import get_monthly_points_for_kid, get_monthly_points_for_parent, get_monthly_adjustment_points
 from utils.db_helpers import add_reward_session, update_reward_session
@@ -10,7 +11,7 @@ POINTS_PER_GBP = 300
 
 
 def rewards_page(data):
-    st.header("💰 Monthly Rewards")
+    render_page_header("Rewards", "Turn steady effort into a simple, visible monthly goal.")
     st.caption(f"Every {POINTS_PER_GBP} points = £1 GBP")
 
     if not data["kids"] and not data.get("parents"):

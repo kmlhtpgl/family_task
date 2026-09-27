@@ -42,28 +42,28 @@ from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
 from utils.admin_helpers import load_admin_password, save_admin_password
 from utils.kiosk_helpers import get_prayer_times, get_audio_bytes, get_weather
+from utils.page_chrome import render_page_header
 
 DATA_DIR = Path("data")
 
 
 def admin_page(data):
-    st.header("⚙️ Admin Panel")
-    st.caption("Manage your family: parents, children, tasks, books, and more.")
+    render_page_header("Admin", "Shape the household system: people, routines, content, and settings.", "Control room")
 
     admin_tabs = [
-        ("parents", "👨‍👩‍👧‍👦 Parents"),
-        ("children", "🧒 Children"),
-        ("task_list", "📋 Task List"),
-        ("assign_task", "🎯 Assign Task"),
-        ("remove_task", "🗑️ Remove Task"),
-        ("book_list", "📚 Book List"),
-        ("assign_book", "📖 Assign Book"),
-        ("surah_list", "📖 Surah List"),
-        ("assign_surah", "🎯 Assign Surah"),
-        ("bonus_penalty", "🎯 Bonus/Penalty"),
-        ("meeting_templates", "🤝 Meeting Templates"),
-        ("kiosk", "🖥️ Kiosk"),
-        ("settings", "⚙️ Settings")
+        ("parents", "Parents"),
+        ("children", "Children"),
+        ("task_list", "Task list"),
+        ("assign_task", "Assign task"),
+        ("remove_task", "Remove task"),
+        ("book_list", "Book list"),
+        ("assign_book", "Assign book"),
+        ("surah_list", "Quran list"),
+        ("assign_surah", "Assign Quran"),
+        ("bonus_penalty", "Bonus / penalty"),
+        ("meeting_templates", "Meeting templates"),
+        ("kiosk", "Kiosk"),
+        ("settings", "Settings")
     ]
 
     if "admin_tab" not in st.session_state:
@@ -1485,8 +1485,8 @@ def bonus_penalty_tab(data):
 # -----------------------
 
 def kiosk_settings_tab(data):
-    st.subheader("🖥️ Kiosk Settings")
-    st.caption("Configure the wall-mounted iPad experience: screensaver, adhan, and screen wake lock.")
+    st.subheader("Kiosk control room")
+    st.caption("Tune the wall display, preview the screensaver, and verify adhan playback from this browser.")
 
     from utils.kiosk_helpers import load_kiosk_settings, save_kiosk_settings
     settings = load_kiosk_settings()
@@ -1501,17 +1501,17 @@ def kiosk_settings_tab(data):
     col1, col2, col3 = st.columns(3)
     with col1:
         st.toggle(
-            "🖼️ Screensaver",
+            "Screensaver",
             key="kiosk_screensaver_enabled"
         )
     with col2:
         st.toggle(
-            "🕌 Adhan",
+            "Adhan",
             key="kiosk_adhan_enabled"
         )
     with col3:
         st.slider(
-            "⏱️ Idle timeout (minutes)",
+            "Idle timeout (minutes)",
             min_value=1,
             max_value=30,
             key="kiosk_idle_timeout"
@@ -1528,9 +1528,11 @@ def kiosk_settings_tab(data):
 
     _t1, _t2, _t3 = st.columns([1, 1, 1])
     with _t1:
-        if st.button("🖼️ Test Screensaver", use_container_width=True, type="primary"):
-            st.session_state.kiosk_test_screensaver = True
-            st.rerun()
+        st.markdown(
+            '<button class="kiosk-direct-test" type="button" '
+            'onclick="window.Kiosk && window.Kiosk.screensaver()">Preview screensaver</button>',
+            unsafe_allow_html=True,
+        )
     with _t2:
         _test_prayer = st.selectbox(
             "Prayer",
@@ -1538,14 +1540,15 @@ def kiosk_settings_tab(data):
             label_visibility="collapsed",
         )
     with _t3:
-        if st.button("🔔 Play Adhan", use_container_width=True, type="primary"):
-            st.session_state.kiosk_test_adhan = _test_prayer
-            st.rerun()
+        st.markdown(
+            f'<button class="kiosk-direct-test" type="button" '
+            f'onclick="window.Kiosk && window.Kiosk.playAdhan(\'{_test_prayer}\')">Play test adhan</button>',
+            unsafe_allow_html=True,
+        )
 
-    st.caption("ℹ️ There is no sound-enabling step. The adhan unlocks itself the first time anyone "
-               "taps anywhere in the app. Apple blocks sound on a freshly loaded page until it has "
-               "been tapped, so on a device that was just opened, tap it once and it will sound from "
-               "then on.")
+    st.caption("There is no separate setup step. Tap once anywhere if the browser has blocked sound; "
+               "the test button then plays immediately. "
+               "Apple blocks sound on a freshly loaded page until it has been tapped.")
 
     # ── 1b. Weather ──
     st.write("### 🌤️ Screensaver Weather")

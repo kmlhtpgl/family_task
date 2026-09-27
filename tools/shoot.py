@@ -39,14 +39,14 @@ VIEWS = {
 
 # Classic nav labels, in the order app.py defines them.
 ROUTES = {
-    "parents": "👨‍👩‍👧 Parents",
-    "kids": "🧒 Kids",
-    "reading": "📚 Reading",
-    "quran": "📖 Quran",
-    "prayer": "🕌 Prayer",
-    "rewards": "💰 Rewards",
-    "meeting": "👪 Meeting",
-    "admin": "⚙️ Admin",
+    "parents": "Parents",
+    "kids": "Kids",
+    "reading": "Reading",
+    "quran": "Quran",
+    "prayer": "Prayer",
+    "rewards": "Rewards",
+    "meeting": "Meeting",
+    "admin": "Admin",
 }
 
 ADMIN_PASSWORD_HINT = "set FAMILY_TASK_ADMIN_PASSWORD to shoot the admin page"

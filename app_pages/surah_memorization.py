@@ -1,4 +1,5 @@
 import streamlit as st
+from utils.page_chrome import render_page_header
 
 from utils.surah_helpers import (
     calculate_surah_progress,
@@ -16,7 +17,7 @@ from utils.data_helpers import today_string
 
 
 def surah_memorization_page(data):
-    st.header("📖 Quran Memorization")
+    render_page_header("Quran", "Track surahs and duas with a calm, focused practice view.")
 
     if not data.get("surahs"):
         st.info("No surahs or duas assigned yet. Go to Admin to assign them.")

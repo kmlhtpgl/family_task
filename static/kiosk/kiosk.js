@@ -95,7 +95,7 @@
         var mins = np ? Math.round(np.mins / 60 * 10) / 10 : null;
         var idleMin = c.idle_timeout_ms ? Math.round(c.idle_timeout_ms / 6000) / 10 : null;
         var html = '<div style="font-weight:700;font-size:1.05em;margin-bottom:8px;' +
-                   'display:flex;align-items:center;gap:8px">🩺 Kiosk runtime</div>';
+                   'display:flex;align-items:center;gap:8px">Kiosk runtime</div>';
         html += row('Runtime loaded', 'yes', true);
         html += row('Config parsed', c.adhan_enabled !== undefined ? 'yes' : 'no', !!c.adhan_enabled !== undefined);
         html += row('Prayer times', K.timings ? 'loaded' : 'MISSING', !!K.timings, true);
@@ -404,7 +404,7 @@
         var a = audio();
         var url = audioUrl(name);
         if (!url) {
-            toast('⚠️ No audio file for ' + name, 'err');
+            toast('No audio file for ' + name, 'err');
             return;
         }
         try {
@@ -412,7 +412,7 @@
             a.el.currentTime = 0;
             a.el.volume = 1;
         } catch (e) {
-            toast('⚠️ Adhan audio error', 'err');
+            toast('Adhan audio error', 'err');
             return;
         }
         var p = a.el.play();
@@ -423,15 +423,15 @@
                 K.pendingRetry = null;
                 K.unlocked = true;
                 unlockHint(false);
-                toast('🕌 ' + name + (isTest ? ' adhan (test)' : ' adhan'), 'ok');
+                toast(name + (isTest ? ' adhan (test)' : ' adhan'), 'ok');
             }).catch(function () {
                 /* Autoplay refused. Do not latch a false "unlocked" flag —
                  * keep the request and retry on the next real gesture. */
                 try { a.el.pause(); } catch (e) {}
                 K.pendingRetry = name;
                 K.unlocked = false;
-                toast('🔇 Autoplay blocked', 'warn');
-                unlockHint(true, '🔇 Tap anywhere once to let the adhan sound');
+                toast('Autoplay blocked', 'warn');
+                unlockHint(true, 'Tap anywhere once to let the adhan sound');
             });
         } else if (!isTest) {
             markPlayed(name);
@@ -603,7 +603,7 @@
         if (!foot) return;
         var now = new Date();
         var parts = [];
-        parts.push('<span class="kiosk-ss-time">🕐 ' +
+        parts.push('<span class="kiosk-ss-time">' +
             now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) +
             ' · ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '</span>');
 
@@ -612,7 +612,7 @@
             var left = np.mins >= 60
                 ? 'in ' + Math.floor(np.mins / 60) + 'h' + (np.mins % 60 ? ' ' + (np.mins % 60) + 'm' : '')
                 : 'in ' + np.mins + ' min';
-            parts.push('<span class="kiosk-ss-prayer">🕌 Next: ' + np.name +
+            parts.push('<span class="kiosk-ss-prayer">Next: ' + np.name +
                        ' at ' + np.label + ' · ' + left + '</span>');
         }
 
@@ -734,8 +734,8 @@
          * tap that may never arrive. */
         if (!K.unlocked) {
             unlockHint(true, K.pendingRetry
-                ? '🔇 Adhan is waiting — tap anywhere once to allow sound'
-                : '🔇 Tap anywhere once to enable the adhan');
+                ? 'Adhan is waiting — tap anywhere once to allow sound'
+                : 'Tap anywhere once to enable the adhan');
         }
     }, 4000);
 
@@ -785,5 +785,10 @@
                 audio: audioUrl('fajr')
             };
         }
+    };
+    win.Kiosk = {
+        screensaver: showScreensaver,
+        dismiss: hideScreensaver,
+        playAdhan: function (name) { playAdhan(name || 'Fajr', true); }
     };
 })();

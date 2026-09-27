@@ -1,4 +1,5 @@
 import streamlit as st
+from utils.page_chrome import render_page_header
 from datetime import date, timedelta
 from collections import defaultdict
 
@@ -6,8 +7,7 @@ PRAYER_NAMES = ["Fecr", "Zuhr", "Asr", "Maghrib", "Isha"]
 
 
 def prayer_page(data):
-    st.header("🕌 Weekly Prayer Report")
-    st.caption("Shows missed prayers (not marked Done) per kid for the selected week.")
+    render_page_header("Prayer", "A weekly view of consistency and missed prayers.")
 
     if not data["kids"]:
         st.info("No children added yet.")

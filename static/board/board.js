@@ -217,10 +217,8 @@
     return head;
   }
 
-  /* The arc: seven days on a shallow curve, today as the bright node. Shallow
-     rather than circular because a circle at this size puts the ends off the
-     bottom of an 800px-tall screen, and the ends are the days furthest from
-     now, which are the ones nobody came to look at. */
+  /* The arc is a compact three-day action strip. A shallow curve keeps all
+     three days readable from across the room and makes each node tappable. */
   function buildArc(arc) {
     var W = 1000;
     var H = 92;

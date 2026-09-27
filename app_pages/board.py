@@ -88,7 +88,7 @@ def board_page(refetch):
     if abs((on_date - date.today()).days) > 1:
         on_date = date.today()
     st.session_state[SELECTED_DATE_KEY] = on_date.isoformat()
-    payload = build_board_payload(data, on_date=on_date, flash=pop_flash())
+    payload = build_board_payload(data, on_date=on_date, flash=pop_flash(), compact=True)
     totals = payload["totals"]
 
     # Two compact rows, not three, and both rendered before the component
