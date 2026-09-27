@@ -18,6 +18,7 @@ from app_pages.rewards import rewards_page
 from app_pages.meeting import meeting_page
 from app_pages.admin import admin_page
 from app_pages.prayer import prayer_page
+from app_pages.board import board_enabled, board_page, toggle_board
 
 st.set_page_config(
     page_title="Family Task Tracker",
@@ -58,22 +59,33 @@ st.markdown("""
 _today = date.today()
 _today_label = f"{_today:%a} {_today.day} {_today:%b %Y}"
 
-st.markdown(f"""
-    <div class="top-navbar">
-        <a href="?nav=dashboard" class="navbar-brand">
-            <h1>Family Task</h1>
-        </a>
-        <div class="navbar-actions">
-            <div class="nav-date">{_today_label}</div>
+# ── Board shell (opt-in) ────────────────────────────────────────────────────
+# The redesigned board replaces the app's chrome rather than sitting inside it,
+# so the navbar and the page buttons are skipped entirely when it is on. The
+# classic app is still one click away, from the board's own toolbar.
+_board_on = board_enabled()
+
+if not _board_on:
+    st.markdown(f"""
+        <div class="top-navbar">
+            <a href="?nav=dashboard" class="navbar-brand">
+                <h1>Family Task</h1>
+            </a>
+            <div class="navbar-actions">
+                <div class="nav-date">{_today_label}</div>
+            </div>
         </div>
-    </div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 # ── Kiosk Module (screensaver + adhan) ──
 # The runtime lives in static/kiosk/kiosk.js and is loaded by a CONSTANT
 # iframe. Config is handed over as JSON in a hidden node rather than being
 # interpolated into the iframe HTML: the iframe string must never change, or
 # Streamlit recreates the frame and takes the audio element down with it.
+#
+# This runs whatever the shell is. Adhan and the screensaver are not part of
+# the redesign and must keep working on the wall tablet, so the board is not
+# allowed to take this over.
 _kiosk_cfg = json.dumps(get_kiosk_bootstrap())
 
 st.markdown(
@@ -82,6 +94,54 @@ st.markdown(
 )
 
 components.html(KIOSK_IFRAME_HTML, height=0)
+
+data = get_all_data()
+
+if _board_on:
+    # Streamlit's own header and block padding would otherwise frame the board
+    # in a page it is trying to replace. Scoped to the board: the classic app
+    # keeps its header.
+    st.markdown(
+        """
+        <style>
+        header[data-testid="stHeader"], #MainMenu, footer { display: none; }
+        [data-testid="stToolbar"] { display: none; }
+        /* Streamlit's wide layout caps the block container at 1200px and centres
+           it, which leaves a 40px gutter down each side of a wall display. The
+           attribute selector is needed to beat the rule Streamlit sets on the
+           same element. */
+        div[data-testid="stMainBlockContainer"] {
+            padding: 0 !important;
+            max-width: none !important;
+            width: 100% !important;
+        }
+        [data-testid="stAppViewContainer"] { background: oklch(0.17 0.018 265); }
+        /* No global gap: app.py mounts several zero-height containers for the
+           kiosk handoff above the board, and a gap charges 8px for each one even
+           when it renders nothing. That was 48px of dead space on a wall
+           display. */
+        [data-testid="stVerticalBlock"] { gap: 0; }
+        [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"]
+            > [data-testid="stLayoutWrapper"] { margin-top: 10px; }
+        .board-flag {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 600; color: oklch(0.775 0.012 265);
+        }
+        .board-flag b { color: #fff; font-weight: 800; letter-spacing: -0.01em; }
+        .board-flag span {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+            opacity: 0.7;
+        }
+        .board-flag__dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: oklch(0.82 0.17 152);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    board_page(data)
+    st.stop()
 
 # Page navigation bar
 if "page" not in st.session_state:
@@ -124,8 +184,6 @@ if st.query_params.get("nav") == "dashboard":
     st.session_state.page = "dashboard"
     st.query_params.clear()
     st.rerun()
-
-data = get_all_data()
 
 # Determine page from session state
 page = st.session_state.get("page", "dashboard")

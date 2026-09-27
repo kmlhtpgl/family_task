@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Today</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="board.css" />
+  </head>
+  <body>
+    <!--
+      The whole board is built by board.js from the #board-data payload. Nothing
+      is authored here: the frame exists to be painted over, so that the canvas
+      owns its markup the way it owns its CSS.
+    -->
+    <main id="board" class="board" aria-busy="true">
+      <div class="boot" id="boot">
+        <span class="boot__mark"></span>
+        <span class="boot__label">Today</span>
+      </div>
+    </main>
+    <div class="sr-only" role="status" aria-live="polite" id="announcer"></div>
+    <script src="board.js"></script>
+  </body>
+</html>

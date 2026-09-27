@@ -5,3 +5,4 @@ __pycache__/
 profile_photos/
 data/family_task_data.json
 .streamlit/secrets.toml
+.screens/

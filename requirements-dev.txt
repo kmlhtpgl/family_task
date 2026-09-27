@@ -1,0 +1,12 @@
+# Dev-only. The app itself needs nothing here.
+#
+#   pip install -r requirements-dev.txt
+#   python -m playwright install chromium
+#
+# pytest      drives the AppTest suite in tests/
+# playwright  drives tools/shoot.py and tools/audit.py, which are the only way
+#             to verify a design change: a screenshot for the eye, a measurement
+#             for the diff.
+pytest==9.1.1
+playwright
+pillow
