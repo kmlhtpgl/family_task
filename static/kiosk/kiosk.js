@@ -444,6 +444,13 @@
         if (K.timer) { clearTimeout(K.timer); K.timer = null; }
         var c = cfg();
         if (!c || !c.adhan_enabled) return;
+        /* A wall tablet can stay focused across midnight. Refresh the date
+         * before trying to schedule yesterday's timings. */
+        if (K.timingsDay && K.timingsDay !== todayKey()) {
+            K.fired = {};
+            fetchTimings(true);
+            return;
+        }
         if (!K.timings) { fetchTimings(); return; }
 
         var list = schedule();
@@ -466,7 +473,19 @@
             }
         }
 
-        if (soonest !== null) K.timer = setTimeout(arm, soonest);
+        if (soonest !== null) {
+            K.timer = setTimeout(arm, soonest);
+        } else {
+            /* There are no more prayers today. Wake at the next local
+             * midnight so Fajr is not lost when the screen stays on all night. */
+            var next = new Date();
+            next.setHours(24, 0, 1, 0);
+            K.timer = setTimeout(function () {
+                K.fired = {};
+                fetchTimings(true);
+                arm();
+            }, Math.max(1000, next.getTime() - Date.now()));
+        }
     }
 
     /* ── wake lock ──────────────────────────────────────────────────────── */
@@ -518,6 +537,7 @@
         var imgs = bgUrls();
         if (!imgs.length) return;
         K.ssActive = true;
+        doc.documentElement.classList.add('kiosk-active');
 
         var el = doc.createElement('div');
         el.className = 'kiosk-screensaver';
@@ -608,6 +628,7 @@
     function hideScreensaver() {
         if (!K.ssActive) return;
         K.ssActive = false;
+        doc.documentElement.classList.remove('kiosk-active');
         if (K.slide) { clearInterval(K.slide); K.slide = null; }
         if (K.foot) { clearInterval(K.foot); K.foot = null; }
         if (K.ssEl && K.ssEl.parentNode) K.ssEl.parentNode.removeChild(K.ssEl);
@@ -692,6 +713,10 @@
             arm();
             idle();
             if (c.trigger_screensaver) showScreensaver();
+        }
+        if (K.timingsDay && K.timingsDay !== todayKey()) {
+            K.fired = {};
+            fetchTimings(true);
         }
         if (c.diagnostics) renderDiagnostics();
         else if (diagEl) hideDiagnostics();

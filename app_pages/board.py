@@ -12,11 +12,12 @@ own beyond the board component, and never touches the kiosk ones.
 """
 
 import os
+from datetime import date
 
 import streamlit as st
 
 from utils.board.actions import apply_action
-from utils.board.bridge import render
+from utils.board.bridge import is_new, mark_handled, render
 from utils.board.payload import build_board_payload
 from utils.nav import render_nav
 
@@ -58,6 +59,7 @@ def board_enabled() -> bool:
 
 
 FLASH_KEY = "board_flash"
+SELECTED_DATE_KEY = "board_selected_date"
 
 
 def pop_flash() -> dict | None:
@@ -78,7 +80,15 @@ def board_page(refetch):
     was meant to change.
     """
     data = refetch()
-    payload = build_board_payload(data, flash=pop_flash())
+    selected = st.session_state.get(SELECTED_DATE_KEY)
+    try:
+        on_date = date.fromisoformat(selected) if selected else date.today()
+    except (TypeError, ValueError):
+        on_date = date.today()
+    if abs((on_date - date.today()).days) > 1:
+        on_date = date.today()
+    st.session_state[SELECTED_DATE_KEY] = on_date.isoformat()
+    payload = build_board_payload(data, on_date=on_date, flash=pop_flash())
     totals = payload["totals"]
 
     # Two compact rows, not three, and both rendered before the component
@@ -101,6 +111,16 @@ def board_page(refetch):
     # the component returns belongs to the interaction that has already
     # happened. A write therefore repaints on the next run, one cycle later.
     action = render(payload, height=BOARD_HEIGHT_HINT)
+    if is_new(action) and action.get("verb") == "select_day":
+        try:
+            requested = date.fromisoformat(action.get("date", ""))
+        except (TypeError, ValueError):
+            requested = None
+        if requested and abs((requested - date.today()).days) <= 1:
+            st.session_state[SELECTED_DATE_KEY] = requested.isoformat()
+        mark_handled(action)
+        st.rerun()
+
     result = apply_action(data, action)
 
     # Only a real write needs a repaint. A refusal, or an action Streamlit

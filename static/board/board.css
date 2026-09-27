@@ -267,8 +267,11 @@ body {
 }
 
 .arc__node {
-  cursor: default;
+  cursor: pointer;
+  outline: none;
 }
+.arc__node:focus .arc__disc,
+.arc__node:hover .arc__disc { stroke: var(--accent); stroke-width: 3px; }
 
 .arc__disc {
   fill: var(--surface-1);

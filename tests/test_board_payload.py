@@ -27,14 +27,14 @@ def test_payload_is_json_serialisable():
     json.dumps(payload())  # must not raise
 
 
-def test_arc_spans_today_with_three_days_either_side():
+def test_arc_shows_only_yesterday_today_and_tomorrow():
     arc = payload()["arc"]
-    assert len(arc) == 7
+    assert len(arc) == 3
     assert [d["is_today"] for d in arc].count(True) == 1
-    today = arc[3]
+    today = arc[1]
     assert today["date"] == date.today().isoformat()
-    assert [d["is_past"] for d in arc] == [True] * 3 + [False] * 4
-    assert [d["is_future"] for d in arc] == [False] * 4 + [True] * 3
+    assert [d["is_past"] for d in arc] == [True, False, False]
+    assert [d["is_future"] for d in arc] == [False, False, True]
 
 
 def test_arc_measures_each_day_against_itself():
@@ -65,8 +65,8 @@ def test_arc_ratio_never_exceeds_one():
             "title": f"t{n}",
             "kid_id": 1,
             "parent_id": None,
-            # Two days back, so the day falls inside the arc.
-            "due_date": (today - timedelta(days=2)).isoformat(),
+                # Yesterday, so the day falls inside the compact arc.
+                "due_date": (today - timedelta(days=1)).isoformat(),
             "points": 10,
             "status": "Done",
             "completed_date": today.isoformat(),
@@ -81,12 +81,12 @@ def test_arc_ratio_never_exceeds_one():
         assert cell["done"] + cell["open"] == cell["total"]
         if cell["ratio"] is not None:
             assert 0 <= cell["ratio"] <= 1, cell
-    # All 40 were finished today but were due two days ago, so today reads as
+    # All 40 were finished today but were due yesterday, so today reads as
     # a day with nothing scheduled rather than as 4000% complete.
     assert next(d for d in arc if d["is_today"])["ratio"] is None
-    two_days_back = next(d for d in arc if d["date"] == (today - timedelta(days=2)).isoformat())
-    assert (two_days_back["total"], two_days_back["done"]) == (40, 40)
-    assert two_days_back["ratio"] == 1.0
+    yesterday = next(d for d in arc if d["date"] == (today - timedelta(days=1)).isoformat())
+    assert (yesterday["total"], yesterday["done"]) == (40, 40)
+    assert yesterday["ratio"] == 1.0
 
 
 def test_arc_marks_an_empty_day_empty_rather_than_complete():
@@ -480,7 +480,7 @@ def test_totals_progress_is_none_on_an_empty_day():
 
 def test_a_day_with_no_data_still_renders_every_cell():
     empty = build_board_payload({**sample_data(), "tasks": []}, on_date=date.today())
-    assert len(empty["arc"]) == 7
+    assert len(empty["arc"]) == 3
     # One lane per person, kids and parents, all empty. A person whose lane is
     # clear still belongs on the board; the board must not quietly drop them
     # because they finished.
@@ -513,7 +513,7 @@ def test_missing_tables_do_not_explode():
     assert result["people"] == []
     assert result["lanes"] == []
     assert result["totals"]["overdue"] == 0
-    assert len(result["arc"]) == 7
+    assert len(result["arc"]) == 3
 
 
 def test_overdue_days_is_sent_so_the_canvas_can_explain_the_rule():

@@ -1393,6 +1393,10 @@ _KIOSK_CSS = """
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
 }
+.kiosk-active header[data-testid="stHeader"],
+.kiosk-active [data-testid="stToolbar"] {
+    display: none !important;
+}
 .kiosk-screensaver-images {
     background: #000;
     position: relative;

@@ -27,6 +27,10 @@ from utils.task_helpers import (
 # on a wall without turning into a month strip nobody can scan from across a room.
 ARC_PAST = 3
 ARC_FUTURE = 3
+# The compact picker shows only the actionable three-day window. The task list
+# keeps the existing three-day future horizon for recurring-work accounting.
+DISPLAY_ARC_PAST = 1
+DISPLAY_ARC_FUTURE = 1
 
 # Curated, not hashed. A wall display is looked at by name, so a person's colour
 # has to be the same every render and recognisable at a distance.
@@ -181,8 +185,9 @@ def _bucket(tasks, on_date: date) -> dict:
     return out
 
 
-def build_arc(tasks, on_date: date) -> list[dict]:
+def build_arc(tasks, on_date: date, anchor_date: date | None = None) -> list[dict]:
     """The day strip: one cell per day, each carrying its own load."""
+    anchor_date = anchor_date or on_date
     by_day: dict[str, list] = {}
     for task in tasks:
         due = task.get("due_date")
@@ -190,8 +195,8 @@ def build_arc(tasks, on_date: date) -> list[dict]:
             by_day.setdefault(due, []).append(task)
 
     arc = []
-    for offset in range(-ARC_PAST, ARC_FUTURE + 1):
-        day = on_date + timedelta(days=offset)
+    for offset in range(-DISPLAY_ARC_PAST, DISPLAY_ARC_FUTURE + 1):
+        day = anchor_date + timedelta(days=offset)
         iso = day.isoformat()
         scheduled = by_day.get(iso, [])
         # Of the work scheduled for this day, how much is finished.
@@ -208,7 +213,9 @@ def build_arc(tasks, on_date: date) -> list[dict]:
                 "date": iso,
                 "label": WEEKDAYS[day.weekday()],
                 "day": day.day,
-                "is_today": offset == 0,
+                "is_today": day == on_date,
+                "is_real_today": day == anchor_date,
+                "relative": "Yesterday" if offset == -1 else ("Today" if offset == 0 else "Tomorrow"),
                 "is_past": offset < 0,
                 "is_future": offset > 0,
                 "total": len(scheduled),
@@ -353,7 +360,7 @@ def build_board_payload(data, on_date: date | None = None, flash: dict | None = 
         "today": iso,
         "today_label": f"{WEEKDAYS[on_date.weekday()]} {on_date.day} {on_date:%b %Y}",
         "overdue_days": OVERDUE_DAYS,
-        "arc": build_arc(tasks, on_date),
+        "arc": build_arc(tasks, on_date, anchor_date=date.today()),
         "people": build_people(data, tasks, on_date),
         "lanes": lanes,
         "totals": {

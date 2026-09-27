@@ -325,8 +325,21 @@
       node.appendChild(num);
 
       var dow = svg("text", { class: "arc__day", x: p.x, y: p.y + 55 });
-      dow.textContent = day.label;
+      dow.textContent = day.relative || day.label;
       node.appendChild(dow);
+
+      g.setAttribute("role", "button");
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("aria-label", (day.relative || day.label) + " " + day.day);
+      g.addEventListener("click", function () {
+        send("select_day", { date: day.date });
+      });
+      g.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          send("select_day", { date: day.date });
+        }
+      });
     });
 
     return node;
