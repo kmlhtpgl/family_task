@@ -9,7 +9,7 @@ task in a browser reaches the data layer and comes back as a painted change.
 So this drives the real app.py -- served by tools/preview.py against the
 committed fixtures -- in a real browser, and checks the round trip.
 
-1. the component frame fills the host viewport
+1. the component frame reaches the bottom of the host viewport
 2. the webfont loads and applies inside the frame
 3. tapping a task writes exactly once and paints the task into Done today
 4. tapping it again reopens it and takes it back out
@@ -187,7 +187,9 @@ def main():
 
             # 1. does the frame fill the viewport? The board has no page of its
             # own to scroll, so anything but a full-height frame is a board
-            # somebody cannot reach the bottom of.
+            # somebody cannot reach the bottom of. Measured against the bottom
+            # edge rather than a fixed height: the host chrome above the board
+            # (the flag and the nav row) is free to change size.
             box = page.evaluate(
                 "() => {"
                 "  for (const el of document.querySelectorAll('iframe')) {"
@@ -202,9 +204,12 @@ def main():
             )
             results.append(
                 check(
-                    "frame fills viewport",
-                    box and abs(box["height"] - 734) <= 4 and box["x"] == 0,
-                    f"iframe box={box}, expected 1280x734 at x=0",
+                    "frame reaches the bottom of the viewport",
+                    box
+                    and abs(box["y"] + box["height"] - 800) <= 4
+                    and box["x"] == 0
+                    and box["width"] == 1280,
+                    f"iframe box={box}, expected a full-width frame reaching y=800 at x=0",
                 )
             )
 

@@ -20,8 +20,8 @@ from app_pages.board import (
     CLASSIC_LANDING,
     board_enabled,
     board_page,
-    toggle_board,
 )
+from utils.nav import render_nav
 
 st.set_page_config(
     page_title="Family Task Tracker",
@@ -62,13 +62,25 @@ st.markdown("""
 _today = date.today()
 _today_label = f"{_today:%a} {_today.day} {_today:%b %Y}"
 
-# ── Board shell (opt-in) ────────────────────────────────────────────────────
-# The redesigned board replaces the app's chrome rather than sitting inside it,
-# so the navbar and the page buttons are skipped entirely when it is on. The
-# classic app is still one click away, from the board's own toolbar.
-_board_on = board_enabled()
+# ── Page resolution ─────────────────────────────────────────────────────────
+# Resolved before any chrome is rendered, because the page decides the chrome:
+# the board needs its own full-bleed styling, everything else gets the title bar.
+# Deciding it afterwards is what let the nav row highlight Board while a
+# different page rendered, because the two halves disagreed.
+_lands_on_board = board_enabled()
 
-if not _board_on:
+if "page" not in st.session_state:
+    st.session_state.page = "board" if _lands_on_board else CLASSIC_LANDING
+
+# The "Family Task" title on the other pages is a link back to the board.
+if st.query_params.get("nav") == "board":
+    st.session_state.page = "board"
+    st.query_params.clear()
+
+page = st.session_state.page
+_on_board = page == "board"
+
+if not _on_board:
     st.markdown(f"""
         <div class="top-navbar">
             <a href="?nav=board" class="navbar-brand">
@@ -86,9 +98,9 @@ if not _board_on:
 # interpolated into the iframe HTML: the iframe string must never change, or
 # Streamlit recreates the frame and takes the audio element down with it.
 #
-# This runs whatever the shell is. Adhan and the screensaver are not part of
-# the redesign and must keep working on the wall tablet, so the board is not
-# allowed to take this over.
+# This runs on every page, board included. Adhan and the screensaver are not
+# part of the redesign and must keep working on the wall tablet, so the board is
+# not allowed to take this over.
 _kiosk_cfg = json.dumps(get_kiosk_bootstrap())
 
 st.markdown(
@@ -98,7 +110,7 @@ st.markdown(
 
 components.html(KIOSK_IFRAME_HTML, height=0)
 
-if _board_on:
+if _on_board:
     # Streamlit's own header and block padding would otherwise frame the board
     # in a page it is trying to replace. Scoped to the board: the classic app
     # keeps its header.
@@ -144,62 +156,21 @@ if _board_on:
     board_page(get_all_data)
     st.stop()
 
-data = get_all_data()
-
-# Page navigation bar
-if "page" not in st.session_state:
-    st.session_state.page = "board" if _board_on else CLASSIC_LANDING
-
 # The board and the old Daily Board are gone from here: the board is the app's
-# landing page in its own right, and the Daily Board duplicated it.
-pages = [
-    ("board", "🗂️", "Board"),
-    ("parents", "👨‍👩‍👧", "Parents"),
-    ("kids", "🧒", "Kids"),
-    ("reading", "📚", "Reading"),
-    ("quran", "📖", "Quran"),
-    ("prayer", "🕌", "Prayer"),
-    ("rewards", "💰", "Rewards"),
-    ("meeting", "👪", "Meeting"),
-    ("admin", "⚙️", "Admin"),
-]
+# landing page in its own right, and the Daily Board duplicated it. The row
+# itself is shared with the board, so the two halves cannot drift apart.
+#
+# Rendered before the fetch: a click reruns the script, and the whole of
+# get_all_data would otherwise be spent on a run that is thrown away.
+render_nav(page)
 
-# Create navigation buttons. The .nav-scope marker is a styling hook only: it
-# lets the stylesheet target these buttons without leaking pill styling onto
-# every other button that happens to sit in a column.
-with st.container():
-    st.markdown('<div class="nav-scope"></div>', unsafe_allow_html=True)
-    cols = st.columns(len(pages), gap="small")
-    for col, (page_key, icon, label) in zip(cols, pages):
-        is_active = page_key == st.session_state.page
-        btn_type = "primary" if is_active else "secondary"
-
-        if col.button(
-            f"{icon} {label}",
-            key=f"nav_{page_key}",
-            use_container_width=True,
-            type=btn_type,
-        ):
-            st.session_state.page = page_key
-            st.rerun()
-
-# Handle nav query param (clicking the Family Task header)
-if st.query_params.get("nav") == "board":
-    st.session_state.page = "board"
-    st.query_params.clear()
-    st.rerun()
-
-# Determine page from session state
-page = st.session_state.get("page", "board")
-
-# The classic shell cannot render the board: its one route is full-bleed and
-# belongs to the board shell, so a stale "board" here falls through to the
-# classic landing rather than nesting a full-screen canvas in the old chrome.
-if page == "board" and not _board_on:
-    page = CLASSIC_LANDING
+data = get_all_data()
 
 # Route to pages
 if page == "board":
+    # Unreachable in practice: the board returned at the top of the file. Kept so
+    # a page value that lands here still draws the board rather than falling
+    # through to a blank branch.
     board_page(get_all_data)
 
 elif page == "parents":

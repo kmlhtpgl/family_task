@@ -1,13 +1,14 @@
-"""The Board, mounted as an alternate shell for the whole app.
+"""The Board, the app's landing page.
 
-Renders full-bleed rather than as one more entry in the nav bar. The point of
-the redesign is that navigation stops being a row of page links, so bolting the
-board onto the existing chrome would keep the thing being replaced.
+Renders full-bleed rather than inside the narrower page body, so the whole
+tablet is board. Navigation is the shared row from utils.nav rather than a
+board-local door: the board used to hide the row and offer one "Classic app"
+button, which read as the app having lost its other features.
 
-What stays is what must not be disturbed: the kiosk iframe and its #kiosk-config
-handoff are mounted by app.py above this, and they are load-bearing for adhan
-and the screensaver. This page adds no iframe of its own beyond the board
-component, and never touches the kiosk ones.
+What stays is what must not be disturbed: the kiosk iframe and its
+#kiosk-config handoff are mounted by app.py above this, and they are
+load-bearing for adhan and the screensaver. This page adds no iframe of its
+own beyond the board component, and never touches the kiosk ones.
 """
 
 import os
@@ -17,15 +18,17 @@ import streamlit as st
 from utils.board.actions import apply_action
 from utils.board.bridge import render
 from utils.board.payload import build_board_payload
+from utils.nav import render_nav
 
 # The board fills whatever the host viewport has left, and static/board/board.js
 # measures that space through the same-origin host before reporting its own frame
-# height. These are only a starting hint for the first paint.
-BOARD_HEIGHT_HINT = 760
+# height. These are only a starting hint for the first paint. It sits below the
+# flag and nav rows, which cost about 90px of the host's height.
+BOARD_HEIGHT_HINT = 690
 
-# Where the classic shell lands. Not "board": the classic shell is the way to
-# the pages the board does not replace, so arriving on the board again would be
-# arriving nowhere.
+# Where the app lands when the board is explicitly stood down with
+# FAMILY_TASK_CLASSIC. The other pages live here too, and the shared nav row
+# brings you straight back to the board.
 CLASSIC_LANDING = "parents"
 
 
@@ -39,26 +42,19 @@ def flag_from_env(value: str | None) -> bool:
 
 
 def board_enabled() -> bool:
-    """Whether the board is the shell.
+    """Whether the app should land on the board.
 
-    The board is the app, so it is on by default. The escape hatch is now
-    FAMILY_TASK_CLASSIC rather than FAMILY_TASK_BOARD: a flag that has to be set
-    to reach the main surface is a flag that gets left off, which is how this
-    whole screen ended up invisible in the first place.
+    This is only the landing choice now. The board used to be a shell that
+    stood the rest of the app down, and it carried a session flag to remember
+    which shell you were in; routing on the page alone removed the need for
+    that flag, and with it the way the nav could highlight one page while
+    another rendered.
+
+    FAMILY_TASK_CLASSIC stands the board down so the app opens on the parents
+    page instead, which is how the audit and screenshot tools reach the
+    remaining pages.
     """
-    if "board_mode" in st.session_state:
-        return bool(st.session_state.board_mode)
     return not flag_from_env(os.environ.get("FAMILY_TASK_CLASSIC"))
-
-
-def toggle_board(enabled: bool) -> None:
-    """Switch shells, and land somewhere that belongs to the new one.
-
-    Leaving `page` alone would strand the classic shell on "board", whose only
-    route renders the board again -- the way out would be a way back in.
-    """
-    st.session_state.board_mode = enabled
-    st.session_state.page = "board" if enabled else CLASSIC_LANDING
 
 
 FLASH_KEY = "board_flash"
@@ -85,24 +81,21 @@ def board_page(refetch):
     payload = build_board_payload(data, flash=pop_flash())
     totals = payload["totals"]
 
-    # One compact row, not two. Every pixel of chrome is a pixel of board, and a
-    # wall tablet is watched from across the room. It is rendered before the
-    # component because the frame measures how much room the host left above it.
-    left, right = st.columns([3, 1], gap="small", vertical_alignment="center")
-    with left:
-        st.markdown(
-            '<div class="board-flag">'
-            '<span class="board-flag__dot"></span>'
-            "<b>Board</b> "
-            f"<span>{totals['open_today']} open today · "
-            f"{totals['overdue']} past due</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-    with right:
-        if st.button("Classic app", key="board_exit", use_container_width=True):
-            toggle_board(False)
-            st.rerun()
+    # Two compact rows, not three, and both rendered before the component
+    # because the frame measures how much room the host left above it. The flag
+    # is the board's identity and the nav row is how you reach the rest of the
+    # app; every pixel of chrome is a pixel of board, and a wall tablet is
+    # watched from across the room.
+    st.markdown(
+        '<div class="board-flag">'
+        '<span class="board-flag__dot"></span>'
+        "<b>Board</b> "
+        f"<span>{totals['open_today']} open today · "
+        f"{totals['overdue']} past due</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    render_nav("board")
 
     # The payload went out above, before the action is read, because the value
     # the component returns belongs to the interaction that has already

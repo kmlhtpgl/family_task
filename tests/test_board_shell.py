@@ -1,11 +1,11 @@
-"""The board is the shell, not another page, so the switch is tested at the level
-of the shell rather than of the payload.
+"""The board is the landing page and shares one navigation row with every other
+page, so the switch is tested at the level of the app's wiring.
 
-These assertions are about wiring: that the board is what you land on, that the
-classic app is still reachable and does not fall straight back into the board,
-and that the board cannot take the kiosk runtime down with it. The last group is
-the important one -- adhan and the screensaver are the parts of this app that
-must not break.
+These assertions are about wiring: that the board is what you land on, that
+every feature is one tap away from it, that the nav can get you back to the
+board again, and that the board cannot take the kiosk runtime down with it. The
+last group is the important one -- adhan and the screensaver are the parts of
+this app that must not break.
 """
 
 import ast
@@ -24,9 +24,9 @@ BOARD_CSS = Path(__file__).resolve().parent.parent / "static" / "board" / "board
 BOARD_HTML = Path(__file__).resolve().parent.parent / "static" / "board" / "index.html"
 
 
-def run_app(classic, monkeypatch, store=None, stub_assets=None):
-    """The real app.py, driven by AppTest, with the classic flag set."""
-    monkeypatch.setenv("FAMILY_TASK_CLASSIC", classic)
+def run_app(stand_down, monkeypatch, store=None, stub_assets=None):
+    """The real app.py, driven by AppTest, with the board-landing flag set."""
+    monkeypatch.setenv("FAMILY_TASK_CLASSIC", stand_down)
     return AppTest.from_file(str(APP_PY), default_timeout=30).run()
 
 
@@ -42,8 +42,23 @@ def test_board_is_what_you_land_on_by_default(store, stub_assets, monkeypatch):
     is a flag that gets left off, which is how this screen spent a whole commit
     being invisible."""
     app = run_app("0", monkeypatch)
-    assert "Classic app" in labels_of(app)
-    assert "Kids" not in labels_of(app), "the classic nav should not be wrapping the board"
+    html = "\n".join(m.value for m in app.markdown)
+    assert 'id="board-data"' in html, "the board is not what you land on"
+    assert app.session_state.page == "board"
+
+
+def test_the_board_offers_every_feature_as_one_tap(store, stub_assets, monkeypatch):
+    """The reason this change exists.
+
+    The board used to hide the nav and offer a single "Classic app" button, which
+    from across a room read as the new UI having lost Reading, Quran, Prayer and
+    the rest. Every destination has to be named on the board itself.
+    """
+    app = run_app("0", monkeypatch)
+    labels = labels_of(app)
+    for page in ("Parents", "Kids", "Reading", "Quran", "Prayer", "Rewards", "Meeting", "Admin"):
+        assert page in labels, f"{page} is not reachable from the board"
+    assert "Classic app" not in labels, "the board still has a separate door to the rest of the app"
 
 
 @pytest.mark.parametrize(
@@ -59,78 +74,97 @@ def test_board_is_what_you_land_on_by_default(store, stub_assets, monkeypatch):
         (None, False),
         ("no", False),
         ("off", False),
-        # A typo must leave the classic app alone rather than half-switching.
+        # A typo must leave the board standing rather than half-switching.
         ("maybe", False),
         ("2", False),
     ],
 )
-def test_classic_flag_parsing(value, expected):
+def test_board_stand_down_flag_parsing(value, expected):
     assert flag_from_env(value) is expected
 
 
-# ── The classic app survives ────────────────────────────────────────────────
+# ── The other pages are still reachable ────────────────────────────────────
 
 
-def test_classic_nav_still_reaches_every_page_the_board_does_not_replace(
+def test_every_page_is_reachable_when_the_board_is_stood_down(
     store, stub_assets, monkeypatch
 ):
     app = run_app("1", monkeypatch)
     labels = labels_of(app)
     for page in ("Kids", "Parents", "Reading", "Quran", "Prayer", "Rewards", "Admin"):
-        assert page in labels, f"{page} disappeared from the classic nav"
+        assert page in labels, f"{page} disappeared from the nav"
 
 
-def test_the_retired_pages_are_gone_from_the_classic_nav(
-    store, stub_assets, monkeypatch
-):
+def test_the_retired_pages_are_gone_from_every_nav(store, stub_assets, monkeypatch):
     """The Daily Board duplicated the new one, and the old dashboard's week grid
-    became the board's lanes. Neither is reachable any more."""
-    app = run_app("1", monkeypatch)
-    labels = labels_of(app)
-    assert "Daily Board" not in labels
-    assert "Dashboard" not in labels
+    became the board's lanes. Neither is reachable any more, from anywhere."""
+    for flag in ("0", "1"):
+        labels = labels_of(run_app(flag, monkeypatch))
+        assert "Daily Board" not in labels
+        assert "Dashboard" not in labels
 
 
-def test_classic_nav_is_gone_when_the_board_is_on(store, stub_assets, monkeypatch):
-    """The board replaces the chrome. If the old nav were still rendered, the
-    redesign would be sitting inside the thing it is replacing."""
+def test_the_board_and_the_other_pages_share_one_nav_row(store, stub_assets, monkeypatch):
+    """One row, rendered in both places, each destination named exactly once.
+
+    The board used to hide the row entirely and hand out a button instead. The
+    row also has to stay singular: two copies on screen would mean the board is
+    sitting inside the chrome it replaced.
+    """
+    for flag in ("0", "1"):
+        labels = [b.label for b in run_app(flag, monkeypatch).button]
+        for page in ("Board", "Parents", "Kids", "Reading", "Quran", "Prayer", "Rewards", "Meeting", "Admin"):
+            count = sum(1 for label in labels if label.endswith(page))
+            assert count == 1, f"{page} appears {count} times in the nav with flag={flag}"
+
+
+def test_the_nav_row_has_exactly_one_implementation(store, stub_assets, monkeypatch):
+    """Both halves call the shared renderer, so they cannot drift apart.
+
+    A second hand-rolled copy of the row is how the board ended up hiding the nav
+    in the first place.
+    """
+    from utils.nav import PAGES
+
+    for path in (APP_PY, BOARD_PY):
+        source = path.read_text()
+        assert "render_nav(" in source, f"{path.name} does not use the shared nav row"
+        for _, _, label in PAGES:
+            assert f'"{label}"' not in source, f"{path.name} hard-codes its own nav entry {label!r}"
+
+
+def test_a_nav_click_on_the_board_leaves_the_board(store, stub_assets, monkeypatch):
     app = run_app("0", monkeypatch)
-    labels = labels_of(app)
-    assert "Kids" not in labels
-    # The way back is the board's own control.
-    assert "Classic app" in labels
-
-
-def test_the_exit_button_returns_to_the_classic_app(store, stub_assets, monkeypatch):
-    app = run_app("0", monkeypatch)
-    app.button(key="board_exit").click().run()
-    labels = labels_of(app)
-    assert "Kids" in labels
-    assert "Classic app" not in labels
-
-
-def test_the_way_out_does_not_land_back_on_the_board(
-    store, stub_assets, monkeypatch
-):
-    """The classic shell has no board route of its own, so arriving on "board"
-    there would nest a full-screen canvas inside the old chrome and leave the
-    exit button as a way straight back in."""
-    app = run_app("0", monkeypatch)
-    app.button(key="board_exit").click().run()
-    app.run()
+    app.button(key="nav_reading").click().run()
     html = "\n".join(m.value for m in app.markdown)
-    assert 'id="board-data"' not in html, "the board rendered inside the classic shell"
-    assert "Classic app" not in labels_of(app)
+    assert app.session_state.page == "reading"
+    assert 'id="board-data"' not in html, "the board stayed on under another page"
+
+
+def test_the_nav_row_gets_you_back_to_the_board(store, stub_assets, monkeypatch):
+    """Regression: the row used to highlight Board while another page rendered.
+
+    The nav set only `page`, and a separate shell flag decided what was actually
+    drawn, so leaving the board and clicking Board again landed on the parents
+    page with the nav claiming otherwise.
+    """
+    app = run_app("0", monkeypatch)
+    app.button(key="nav_reading").click().run()
+    app.button(key="nav_board").click().run()
+    html = "\n".join(m.value for m in app.markdown)
+    assert app.session_state.page == "board"
+    assert 'id="board-data"' in html, "the board did not come back from the nav row"
 
 
 def test_the_board_stays_on_after_a_rerun_it_triggers_itself(
     store, stub_assets, monkeypatch
 ):
-    """A tick makes the board rerun itself, and that rerun must not quietly turn
-    the board off and dump the wall tablet into the classic app mid-write."""
+    """A tick makes the board rerun itself, and that rerun must not quietly dump
+    the wall tablet onto another page mid-write."""
     app = run_app("0", monkeypatch)
     app.run()
-    assert "Classic app" in labels_of(app)
+    html = "\n".join(m.value for m in app.markdown)
+    assert 'id="board-data"' in html, "a rerun lost the board"
 
 
 # ── The kiosk must not be collateral damage ─────────────────────────────────
@@ -161,13 +195,13 @@ def test_board_gate_is_after_the_kiosk_mount_in_source_order():
     """
     source = APP_PY.read_text()
     kiosk_at = source.index("components.html(KIOSK_IFRAME_HTML, height=0)")
-    gate_at = source.index("if _board_on:")
+    gate_at = source.index("if _on_board:")
     assert kiosk_at < gate_at, "the board gate now runs before the kiosk mount"
 
 
 def test_board_branch_is_the_only_stop_in_the_shell():
-    """st.stop() is what keeps the classic routing from also running. A second
-    one elsewhere would mean the shell is now stopping in two places."""
+    """st.stop() is what keeps the other pages' routing from also running. A
+    second one elsewhere would mean the app is now stopping in two places."""
     tree = ast.parse(APP_PY.read_text())
     stops = [
         n
