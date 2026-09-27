@@ -206,6 +206,70 @@ def test_reopening_a_task_that_is_not_done_writes_nothing(data, store):
     assert store.recorded("update_task") == []
 
 
+# ── Writes that do not land ──────────────────────────────────────────────────
+
+
+def test_a_write_that_changed_nothing_is_reported_as_a_failure(data, store, monkeypatch):
+    """The case that used to report success over a task that never moved.
+
+    The real `update_task` returns the rows Supabase changed, so an empty list
+    means the row was gone or a policy refused it. Ignoring the return value
+    made a tap announce "done, 10 points" and repaint nothing, and the only way
+    to find out was to go and look at the board again.
+    """
+    _refuse_writes(monkeypatch, returning=[])
+
+    result = complete_task(data, 1)
+
+    assert result["ok"] is False
+    assert "didn't save" in result["message"]
+    assert "points" not in result or result["points"] == 0
+
+
+def test_a_refused_write_names_the_task_it_failed_on(data, store, monkeypatch):
+    _refuse_writes(monkeypatch, returning=[])
+    result = complete_task(data, 1)
+    assert result["message"].startswith("Set the table")
+
+
+def test_an_unreachable_database_is_not_a_traceback(data, store, monkeypatch):
+    """A tablet that loses wifi should say so, not show a stack trace."""
+    _refuse_writes(monkeypatch, raising=ConnectionError("no route to host"))
+
+    result = complete_task(data, 1)
+
+    assert result["ok"] is False
+    assert "connection" in result["message"].lower()
+
+
+def test_a_failed_undo_says_so_rather_than_claiming_it_moved(data, store, monkeypatch):
+    _refuse_writes(monkeypatch, returning=[])
+    result = reopen_task(data, 4)
+    assert result["ok"] is False
+    assert "Read 20 pages" in result["message"]
+
+
+def test_a_write_that_lands_is_still_a_success(data, store, monkeypatch):
+    """The real client returns the changed rows; that must read as success."""
+    _refuse_writes(monkeypatch, returning=[{"id": 1, "status": "Done"}])
+    result = complete_task(data, 1)
+    assert result["ok"] is True
+    assert result["points"] == 10
+
+
+def _refuse_writes(monkeypatch, returning=None, raising=None):
+    """Swap in an `update_task` that fails the way the real one can."""
+    from utils import db_helpers
+
+    def failing(*args, **kwargs):
+        if raising is not None:
+            raise raising
+        return returning
+
+    monkeypatch.setattr(db_helpers, "update_task", failing)
+    return failing
+
+
 # ── The action channel ──────────────────────────────────────────────────────
 
 

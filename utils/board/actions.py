@@ -14,6 +14,9 @@ concrete:
 * An action can arrive twice. Streamlit holds a widget value until it changes,
   and a rerun replays it, so "already in the target state" is a normal case and
   must be a no-op rather than a second write.
+* A write can fail quietly. `update_task` reports how many rows it changed, and
+  a tap has to be able to say so, because the alternative is a board that
+  congratulates you for something it did not do.
 """
 
 from datetime import date
@@ -30,10 +33,41 @@ LOCK_MESSAGES = {
 }
 
 
+WRITE_FAILED = "That didn't save. Try again."
+NO_CONNECTION = "Couldn't reach the database. Check the connection and try again."
+
+
 def _find(data: dict, task_id):
     for task in data.get("tasks", []):
         if task.get("id") == task_id:
             return task
+    return None
+
+
+def _write(task_id, updates) -> str | None:
+    """Perform the write, and report failure in the only terms that matter.
+
+    The real `update_task` hands back the rows Supabase actually changed. An
+    empty list is how PostgREST says "nothing matched" -- a task deleted on
+    another screen, or a row-level security policy quietly refusing the write --
+    and at the call site that is indistinguishable from success unless somebody
+    looks. Ignoring it is how a tap ends up announcing "done, 10 points" over a
+    task that never moved, and the family only finds out by looking at the
+    board again later.
+
+    Returns None when the write went through, or a message when it did not.
+    A falsy non-list return is treated as success: it is what the test harness
+    and any caller that only wants fire-and-forget already produce, and reading
+    it as failure would break them for no gain.
+    """
+    try:
+        changed = db_helpers.update_task(task_id, updates)
+    except Exception:
+        # A tablet that has just lost wifi, or a key the database has stopped
+        # accepting. A traceback on the wall is not an answer to a tap.
+        return NO_CONNECTION
+    if isinstance(changed, list) and not changed:
+        return WRITE_FAILED
     return None
 
 
@@ -69,7 +103,14 @@ def complete_task(data: dict, task_id) -> dict:
         "completed_date": today.isoformat(),
         "completed_week": f"{year}-W{week_num}",
     }
-    db_helpers.update_task(task_id, updates)
+    failure = _write(task_id, updates)
+    if failure:
+        return {
+            "ok": False,
+            "task_id": task_id,
+            "points": 0,
+            "message": f"{task.get('title')}: {failure}",
+        }
 
     # The points shown have to be the ones that will be awarded, which means
     # measuring after the write, not before it.
@@ -106,10 +147,16 @@ def reopen_task(data: dict, task_id) -> dict:
             "message": f"{task.get('title')} is not done.",
         }
 
-    db_helpers.update_task(
+    failure = _write(
         task_id,
         {"status": "Backlog", "completed_date": None, "completed_week": None},
     )
+    if failure:
+        return {
+            "ok": False,
+            "task_id": task_id,
+            "message": f"{task.get('title')}: {failure}",
+        }
     return {
         "ok": True,
         "task_id": task_id,
