@@ -1506,25 +1506,28 @@ def kiosk_settings_tab(data):
         f"Background images loaded: **{_bg_count}**"
     )
 
-    _t1, _t2, _t3 = st.columns([1, 1, 1])
-    with _t1:
-        if st.button("Preview screensaver", key="kiosk_preview_button", use_container_width=True, type="primary"):
-            st.session_state.kiosk_test_screensaver = True
-            st.rerun()
-    with _t2:
-        _test_prayer = st.selectbox(
-            "Prayer",
-            options=["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"],
-            label_visibility="collapsed",
-        )
-    with _t3:
-        if st.button("Play test adhan", key="kiosk_play_button", use_container_width=True, type="primary"):
-            st.session_state.kiosk_test_adhan = _test_prayer
-            st.rerun()
-
-    st.caption("There is no separate setup step. Tap once anywhere if the browser has blocked sound; "
-               "the test button then plays immediately. "
-               "Apple blocks sound on a freshly loaded page until it has been tapped.")
+    # ── runtime test controls ──
+    # These are plain buttons carrying data-kiosk-action, NOT st.button. The
+    # persistent runtime listens for them at the parent window and acts in the
+    # same tick as the tap, so there is no rerun, no one-shot flag in
+    # #kiosk-config, and nothing to poll for. A st.button had to hand the
+    # request to the runtime through that flag, which is exactly the kind of
+    # hand-off that fails silently on a deployed browser.
+    st.markdown(
+        '<div class="kiosk-test-row">'
+        '<button class="kiosk-test-btn kiosk-test-btn--primary" data-kiosk-action="preview">'
+        'Preview screensaver</button>'
+        '<button class="kiosk-test-btn" data-kiosk-action="adhan" data-kiosk-prayer="Fajr">'
+        'Test adhan</button>'
+        '<span id="kiosk-status" class="kiosk-test-status">'
+        '<b data-part="runtime">connecting…</b>'
+        '<b data-part="assets">…</b>'
+        '<b data-part="state">…</b>'
+        '</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("The screensaver preview stays up until you tap it. The adhan test plays immediately; "
+               "if the browser has blocked sound, tap anywhere once and it will resume.")
 
     # ── 1b. Weather ──
     st.write("### Screensaver weather")

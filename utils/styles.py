@@ -1881,6 +1881,55 @@ _KIOSK_CSS = """
     to { opacity: 1; }
 }
 
+/* The Kiosk runtime test controls. Plain buttons rather than st.button: the
+ * runtime dispatches them directly on the real tap, so the test needs no
+ * Streamlit rerun and no flag to be polled for. Colours come from the app
+ * tokens so they match the rest of Admin. */
+.kiosk-test-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 0.75rem 0 0.35rem;
+}
+.kiosk-test-btn {
+    font: 600 0.85rem var(--font);
+    color: var(--text-primary);
+    background: var(--surface-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 1.1rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.kiosk-test-btn:hover { border-color: var(--accent-border); background: var(--surface-1); }
+.kiosk-test-btn:active { transform: translateY(1px); }
+.kiosk-test-btn--primary {
+    color: var(--accent-fg);
+    background: var(--accent);
+    border-color: var(--accent);
+}
+.kiosk-test-btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.kiosk-test-status {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    font: 0.72rem var(--font-mono);
+    color: var(--text-tertiary);
+}
+.kiosk-test-status b { font-weight: 500; }
+.kiosk-test-status [data-tone="ok"] { color: var(--accent); }
+.kiosk-test-status [data-tone="warn"] { color: #F59E0B; }
+/* A preview is the user actively testing the display, not a wall tablet going
+ * to sleep, so it is marked and held rather than timing out under the pointer. */
+.kiosk-screensaver--preview { box-shadow: inset 0 0 0 3px rgba(0, 199, 255, 0.35); }
+.kiosk-screensaver-footer .kiosk-ss-preview {
+    color: #7DD3FC;
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+}
+
 .kiosk-status {
     display: inline-flex;
     align-items: center;

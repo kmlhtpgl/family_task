@@ -50,10 +50,12 @@
         timingsDay: null,
         timingsPending: false,
         pendingRetry: null,
+        playing: false,
         fired: {},
         slide: null,
         foot: null,
         ssActive: false,
+        ssPreview: false,
         ssEl: null,
         order: [],
         pos: 0
@@ -113,6 +115,34 @@
         html += row('Pending retry', K.pendingRetry || 'none', !K.pendingRetry, true);
         html += row('Wake lock', K.wake ? 'held' : 'not held', !!K.wake, true);
         diagEl.innerHTML = html;
+    }
+
+    /* ── Admin status strip ──────────────────────────────────────────────────
+     * A tablet on a wall has nowhere to read a console, and a test control
+     * that silently does nothing is indistinguishable from a broken one. The
+     * Kiosk tab renders three chips; the runtime fills them on every tick so
+     * the real state is readable on the device itself. */
+    function setStatus(part, text, tone) {
+        var host = doc.getElementById('kiosk-status');
+        if (!host) return;
+        var el = host.querySelector('[data-part="' + part + '"]');
+        if (!el) return;
+        if (el.textContent !== text) el.textContent = text;
+        if (tone) el.setAttribute('data-tone', tone);
+        else el.removeAttribute('data-tone');
+    }
+
+    function renderStatus() {
+        var c = cfg() || {};
+        var bgs = (c.backgrounds || []).length;
+        var files = Object.keys(c.adhan_files || {}).length;
+        var state = K.ssActive
+            ? (K.ssPreview ? 'preview showing' : 'showing')
+            : (K.idle ? 'armed' : 'timer off');
+        setStatus('runtime', 'Runtime ready', 'ok');
+        setStatus('assets', bgs + ' backgrounds · ' + files + '/5 adhan',
+            (bgs > 0 && files >= 5) ? 'ok' : 'warn');
+        setStatus('state', 'Screensaver ' + state, K.ssActive ? 'ok' : null);
     }
 
     /* ── config ─────────────────────────────────────────────────────────── */
@@ -378,6 +408,12 @@
     }
 
     function prime() {
+        /* Never prime over a live adhan. The test buttons are dispatched from a
+         * capture-phase listener, so prime() runs immediately after
+         * playAdhan() on the very same tap; without this it would pause the
+         * element and drop its source 90ms later, which looks exactly like a
+         * button that does nothing. */
+        if (K.playing) return;
         var a = audio();
         try {
             a.el.pause();
@@ -415,6 +451,9 @@
             toast('Adhan audio error', 'err');
             return;
         }
+        /* Latched synchronously, not in the play() promise: prime() runs later
+         * on the same tap and has to see the adhan as already live. */
+        K.playing = true;
         var p = a.el.play();
         if (p && p.then) {
             p.then(function () {
@@ -422,12 +461,14 @@
                 if (!isTest) markPlayed(name);
                 K.pendingRetry = null;
                 K.unlocked = true;
+                a.el.onended = a.el.onerror = function () { K.playing = false; };
                 unlockHint(false);
                 toast(name + (isTest ? ' adhan (test)' : ' adhan'), 'ok');
             }).catch(function () {
                 /* Autoplay refused. Do not latch a false "unlocked" flag —
                  * keep the request and retry on the next real gesture. */
                 try { a.el.pause(); } catch (e) {}
+                K.playing = false;
                 K.pendingRetry = name;
                 K.unlocked = false;
                 toast('Autoplay blocked', 'warn');
@@ -532,15 +573,24 @@
         return out;
     }
 
-    function showScreensaver() {
+    function showScreensaver(opts) {
         if (K.ssActive) return;
-        K.ignoreActivityUntil = Date.now() + 1500;
+        var preview = !!(opts && opts.preview);
+        K.ssPreview = preview;
+        /* The idle screensaver belongs to a wall display nobody is meant to
+         * touch, so it dismisses itself on the first sign of life. That is
+         * correct there and exactly wrong for the Admin test: the pointer is
+         * live and Streamlit fires scroll/resize while the page settles, so a
+         * preview used to survive about a second and vanish — which read as
+         * "the button does nothing". A preview ignores activity entirely and
+         * waits for a deliberate tap. */
+        K.ignoreActivityUntil = Date.now() + (preview ? 60000 : 1500);
         var imgs = bgUrls();
         K.ssActive = true;
         doc.documentElement.classList.add('kiosk-active');
 
         var el = doc.createElement('div');
-        el.className = 'kiosk-screensaver';
+        el.className = 'kiosk-screensaver' + (preview ? ' kiosk-screensaver--preview' : '');
 
         var box = doc.createElement('div');
         box.className = 'kiosk-screensaver-images';
@@ -617,6 +667,9 @@
         if (!foot) return;
         var now = new Date();
         var parts = [];
+        if (K.ssPreview) {
+            parts.push('<span class="kiosk-ss-preview">Preview · tap anywhere to exit</span>');
+        }
         parts.push('<span class="kiosk-ss-time">' +
             now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) +
             ' · ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '</span>');
@@ -642,6 +695,7 @@
     function hideScreensaver() {
         if (!K.ssActive) return;
         K.ssActive = false;
+        K.ssPreview = false;
         doc.documentElement.classList.remove('kiosk-active');
         if (K.slide) { clearInterval(K.slide); K.slide = null; }
         if (K.foot) { clearInterval(K.foot); K.foot = null; }
@@ -663,18 +717,35 @@
     }
 
     function activity() {
+        /* A preview is not an idle screensaver, so it must not treat the
+         * pointer the tester is still moving as a request to leave. Only the
+         * overlay's own tap handler dismisses it. */
+        if (K.ssPreview) return;
         if (K.ignoreActivityUntil && Date.now() < K.ignoreActivityUntil) return;
         if (K.ssActive) hideScreensaver();
         idle();
     }
+
+    /* One tap produces pointerdown and then click. Without this guard the
+     * adhan is started twice, and the second call reassigns src while the
+     * first load is still in flight — the element aborts and reports the
+     * failure as a blocked autoplay, which is a misleading thing to show. */
+    var lastAction = { key: '', at: 0 };
 
     function handleKioskControl(event) {
         var target = event.target && event.target.closest
             ? event.target.closest('[data-kiosk-action]') : null;
         if (!target) return;
         var action = target.getAttribute('data-kiosk-action');
-        if (action === 'screensaver') showScreensaver();
+        var key = action + ':' + (target.getAttribute('data-kiosk-prayer') || '');
+        var now = Date.now();
+        if (key === lastAction.key && now - lastAction.at < 700) return;
+        lastAction.key = key;
+        lastAction.at = now;
+
+        if (action === 'preview' || action === 'screensaver') showScreensaver({ preview: true });
         if (action === 'adhan') playAdhan(target.getAttribute('data-kiosk-prayer') || 'Fajr', true);
+        renderStatus();
     }
 
     /* ══════════════════════════════════════════════════════════════════════
@@ -700,11 +771,6 @@
      * click at the parent window so the test remains a real browser gesture. */
     win.addEventListener('pointerdown', handleKioskControl, true);
     win.addEventListener('click', handleKioskControl, true);
-    win.addEventListener('message', function (event) {
-        var data = event.data || {};
-        if (data.familyKiosk === 'screensaver') showScreensaver();
-        if (data.familyKiosk === 'adhan') playAdhan(data.prayer || 'Fajr', true);
-    });
 
     var IDLE_EVENTS = ['mousemove', 'wheel', 'scroll', 'touchstart', 'click'];
     IDLE_EVENTS.forEach(function (evt) {
@@ -722,6 +788,7 @@
 
     win.addEventListener('focus', function () { fetchTimings(); arm(); });
     win.addEventListener('pageshow', function () { fetchTimings(true); arm(); });
+    win.addEventListener('focus', renderStatus);
 
     /* Config can change under us (admin toggles, test buttons). Re-arm when
      * it does. Polling a tiny text node is far cheaper than the old design,
@@ -749,7 +816,7 @@
             K.sig = sig;
             arm();
             idle();
-            if (c.trigger_screensaver) showScreensaver();
+            if (c.trigger_screensaver) showScreensaver({ preview: true });
         }
         if (K.timingsDay && K.timingsDay !== todayKey()) {
             K.fired = {};
@@ -774,6 +841,7 @@
                 ? 'Adhan is waiting — tap anywhere once to allow sound'
                 : 'Tap anywhere once to enable the adhan');
         }
+        renderStatus();
     }, 500);
 
     /* ── init ───────────────────────────────────────────────────────────── */
@@ -825,6 +893,7 @@
     };
     win.Kiosk = {
         screensaver: showScreensaver,
+        preview: function () { showScreensaver({ preview: true }); },
         dismiss: hideScreensaver,
         playAdhan: function (name) { playAdhan(name || 'Fajr', true); }
     };

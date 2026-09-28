@@ -210,3 +210,95 @@ def test_static_serving_is_enabled():
     assert "enableStaticServing = true" in config, (
         "enableStaticServing must stay on or kiosk.js 404s and adhan never arms"
     )
+
+
+def test_a_preview_cannot_be_dismissed_by_activity():
+    """The Admin preview must survive the pointer, or the button looks broken.
+
+    The idle screensaver is meant for a wall display nobody touches and is
+    dismissed by the first mousemove, scroll or click. Reusing that behaviour
+    for the test is what made "Preview screensaver" flash for about a second
+    and vanish: the tester's cursor is live and Streamlit fires scroll events
+    while the page settles. activity() must therefore bail out while a preview
+    is up, and only the overlay's own tap may close it.
+    """
+    source = KIOSK_JS.read_text()
+
+    activity = source[source.index("function activity()") :]
+    activity = activity[: activity.index("\n    }")]
+    assert "ssPreview" in activity, (
+        "activity() no longer checks ssPreview, so the Admin preview is "
+        "dismissed by ordinary mouse movement and reads as a dead button"
+    )
+    assert "hideScreensaver" in activity, (
+        "activity() should still dismiss the IDLE screensaver, which is correct "
+        "for a wall display; only previews are exempt"
+    )
+
+
+def test_preview_mode_is_reachable_from_the_admin_controls():
+    """The Admin controls must dispatch straight to the runtime.
+
+    They are plain elements carrying data-kiosk-action, not st.button. An
+    st.button has to rerun the script and hand the request over as a one-shot
+    flag in #kiosk-config for the 500ms poll to find, and that hand-off fails
+    silently on a deployed browser.
+    """
+    admin = (REPO_ROOT / "app_pages" / "admin.py").read_text()
+    assert 'data-kiosk-action="preview"' in admin, (
+        "the Admin Kiosk tab no longer offers a preview control the runtime "
+        "can act on"
+    )
+    assert 'data-kiosk-action="adhan"' in admin, (
+        "the Admin Kiosk tab no longer offers an adhan test control"
+    )
+    assert "kiosk_preview_button" not in admin, (
+        "the preview control went back to st.button + st.rerun, which is the "
+        "hand-off that silently fails on the deployed app"
+    )
+
+    source = KIOSK_JS.read_text()
+    handler = source[source.index("function handleKioskControl") :]
+    handler = handler[: handler.index("\n    }")]
+    assert "'preview'" in handler, "the runtime does not dispatch the preview action"
+    assert "showScreensaver({ preview: true })" in handler, (
+        "the preview control must open preview mode, or it inherits the idle "
+        "auto-dismiss and vanishes immediately"
+    )
+
+
+def test_prime_never_interrupts_a_playing_adhan():
+    """prime() must stand down while an adhan is live.
+
+    The controls dispatch from a capture-phase listener, so prime() runs on the
+    very same tap that started the adhan. If it does not stand down it pauses
+    the element and strips its source 90ms later, and the test reports nothing
+    at all.
+    """
+    source = KIOSK_JS.read_text()
+    prime = source[source.index("function prime()") :]
+    prime = prime[: prime.index("\n    }")]
+    assert "K.playing" in prime, "prime() will clobber a live adhan on the same tap"
+
+    play = source[source.index("function playAdhan") :]
+    play = play[: play.index("\n    }")]
+    assert "K.playing = true" in play, (
+        "playAdhan must latch K.playing before a.el.play(), otherwise the flag "
+        "is not set in time to protect the playback"
+    )
+
+
+def test_the_admin_status_strip_is_present_and_filled():
+    """The runtime must report its own state on the page.
+
+    A control that silently does nothing is indistinguishable from a broken
+    one, and a wall tablet has no console to read. Both the markup and the
+    runtime side are pinned so the strip cannot quietly stop updating.
+    """
+    admin = (REPO_ROOT / "app_pages" / "admin.py").read_text()
+    assert 'id="kiosk-status"' in admin, "the Kiosk tab no longer renders a status strip"
+
+    source = KIOSK_JS.read_text()
+    assert "function renderStatus()" in source, "the runtime no longer reports status"
+    for part in ("runtime", "assets", "state"):
+        assert f"'{part}'" in source, f"the status strip never fills the {part} chip"
