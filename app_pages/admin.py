@@ -1535,9 +1535,11 @@ def kiosk_settings_tab(data):
 
     _t1, _t2, _t3 = st.columns([1, 1, 1])
     with _t1:
-        if st.button("Preview screensaver", key="kiosk_preview_button", use_container_width=True, type="primary"):
-            st.session_state.kiosk_test_screensaver = True
-            st.rerun()
+        st.markdown(
+            '<iframe class="kiosk-test-frame" title="Preview screensaver" '
+            'src="/app/static/kiosk/test.html?mode=screensaver"></iframe>',
+            unsafe_allow_html=True,
+        )
     with _t2:
         _test_prayer = st.selectbox(
             "Prayer",
@@ -1545,9 +1547,11 @@ def kiosk_settings_tab(data):
             label_visibility="collapsed",
         )
     with _t3:
-        if st.button("Play test adhan", key="kiosk_play_button", use_container_width=True, type="primary"):
-            st.session_state.kiosk_test_adhan = _test_prayer
-            st.rerun()
+        st.markdown(
+            f'<iframe class="kiosk-test-frame" title="Play test adhan" '
+            f'src="/app/static/kiosk/test.html?mode=adhan&prayer={_test_prayer}"></iframe>',
+            unsafe_allow_html=True,
+        )
 
     st.caption("There is no separate setup step. Tap once anywhere if the browser has blocked sound; "
                "the test button then plays immediately. "
