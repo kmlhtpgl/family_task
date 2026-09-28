@@ -579,6 +579,15 @@
         var img = doc.createElement('img');
         img.src = imgs[idx];
         img.className = 'kiosk-screensaver-img active';
+        img.addEventListener('error', function () {
+            /* A wall display must never turn into an unexplained black page
+             * when a CDN/static asset is unavailable. Keep the screensaver
+             * layer alive and show a deliberate fallback surface instead. */
+            img.style.display = 'none';
+            box.classList.add('kiosk-screensaver-images--fallback');
+            box.setAttribute('aria-label', 'Kiosk screensaver active');
+            box.textContent = 'Kiosk mode active';
+        });
         box.appendChild(img);
     }
 

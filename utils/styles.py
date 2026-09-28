@@ -1800,6 +1800,12 @@ _KIOSK_CSS = """
     align-items: center;
     justify-content: center;
 }
+.kiosk-screensaver-images--fallback {
+    background: radial-gradient(circle at 50% 35%, rgba(0, 199, 255, 0.16), transparent 42%), #0b1018;
+    color: #f4f5f8;
+    font: 600 1.4rem var(--font);
+    letter-spacing: 0.04em;
+}
 .kiosk-screensaver-img {
     position: absolute;
     max-width: 90vw;

@@ -454,7 +454,7 @@ def task_list_tab(data):
             st.success("✅ Task is removed!")
         del st.session_state.pending_action
 
-    st.write("### ➕ Add New Task")
+    st.write("### Add new task")
 
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -475,7 +475,7 @@ def task_list_tab(data):
 
     st.divider()
 
-    st.write("### 📝 Your Tasks")
+    st.write("### Your tasks")
 
     search_task = st.text_input("🔍 Search tasks", placeholder="Type task name to filter...", label_visibility="collapsed")
     filtered = [t for t in templates if search_task.lower() in t["title"].lower()] if search_task else templates
@@ -560,7 +560,7 @@ def meeting_templates_tab(data):
         st.session_state.editing_meeting_template_id = None
 
     # ── Add template ──
-    st.write("### ➕ Add New Template")
+    st.write("### Add new template")
     with st.form("add_meeting_template_form"):
         t_col1, t_col2 = st.columns([3, 1])
         with t_col1:
@@ -589,7 +589,7 @@ def meeting_templates_tab(data):
     st.divider()
 
     # ── Add selected to meeting list ──
-    st.write("### 📝 Add to Meeting List")
+    st.write("### Add to meeting list")
     if not templates:
         st.caption("No templates yet. Add one above.")
     else:
@@ -612,7 +612,7 @@ def meeting_templates_tab(data):
     st.divider()
 
     # ── Manage templates ──
-    st.write("### 📚 Your Templates")
+    st.write("### Your templates")
 
     search_templ = st.text_input("🔍 Search templates", placeholder="Type title to filter...", key="mt_search", label_visibility="collapsed")
     filtered = [t for t in templates if search_templ.lower() in t["title"].lower()] if search_templ else templates
@@ -1019,7 +1019,7 @@ def book_list_tab(data):
             st.success("✅ Book is removed!")
         del st.session_state.pending_action
 
-    st.write("### ➕ Add New Book")
+    st.write("### Add new book")
 
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -1048,7 +1048,7 @@ def book_list_tab(data):
 
     st.divider()
 
-    st.write("### 📖 Your Books")
+    st.write("### Your books")
 
     search_book = st.text_input("🔍 Search books", placeholder="Type book name to filter...", label_visibility="collapsed")
     filtered_books = [b for b in book_templates if search_book.lower() in b["title"].lower()] if search_book else book_templates
@@ -1309,7 +1309,7 @@ def surah_list_tab(data):
             st.rerun()
 
     st.divider()
-    st.write("### 📖 Your Items")
+    st.write("### Your Quran items")
 
     search = st.text_input("🔍 Search", placeholder="Type name...", label_visibility="collapsed")
 
@@ -1505,7 +1505,7 @@ def kiosk_settings_tab(data):
     prayer_times = get_prayer_times()
 
     # ── 1. Toggles ──
-    st.write("### ⚙️ Features")
+    st.write("### Features")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.toggle(
@@ -1564,7 +1564,7 @@ def kiosk_settings_tab(data):
                "Apple blocks sound on a freshly loaded page until it has been tapped.")
 
     # ── 1b. Weather ──
-    st.write("### 🌤️ Screensaver Weather")
+    st.write("### Screensaver weather")
     wcol1, wcol2, wcol3 = st.columns([1, 2, 1])
     with wcol1:
         st.toggle(
@@ -1609,7 +1609,7 @@ def kiosk_settings_tab(data):
     st.divider()
 
     # ── 2. Status Indicators ──
-    st.write("### 📊 Status")
+    st.write("### Runtime status")
 
     st.markdown(
         '<div class="info-box" style="border-left:3px solid var(--accent);">'
@@ -1678,7 +1678,7 @@ def kiosk_settings_tab(data):
     st.divider()
 
     # ── 3. Today's Prayer Times ──
-    st.write("### 🕌 Today's Prayer Times")
+    st.write("### Today's prayer times")
     if prayer_times:
         cols = st.columns(6)
         prayer_order = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"]
@@ -1693,7 +1693,7 @@ def kiosk_settings_tab(data):
     st.divider()
 
     # ── 4. Test Adhan ──
-    st.write("### 🔊 Test Adhan Playback")
+    st.write("### Test adhan playback")
     st.caption("Tap play on the audio player below to hear each adhan file.")
     from utils.kiosk_helpers import PRAYER_KEYS
     prayer_names = {"fajr": "Fajr", "dhuhr": "Dhuhr", "asr": "Asr", "maghrib": "Maghrib", "isha": "Isha"}
@@ -1744,7 +1744,7 @@ def settings_tab(data):
     st.success("✅ Parent and child profiles with photos are fully available!")
 
     st.divider()
-    st.subheader("Reset points")
+    render_admin_section_header("Reset points", "Clear accumulated points without changing assignments.", "SYSTEM / RESET")
 
     st.warning("⚠️ This action cannot be undone. Choose carefully.")
 
@@ -1807,7 +1807,7 @@ def settings_tab(data):
         st.rerun()
 
     st.divider()
-    st.subheader("Change admin password")
+    render_admin_section_header("Change admin password", "Protect this control room across every device.", "SYSTEM / ACCESS")
 
     with st.form("change_admin_password_form"):
         current_pwd = st.text_input("Current admin password", type="password")
