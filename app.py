@@ -1,5 +1,4 @@
 import json
-from datetime import date
 from html import escape
 
 import streamlit as st
@@ -37,11 +36,6 @@ apply_custom_styles()
 
 st.markdown("""<div class="family-bg"></div>""", unsafe_allow_html=True)
 
-# Portable date: '%-d' is a glibc-only strftime flag and renders literally as
-# "-d" on macOS/BSD, so the day number is formatted separately.
-_today = date.today()
-_today_label = f"{_today:%a} {_today.day} {_today:%b %Y}"
-
 # ── Page resolution ─────────────────────────────────────────────────────────
 # Resolved before any chrome is rendered, because the page decides the chrome:
 # the board needs its own full-bleed styling, everything else gets the title bar.
@@ -59,18 +53,6 @@ if st.query_params.get("nav") == "board":
 
 page = st.session_state.page
 _on_board = page == "board"
-
-if not _on_board:
-    st.markdown(f"""
-        <div class="top-navbar">
-            <a href="?nav=board" class="navbar-brand">
-                <h1>Family Task</h1>
-            </a>
-            <div class="navbar-actions">
-                <div class="nav-date">{_today_label}</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
 
 # ── Kiosk Module (screensaver + adhan) ──
 # The runtime lives in static/kiosk/kiosk.js and is loaded by a CONSTANT
