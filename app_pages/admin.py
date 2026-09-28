@@ -1519,15 +1519,19 @@ def kiosk_settings_tab(data):
         'Preview screensaver</button>'
         '<button class="kiosk-test-btn" data-kiosk-action="adhan" data-kiosk-prayer="Fajr">'
         'Test adhan</button>'
-        '<span id="kiosk-status" class="kiosk-test-status">'
+        '</div>'
+        '<div id="kiosk-status" class="kiosk-test-status">'
         '<b data-part="runtime">connecting…</b>'
         '<b data-part="assets">…</b>'
         '<b data-part="state">…</b>'
-        '</span></div>',
+        '<b data-part="version">…</b>'
+        '</div>',
         unsafe_allow_html=True,
     )
     st.caption("The screensaver preview stays up until you tap it. The adhan test plays immediately; "
-               "if the browser has blocked sound, tap anywhere once and it will resume.")
+               "if the browser has blocked sound, tap anywhere once and it will resume. "
+               "If the line above still says “connecting…”, this browser is running a "
+                   "cached copy of the runtime — see the note below.")
 
     # ── 1b. Weather ──
     st.write("### Screensaver weather")
@@ -1658,9 +1662,20 @@ def kiosk_settings_tab(data):
 
     st.divider()
 
-    # ── 4. Test Adhan ──
-    st.write("### Test adhan playback")
-    st.caption("Tap play on the audio player below to hear each adhan file.")
+    # ── 4. Adhan files ──
+    # Deliberately NOT a second set of test controls. There used to be a
+    # "Test adhan playback" player block here, and it was the one people
+    # actually clicked: it sits far below the Kiosk runtime buttons, it only
+    # ever played a file through Streamlit's own <audio> element, and the
+    # browser's heading anchor (#test-adhan-playback) made it look like a
+    # separate page. Two sets of adhan controls read as "one of them is
+    # broken". These players are kept only as a file check.
+    st.write("### Adhan files")
+    st.caption(
+        "File check only — these are Streamlit audio players, not the kiosk runtime. "
+        "To test the real scheduled adhan and the screensaver, use the buttons at the top "
+        "of this section."
+    )
     from utils.kiosk_helpers import PRAYER_KEYS
     prayer_names = {"fajr": "Fajr", "dhuhr": "Dhuhr", "asr": "Asr", "maghrib": "Maghrib", "isha": "Isha"}
     test_cols = st.columns(5)

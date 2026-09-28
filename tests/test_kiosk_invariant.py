@@ -23,10 +23,10 @@ STYLES_PY = REPO_ROOT / "utils" / "styles.py"
 KIOSK_JS = REPO_ROOT / "static" / "kiosk" / "kiosk.js"
 KIOSK_HELPERS = REPO_ROOT / "utils" / "kiosk_helpers.py"
 
-# The exact string app.py must keep passing to components.html(). kiosk.js is
-# fetched from /app/static, which Streamlit serves because
-# enableStaticServing = true in .streamlit/config.toml.
-EXPECTED_IFRAME_HTML = '<script src="/app/static/kiosk/kiosk.js"></script>'
+# kiosk.js is fetched from /app/static, which Streamlit serves because
+# enableStaticServing = true in .streamlit/config.toml. The URL carries a
+# ?v= cache-buster; KIOSK_RUNTIME_PATH pins the part that must not move.
+KIOSK_RUNTIME_PATH = "/app/static/kiosk/kiosk.js"
 
 # The kiosk overlay stack, from lowest to highest. The app's own chrome sits
 # below all of these; the adhan overlay has to sit above the app, and the
@@ -45,10 +45,48 @@ def app_tree():
     return ast.parse(APP_PY.read_text())
 
 
-def test_iframe_html_constant_is_exactly_as_documented():
+def test_iframe_html_points_at_the_runtime_and_is_stable():
+    """The iframe URL must keep its path, and must not vary per rerun.
+
+    Two failure modes are being prevented here, and they pull in opposite
+    directions. If the URL drifts (or gains a per-rerun token) Streamlit
+    recreates the frame and the audio element dies. If it is a fixed URL with
+    no version, the browser keeps the copy it first fetched -- Streamlit serves
+    static assets with a one-year max-age -- so a fix to kiosk.js never reaches
+    the wall tablet and every local test keeps passing against code the
+    deployment is not running.
+    """
     from utils.kiosk_helpers import KIOSK_IFRAME_HTML
 
-    assert KIOSK_IFRAME_HTML == EXPECTED_IFRAME_HTML
+    assert KIOSK_IFRAME_HTML == KIOSK_IFRAME_HTML, "unreachable"
+    assert KIOSK_RUNTIME_PATH in KIOSK_IFRAME_HTML, (
+        f"the kiosk iframe must load {KIOSK_RUNTIME_PATH}, "
+        f"but it is {KIOSK_IFRAME_HTML}"
+    )
+    assert re.fullmatch(
+        rf'<script src="{re.escape(KIOSK_RUNTIME_PATH)}\?v=[0-9a-f]+"></script>',
+        KIOSK_IFRAME_HTML,
+    ), (
+        "the iframe URL must be exactly the runtime path plus a hex ?v= version, "
+        "and nothing that changes between reruns"
+    )
+
+    # The version is derived from the file, so it is stable within a deploy and
+    # moves only when the runtime itself moves.
+    # Import it a second time: the URL must be recomputed to the same value, so
+    # a rerun reuses the iframe instead of tearing it down.
+    from utils.kiosk_helpers import KIOSK_IFRAME_HTML as again
+
+    assert again == KIOSK_IFRAME_HTML, "the iframe URL is not stable across imports"
+
+    version = re.search(r"\?v=([0-9a-f]+)", KIOSK_IFRAME_HTML).group(1)
+    import hashlib
+
+    digest = hashlib.sha256(KIOSK_JS.read_bytes()).hexdigest()[: len(version)]
+    assert version == digest, (
+        "the ?v= cache-buster no longer matches the contents of kiosk.js, so the "
+        "browser cannot tell a new runtime from an old one"
+    )
 
 
 def test_app_passes_the_constant_not_a_string():
@@ -201,6 +239,67 @@ def test_screensaver_has_backgrounds():
     assert len(backgrounds) >= 10, (
         f"only {len(backgrounds)} screensaver backgrounds; the kiosk screensaver "
         "cycles through these"
+    )
+
+
+def test_assets_are_requested_with_the_runtime_version():
+    """Backgrounds and adhan files must carry the runtime's ?v=.
+
+    kiosk.js is static content, so a browser will happily reuse the images and
+    audio it cached on an earlier deploy. If the runtime keeps the assets
+    versioned but forgets to version these, the screensaver comes up showing
+    last month's picture set and the adhan plays a stale file, which reads as
+    "the screensaver does not work".
+    """
+    source = KIOSK_JS.read_text()
+
+    asset = source[source.index("function asset(p)") :]
+    asset = asset[: asset.index("\n    }")]
+    assert "RUNTIME_VERSION" in asset, (
+        "asset() no longer appends the runtime version, so backgrounds and adhan "
+        "are served from whatever the browser cached first"
+    )
+    assert "doc.currentScript" not in source, (
+        "kiosk.js reads currentScript from the parent document, which is always "
+        "null; the version silently degrades to 0 and nothing is cache-busted"
+    )
+    assert "document.currentScript" in source, (
+        "the runtime version must be read from this file's own document"
+    )
+
+
+def test_the_runtime_version_is_shown_on_the_admin_page():
+    """A stale cache has to be visible without a console.
+
+    The wall tablet cannot open devtools, and the deployed app sits behind a
+    login, so the only place a stale runtime can be diagnosed is on the page.
+    """
+    admin = (REPO_ROOT / "app_pages" / "admin.py").read_text()
+    assert 'data-part="version"' in admin, "the Kiosk tab no longer shows the runtime version"
+
+    source = KIOSK_JS.read_text()
+    assert "setStatus('version'" in source, (
+        "the runtime version chip is never filled, so a stale cache looks "
+        "identical to a working runtime"
+    )
+
+
+def test_there_is_only_one_set_of_adhan_test_controls():
+    """The runtime buttons and the file-check players must not compete.
+
+    A second heading called "Test adhan playback" sat below the real controls
+    with Streamlit's own audio players, and its heading anchor made it look
+    like a separate page. Two ways to "test the adhan" is why the controls read
+    as broken: people clicked the players, which never touch the runtime.
+    """
+    admin = (REPO_ROOT / "app_pages" / "admin.py").read_text()
+    assert "### Test adhan playback" not in admin, (
+        "the duplicate adhan test section is back; it is a Streamlit audio "
+        "player and does not exercise the kiosk runtime at all"
+    )
+    assert "### Adhan files" in admin, (
+        "the adhan file-check section should be labelled as a file check, not a "
+        "second set of test controls"
     )
 
 

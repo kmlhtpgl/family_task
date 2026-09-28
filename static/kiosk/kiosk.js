@@ -30,8 +30,23 @@
     var pathname = win.location.pathname;
     var BASE = pathname.slice(0, pathname.lastIndexOf('/') + 1) || '/';
 
+    /* Backgrounds and adhan files are long-lived static assets too, so they
+     * carry the same content hash the runtime was itself loaded with. Without
+     * it a browser replays the file set from whichever deploy it first saw. */
+    var RUNTIME_VERSION = (function () {
+        /* This file's OWN document, not `doc`: `doc` is the parent, and the
+         * parent has no currentScript, so the version silently fell back to "0"
+         * and every asset went out unversioned. */
+        var s = document.currentScript;
+        if (s && s.src) {
+            var m = s.src.match(/[?&]v=([0-9a-f]+)/);
+            if (m) return m[1];
+        }
+        return '0';
+    })();
+
     function asset(p) {
-        return BASE + 'app/static/' + p;
+        return BASE + 'app/static/' + p + '?v=' + RUNTIME_VERSION;
     }
 
     /* ── state (on the parent, so it outlives this frame) ───────────────── */
@@ -143,6 +158,11 @@
         setStatus('assets', bgs + ' backgrounds · ' + files + '/5 adhan',
             (bgs > 0 && files >= 5) ? 'ok' : 'warn');
         setStatus('state', 'Screensaver ' + state, K.ssActive ? 'ok' : null);
+        /* Stated on the page on purpose. Streamlit serves static assets with a
+         * one-year max-age, so a browser can be running a runtime from an older
+         * deploy while the app around it is current. The version is the content
+         * hash of this file, so a mismatch is visible without a console. */
+        setStatus('version', 'runtime ' + RUNTIME_VERSION, null);
     }
 
     /* ── config ─────────────────────────────────────────────────────────── */

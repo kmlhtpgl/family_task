@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import hashlib
 from pathlib import Path
 import json
 from datetime import date, datetime
@@ -56,7 +57,28 @@ FAJR_OFFSET_MIN = -10
 # unchanged hash means the iframe element is reused instead of recreated.
 # A recreated iframe destroys every timer and the audio element, which is
 # exactly how the previous adhan implementation kept going silent.
-KIOSK_IFRAME_HTML = '<script src="/app/static/kiosk/kiosk.js"></script>'
+#
+# The ?v= is a cache-buster derived from the file's own content. Streamlit
+# serves static assets with a one-year max-age, so a browser that loaded the
+# runtime once kept running that copy forever -- every fix pushed to kiosk.js
+# was invisible on the wall tablet and on the deployed app, which is why local
+# runs kept passing while the real deployment never changed. Hashing the file
+# means the URL changes only when the runtime actually changes, so a new deploy
+# fetches the new file and an unchanged deploy is still cached and the iframe
+# is still reused across reruns.
+KIOSK_JS_PATH = Path("static/kiosk/kiosk.js")
+
+
+def _kiosk_runtime_version():
+    try:
+        return hashlib.sha256(KIOSK_JS_PATH.read_bytes()).hexdigest()[:12]
+    except OSError:
+        return "0"
+
+
+KIOSK_IFRAME_HTML = (
+    f'<script src="/app/static/kiosk/kiosk.js?v={_kiosk_runtime_version()}"></script>'
+)
 
 
 def _parse_timings(data):
