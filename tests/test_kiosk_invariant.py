@@ -403,6 +403,34 @@ def test_streamlit_version_is_pinned():
     )
 
 
+def test_the_unlock_nag_does_not_cover_the_board():
+    """An idle kiosk must not shout at the family task list.
+
+    The runtime is mounted on every page, and the unlock hint used to fire from
+    the config-sync loop whenever audio was merely locked. Until the first
+    gesture, that is always, so the Board carried a permanent "Tap anywhere
+    once to enable the adhan" banner over the task list. It may only appear
+    when an adhan is actually stuck waiting for a tap.
+    """
+    source = KIOSK_JS.read_text()
+
+    sync = source[source.index("if (c.trigger_adhan)") :]
+    assert "unlockHint(true" not in sync, (
+        "the sync loop raises the unlock hint again; it fires on every page, so "
+        "an idle Board shows a permanent adhan banner"
+    )
+    # The hint is still raised where it matters, at the moment autoplay is
+    # actually refused, so a blocked adhan is never silent.
+    assert "unlockHint(true, 'Tap anywhere once to let the adhan sound')" in source, (
+        "a refused adhan must still be reported; the nag was only ever wrong "
+        "while the kiosk was idle"
+    )
+    # And it is cleared as soon as the session is unlocked.
+    assert "if (K.unlocked && K.pendingRetry) unlockHint(false);" in source, (
+        "the hint must be dismissed once the media session unlocks"
+    )
+
+
 def test_a_preview_cannot_be_dismissed_by_activity():
     """The Admin preview must survive the pointer, or the button looks broken.
 

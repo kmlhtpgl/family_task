@@ -848,13 +848,14 @@
              * be tested again. */
             K.triggered = null;
         }
-        /* Surface a blocked media session instead of waiting in silence for a
-         * tap that may never arrive. */
-        if (!K.unlocked) {
-            unlockHint(true, K.pendingRetry
-                ? 'Adhan is waiting — tap anywhere once to allow sound'
-                : 'Tap anywhere once to enable the adhan');
-        }
+        /* Only nag when an adhan is genuinely stuck, which is the one case a
+         * tap can actually fix. This used to fire whenever audio was merely
+         * locked, and the runtime is mounted on every page, so the Board
+         * carried a permanent "Tap anywhere once to enable the adhan" banner
+         * over the family task list. playAdhan() already raises the hint at
+         * the moment autoplay is refused, so a blocked adhan is still
+         * reported -- with a reason -- while an idle kiosk stays quiet. */
+        if (K.unlocked && K.pendingRetry) unlockHint(false);
         renderStatus();
     }, 500);
 
