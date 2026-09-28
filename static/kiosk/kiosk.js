@@ -535,7 +535,6 @@
     function showScreensaver() {
         if (K.ssActive) return;
         var imgs = bgUrls();
-        if (!imgs.length) return;
         K.ssActive = true;
         doc.documentElement.classList.add('kiosk-active');
 
@@ -555,7 +554,11 @@
 
         K.order = shuffle(imgs.length);
         K.pos = 0;
-        paintImage(imgs);
+        if (imgs.length) paintImage(imgs);
+        else {
+            box.classList.add('kiosk-screensaver-images--fallback');
+            box.textContent = 'Kiosk mode active';
+        }
 
         var self = this;
         renderFooter();
@@ -574,6 +577,7 @@
         if (!K.ssEl) return;
         var box = K.ssEl.querySelector('.kiosk-screensaver-images');
         if (!box) return;
+        if (!imgs.length) return;
         var idx = K.pos === 0 ? K.order[0] : nextIndex();
         while (box.firstChild) box.removeChild(box.firstChild);
         var img = doc.createElement('img');

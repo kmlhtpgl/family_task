@@ -1468,6 +1468,17 @@ def kiosk_settings_tab(data):
         st.session_state.setdefault(f"kiosk_{k}", v)
 
     prayer_times = get_prayer_times()
+    from pathlib import Path as _Path
+    _bg_dir = _Path("static/backgrounds")
+    _adhan_dir = _Path("static/adhan")
+    _bg_count = len([f for f in _bg_dir.iterdir() if f.suffix.lower() in (".jpg", ".jpeg", ".png", ".gif", ".webp")]) if _bg_dir.exists() else 0
+    _audio_count = len(list(_adhan_dir.glob("*.mp3"))) if _adhan_dir.exists() else 0
+    render_stat_strip([
+        ("Backgrounds", str(_bg_count), "screensaver frames"),
+        ("Adhan files", f"{_audio_count}/5", "audio library"),
+        ("Idle", f"{st.session_state.kiosk_idle_timeout}m", "screensaver delay"),
+    ])
+    render_focus_panel("Wall runtime", "Kiosk is a browser experience", "Use the direct test controls below; the runtime stays alive while Streamlit reruns.", "LIVE", "browser runtime")
 
     # ── 1. Toggles ──
     st.write("### Features")
@@ -1491,9 +1502,6 @@ def kiosk_settings_tab(data):
         )
 
     timeout_val = st.session_state.kiosk_idle_timeout
-    from pathlib import Path as _Path
-    _bg_dir = _Path("static/backgrounds")
-    _bg_count = len([f for f in _bg_dir.iterdir() if f.suffix.lower() in (".jpg",".jpeg",".png",".gif",".webp")]) if _bg_dir.exists() else 0
     st.info(
         f"⏱️ Screensaver will start after **{timeout_val} min** of inactivity. "
         f"Background images loaded: **{_bg_count}**"
