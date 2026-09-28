@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from app_pages.board import CLASSIC_LANDING, flag_from_env
+from app_pages.board import CLASSIC_LANDING, flag_from_env, within_picker
 
 APP_PY = Path(__file__).resolve().parent.parent / "app.py"
 BOARD_PY = Path(__file__).resolve().parent.parent / "app_pages" / "board.py"
@@ -165,6 +165,45 @@ def test_the_board_stays_on_after_a_rerun_it_triggers_itself(
     app.run()
     html = "\n".join(m.value for m in app.markdown)
     assert 'id="board-data"' in html, "a rerun lost the board"
+
+
+# ── The day picker ──────────────────────────────────────────────────────────
+
+
+def test_the_picker_reaches_every_day_the_strip_offers():
+    """A tap on a visible day has to be accepted.
+
+    The strip grew to seven days while this bound stayed at one either side, so
+    the canvas sent a day and the page silently dropped it and repainted today:
+    the tap looked like it did nothing, which is how the wider strip stayed
+    unreachable however inviting it looked.
+    """
+    from datetime import date, timedelta
+
+    from utils.board.payload import DISPLAY_ARC_FUTURE, DISPLAY_ARC_PAST
+
+    today = date(2026, 9, 28)
+    for offset in range(-DISPLAY_ARC_PAST, DISPLAY_ARC_FUTURE + 1):
+        day = today + timedelta(days=offset)
+        assert within_picker(day, today), offset
+    assert not within_picker(today + timedelta(days=DISPLAY_ARC_FUTURE + 1), today)
+    assert not within_picker(today - timedelta(days=DISPLAY_ARC_PAST + 1), today)
+
+
+def test_the_strip_and_the_picker_bound_are_the_same_window():
+    """A day rendered as tappable and rejected on arrival is a broken board."""
+    from datetime import date
+
+    from utils.board.payload import (
+        DISPLAY_ARC_FUTURE,
+        DISPLAY_ARC_PAST,
+        build_board_payload,
+    )
+    from tests.fixtures import sample_data
+
+    arc = build_board_payload(sample_data(), on_date=date.today())["arc"]
+    assert len(arc) == DISPLAY_ARC_PAST + DISPLAY_ARC_FUTURE + 1
+    assert all(within_picker(date.fromisoformat(d["date"]), date.today()) for d in arc)
 
 
 # ── The kiosk must not be collateral damage ─────────────────────────────────

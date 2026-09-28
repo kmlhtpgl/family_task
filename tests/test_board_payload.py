@@ -10,6 +10,7 @@ from tests.fixtures import sample_data
 from utils.board.payload import (
     ARC_FUTURE,
     GROUP_LIMITS,
+    WEEKDAYS,
     build_arc,
     build_board_payload,
     initials,
@@ -27,14 +28,43 @@ def test_payload_is_json_serialisable():
     json.dumps(payload())  # must not raise
 
 
-def test_arc_shows_only_yesterday_today_and_tomorrow():
+def test_arc_offers_a_whole_week_to_choose_from():
+    """Seven cells: three days back through three days ahead.
+
+    The picker showed three days, so "what was on Saturday" had no answer on a
+    board whose whole job is answering that from across a room.
+    """
     arc = payload()["arc"]
-    assert len(arc) == 3
+    assert len(arc) == 7
     assert [d["is_today"] for d in arc].count(True) == 1
-    today = arc[1]
-    assert today["date"] == date.today().isoformat()
-    assert [d["is_past"] for d in arc] == [True, False, False]
-    assert [d["is_future"] for d in arc] == [False, False, True]
+    assert [d["is_past"] for d in arc] == [True] * 3 + [False] * 4
+    assert [d["is_future"] for d in arc] == [False] * 4 + [True] * 3
+    # Anchored on today, so it is the middle cell and the arc is contiguous.
+    assert arc[3]["date"] == date.today().isoformat()
+    assert [d["date"] for d in arc] == [
+        (date.today() + timedelta(days=n)).isoformat() for n in range(-3, 4)
+    ]
+    assert [d["is_real_today"] for d in arc].count(True) == 1
+
+
+def test_only_the_days_around_today_are_called_yesterday_or_tomorrow():
+    """A seven-day strip has four days that are neither.
+
+    The old three-case expression returned "Tomorrow" for every future offset
+    and "Yesterday" for every past one, so a wider strip would have called
+    Saturday "Tomorrow" and Monday "Yesterday".
+    """
+    arc = payload()["arc"]
+    by_date = {d["date"]: d for d in arc}
+    today = date.today()
+    assert by_date[(today - timedelta(days=1)).isoformat()]["relative"] == "Yesterday"
+    assert by_date[today.isoformat()]["relative"] == "Today"
+    assert by_date[(today + timedelta(days=1)).isoformat()]["relative"] == "Tomorrow"
+    for offset in (-3, -2, 2, 3):
+        cell = by_date[(today + timedelta(days=offset)).isoformat()]
+        assert cell["relative"] is None
+        # The canvas falls back to the weekday, so the cell is still named.
+        assert cell["label"]
 
 
 def test_arc_measures_each_day_against_itself():
@@ -480,7 +510,7 @@ def test_totals_progress_is_none_on_an_empty_day():
 
 def test_a_day_with_no_data_still_renders_every_cell():
     empty = build_board_payload({**sample_data(), "tasks": []}, on_date=date.today())
-    assert len(empty["arc"]) == 3
+    assert len(empty["arc"]) == 7
     # One lane per person, kids and parents, all empty. A person whose lane is
     # clear still belongs on the board; the board must not quietly drop them
     # because they finished.
@@ -513,7 +543,7 @@ def test_missing_tables_do_not_explode():
     assert result["people"] == []
     assert result["lanes"] == []
     assert result["totals"]["overdue"] == 0
-    assert len(result["arc"]) == 3
+    assert len(result["arc"]) == 7
 
 
 def test_overdue_days_is_sent_so_the_canvas_can_explain_the_rule():
@@ -569,6 +599,76 @@ def test_orphan_parent_tasks_do_not_crash_a_lane():
     assert "parent:4242" not in [l["key"] for l in result["lanes"]]
     # Still counted in the family-wide totals, because the work is real.
     assert result["totals"]["open_today"] >= 1
+
+
+def test_the_header_date_stays_on_the_real_today():
+    """Browsing the week must not move the date under the clock.
+
+    `today_label` is rendered next to the live clock, so it is the one piece of
+    the board that can only mean one thing. It followed the day picker, so
+    looking at Wednesday made the wall claim it was Wednesday.
+    """
+    real_today = date.today()
+    assert payload()["today_label"] == (
+        f"{WEEKDAYS[real_today.weekday()]} {real_today.day} {real_today:%b %Y}"
+    )
+    for offset in (-3, -1, 1, 3):
+        other = payload(today=real_today + timedelta(days=offset))
+        assert other["today_label"] == payload()["today_label"]
+        assert other["today"] == real_today.isoformat()
+        # The day being looked at is reported separately, so the canvas can
+        # label the day it is showing without touching the header's.
+        assert other["selected"] == (real_today + timedelta(days=offset)).isoformat()
+        assert other["is_selected_today"] is False
+    assert payload()["is_selected_today"] is True
+
+
+def test_a_day_is_named_after_itself_once_it_is_not_today():
+    """The "Today" and "Done today" headings followed the picker as literals."""
+    real_today = date.today()
+    wednesday = payload(today=real_today + timedelta(days=1))
+    lane = wednesday["lanes"][0]
+    names = {g["key"]: g["name"] for g in lane["groups"]}
+    if "today" in names:
+        assert names["today"] == wednesday["selected_label"]
+    if "done" in names:
+        assert names["done"] == f"Done on {wednesday['selected_label']}"
+    # On today the wording is unchanged, so the default board reads as it always did.
+    assert payload()["totals"] is not None
+    today_names = {g["key"]: g["name"] for g in payload()["lanes"][0]["groups"]}
+    if "done" in today_names:
+        assert today_names["done"] == "Done today"
+    if "today" in today_names:
+        assert today_names["today"] == "Today"
+
+
+def test_work_finished_on_a_day_shows_on_that_day_whatever_it_was_due():
+    """The board answers "what did we get done on Saturday".
+
+    Filtering on the due date alone meant a chore due Sunday and ticked Monday
+    appeared on neither day, so every day but the one a task happened to be due
+    looked untouched.
+    """
+    today = date.today()
+    saturday = today + timedelta(days=2)
+    data = sample_data()
+    # Due on the day before, but finished on Saturday.
+    task = next(t for t in data["tasks"] if t["id"] == 3)  # five days overdue
+    task["status"] = "Done"
+    task["completed_date"] = saturday.isoformat()
+
+    result = build_board_payload(data, on_date=saturday, compact=True)
+    lane = next(l for l in result["lanes"] if l["key"] == "kid:3")
+    done = next((g for g in lane["groups"] if g["key"] == "done"), None)
+    assert done is not None, "the completed task vanished from the day it was done"
+    assert "Water the plants" in [t["title"] for t in done["tasks"]]
+    # The header count is family-wide, so it is Bilal's chore plus Maryam's
+    # "Tidy bedroom", which the fixture also finishes two days ahead. The point
+    # is that the count follows the done groups rather than the due dates.
+    assert result["totals"]["done_today"] == 2
+    assert sum(g["key"] == "done" for lane in result["lanes"] for g in lane["groups"]) == 2
+    # Still reachable for undo.
+    assert done["tasks"][0]["action"] == "reopen"
 
 
 def test_a_task_finished_today_stays_on_the_board_to_be_undone():

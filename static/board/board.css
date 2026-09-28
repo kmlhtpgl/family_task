@@ -314,9 +314,12 @@ body {
   fill: var(--faint);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.1em;
   text-anchor: middle;
   text-transform: uppercase;
+  /* Seven cells share the width three used to, and a full word is wider than a
+     seventh of it. Letterspaced "Yesterday" met its neighbour and the strip
+     read as one smudge, so the long names are set tighter to survive it. */
+  letter-spacing: 0.02em;
 }
 
 .arc__num {

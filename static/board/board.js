@@ -184,8 +184,17 @@
 
   /* ── Header ─────────────────────────────────────────────────────────────── */
 
+  /* "today" only when the day on screen really is today. The picker moves the
+     board through a week, and wording that kept saying "today" reported
+     Wednesday's numbers under a date that stayed on the real today. */
+  function dayWord(payload) {
+    if (payload.is_selected_today) return "today";
+    return (payload.selected_label || "").split(" ")[0] || "that day";
+  }
+
   function buildHead(payload) {
     var head = el("header", "head");
+    var word = dayWord(payload);
 
     var when = el("div", "head__when");
     var clock = el("div", "head__clock");
@@ -203,13 +212,13 @@
     var open = t.open_today || 0;
     summary.appendChild(el("b", null, String(done)));
     summary.appendChild(
-      el("span", null, done === 1 ? "task done today" : "tasks done today")
+      el("span", null, done === 1 ? "task done " + word : "tasks done " + word)
     );
     if (t.overdue) {
       var late = el("span", "is-late", "  ·  " + t.overdue + " past due");
       summary.appendChild(late);
     } else if (!open) {
-      summary.appendChild(el("span", null, "  ·  nothing left today"));
+      summary.appendChild(el("span", null, "  ·  nothing left " + word));
     }
     right.appendChild(summary);
 
@@ -217,8 +226,8 @@
     return head;
   }
 
-  /* The arc is a compact three-day action strip. A shallow curve keeps all
-     three days readable from across the room and makes each node tappable. */
+  /* The arc is a one-week day strip. A shallow curve keeps every cell readable
+     from across the room and makes each node tappable. */
   function buildArc(arc) {
     var W = 1000;
     var H = 92;
@@ -397,9 +406,9 @@
 
     var meta = el("div", "person__meta");
     if (person) {
-      meta.textContent = personDueMeta(person);
+      meta.textContent = personDueMeta(person, dayWord(payload));
     } else {
-      meta.textContent = (totals.open_today || 0) + " still open today";
+      meta.textContent = (totals.open_today || 0) + " still open " + dayWord(payload);
     }
     body.appendChild(meta);
     btn.appendChild(body);
@@ -428,12 +437,12 @@
     return mark;
   }
 
-  function personDueMeta(person) {
+  function personDueMeta(person, word) {
     if (person.overdue) {
       return person.overdue + " past due";
     }
-    if (!person.due_today) return "Nothing due today";
-    return person.due_today + (person.due_today === 1 ? " task today" : " tasks today");
+    if (!person.due_today) return "Nothing due " + word;
+    return person.due_today + (person.due_today === 1 ? " task " : " tasks ") + word;
   }
 
   /* ── Stage ──────────────────────────────────────────────────────────────── */
@@ -510,7 +519,7 @@
       }
       var open = el("span");
       open.appendChild(el("b", null, String(lane.counts.today)));
-      open.appendChild(document.createTextNode(" today"));
+      open.appendChild(document.createTextNode(" " + dayWord(payload)));
       stats.appendChild(open);
       if (lane.counts.later) {
         var later = el("span");
@@ -542,7 +551,7 @@
     if (!lane.groups || !lane.groups.length) {
       stage.appendChild(
         clearCard(
-          "Nothing due today",
+          "Nothing due " + dayWord(payload),
           counts.later
             ? counts.later +
               " coming up" +

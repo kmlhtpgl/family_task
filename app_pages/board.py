@@ -18,7 +18,7 @@ import streamlit as st
 
 from utils.board.actions import apply_action
 from utils.board.bridge import is_new, mark_handled, render
-from utils.board.payload import build_board_payload
+from utils.board.payload import DISPLAY_ARC_FUTURE, DISPLAY_ARC_PAST, build_board_payload
 from utils.nav import render_nav
 
 # The board fills whatever the host viewport has left, and static/board/board.js
@@ -62,6 +62,18 @@ FLASH_KEY = "board_flash"
 SELECTED_DATE_KEY = "board_selected_date"
 
 
+def within_picker(day: date, today: date) -> bool:
+    """Whether the day picker can reach this day.
+
+    The strip offers a week, so anything outside it falls back to today. The
+    bound used to be one day either side, which is what made the wider strip
+    unreachable: the canvas would send a day and the page would silently drop
+    it and repaint today, so the tap looked like it did nothing.
+    """
+    offset = (day - today).days
+    return -DISPLAY_ARC_PAST <= offset <= DISPLAY_ARC_FUTURE
+
+
 def pop_flash() -> dict | None:
     """The last action's result, offered to the canvas exactly once.
 
@@ -80,13 +92,14 @@ def board_page(refetch):
     was meant to change.
     """
     data = refetch()
+    real_today = date.today()
     selected = st.session_state.get(SELECTED_DATE_KEY)
     try:
-        on_date = date.fromisoformat(selected) if selected else date.today()
+        on_date = date.fromisoformat(selected) if selected else real_today
     except (TypeError, ValueError):
-        on_date = date.today()
-    if abs((on_date - date.today()).days) > 1:
-        on_date = date.today()
+        on_date = real_today
+    if not within_picker(on_date, real_today):
+        on_date = real_today
     st.session_state[SELECTED_DATE_KEY] = on_date.isoformat()
     payload = build_board_payload(data, on_date=on_date, flash=pop_flash(), compact=True)
     totals = payload["totals"]
@@ -96,11 +109,15 @@ def board_page(refetch):
     # is the board's identity and the nav row is how you reach the rest of the
     # app; every pixel of chrome is a pixel of board, and a wall tablet is
     # watched from across the room.
+    # "open today" is the count for the day on the board, so browsing to another
+    # day has to rename it. The flag sits above the canvas and is the first
+    # thing read from across a room.
+    day_word = "today" if payload["is_selected_today"] else payload["selected_label"]
     st.markdown(
         '<div class="board-flag">'
         '<span class="board-flag__dot"></span>'
         "<b>Board</b> "
-        f"<span>{totals['open_today']} open today · "
+        f"<span>{totals['open_today']} open {day_word} · "
         f"{totals['overdue']} past due</span>"
         "</div>",
         unsafe_allow_html=True,
@@ -116,7 +133,7 @@ def board_page(refetch):
             requested = date.fromisoformat(action.get("date", ""))
         except (TypeError, ValueError):
             requested = None
-        if requested and abs((requested - date.today()).days) <= 1:
+        if requested and within_picker(requested, real_today):
             st.session_state[SELECTED_DATE_KEY] = requested.isoformat()
         mark_handled(action)
         st.rerun()

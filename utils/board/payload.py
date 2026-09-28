@@ -27,10 +27,11 @@ from utils.task_helpers import (
 # on a wall without turning into a month strip nobody can scan from across a room.
 ARC_PAST = 3
 ARC_FUTURE = 3
-# The compact picker shows only the actionable three-day window. The task list
-# keeps the existing three-day future horizon for recurring-work accounting.
-DISPLAY_ARC_PAST = 1
-DISPLAY_ARC_FUTURE = 1
+# The picker offers a full week, the same span the accounting horizon already
+# covers. It showed three days, which made "what was on Saturday" unanswerable
+# on a board whose whole job is answering that from across a room.
+DISPLAY_ARC_PAST = 3
+DISPLAY_ARC_FUTURE = 3
 
 # Curated, not hashed. A wall display is looked at by name, so a person's colour
 # has to be the same every render and recognisable at a distance.
@@ -44,6 +45,12 @@ ACCENTS = [
 ]
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+# Only the three days around the anchor are worth a word; the rest of the week
+# is named by its weekday. Spelling every cell out as a relative day would also
+# have been wrong: with a seven-day strip the old three-case expression called
+# every past day "Yesterday" and every future one "Tomorrow".
+RELATIVE_LABELS = {-1: "Yesterday", 0: "Today", 1: "Tomorrow"}
 
 # A wall display is read from across a room, so a lane cannot be an unbounded
 # list. The cap is decided here rather than in the canvas so it can be asserted
@@ -111,16 +118,23 @@ def _task_entry(task, on_date: date) -> dict:
     }
 
 
-def _groups(buckets) -> list[dict]:
+def _groups(buckets, labels: dict | None = None) -> list[dict]:
     """Shape the buckets into renderable groups, capped for a wall display.
 
     A group with nothing in it is left out entirely, so the canvas renders
     `groups` directly rather than having to hide empty sections. `hidden` is
     the number that did not fit, and `total` is how many exist, so the canvas
     can say "17 more past due" without being told anything it could get wrong.
+
+    `labels` renames groups after the day being looked at. The "Today" and
+    "Done today" headings were hardcoded, so choosing any other day produced a
+    column headed "Today" listing that day's work -- a wall board contradicting
+    itself about which day it was on.
     """
+    labels = labels or {}
     groups = []
     for key, name, tone in GROUP_META:
+        name = labels.get(key, name)
         tasks = buckets.get(key) or []
         if not tasks:
             continue
@@ -215,7 +229,7 @@ def build_arc(tasks, on_date: date, anchor_date: date | None = None) -> list[dic
                 "day": day.day,
                 "is_today": day == on_date,
                 "is_real_today": day == anchor_date,
-                "relative": "Yesterday" if offset == -1 else ("Today" if offset == 0 else "Tomorrow"),
+                "relative": RELATIVE_LABELS.get(offset),
                 "is_past": offset < 0,
                 "is_future": offset > 0,
                 "total": len(scheduled),
@@ -295,7 +309,7 @@ def build_people(data, tasks, on_date: date) -> list[dict]:
     return people
 
 
-def _build_lane(kind: str, person: dict, tasks: list, on_date: date) -> dict:
+def _build_lane(kind: str, person: dict, tasks: list, on_date: date, labels: dict) -> dict:
     """One person's column of work, for a child or a parent alike."""
     owner = "kid_id" if kind == "kid" else "parent_id"
     own = [t for t in tasks if t.get(owner) == person["id"]]
@@ -317,7 +331,7 @@ def _build_lane(kind: str, person: dict, tasks: list, on_date: date) -> dict:
             for key, items in buckets.items()
         },
         "scheduled": buckets["scheduled"],
-        "groups": _groups(buckets),
+        "groups": _groups(buckets, labels),
     }
 
 
@@ -338,26 +352,48 @@ def build_board_payload(
     on_date = on_date or date.today()
     tasks = data.get("tasks", [])
     iso = on_date.isoformat()
+    real_today = date.today()
+    is_selected_today = on_date == real_today
+    day_label = f"{WEEKDAYS[on_date.weekday()]} {on_date.day} {on_date:%b %Y}"
     # The wall is a short-horizon action surface, not an archive. Selecting a
-    # day shows only work due on that day; the day picker is the way to move to
-    # the neighbouring two days.
-    visible_tasks = [task for task in tasks if task.get("due_date") == iso] if compact else tasks
+    # day shows the work due on it, plus whatever was *finished* on it: a chore
+    # due Sunday and ticked Monday happened on Monday, and filtering on the due
+    # date alone left every day but the one that day was due looking untouched.
+    visible_tasks = (
+        [
+            task for task in tasks
+            if task.get("due_date") == iso or task.get("completed_date") == iso
+        ]
+        if compact
+        else tasks
+    )
+    # The finished group is a record of the chosen day, so it is named after it,
+    # as is the day's own workload column.
+    group_labels = {
+        "done": "Done today" if is_selected_today else f"Done on {day_label}"
+    }
+    if not is_selected_today:
+        group_labels["today"] = day_label
 
     # Kids and parents get lanes too. They are the same shape of work, and
     # leaving parents out meant two of the five buttons in the rail fell through
     # to the everyone view. Identity is (kind, id) rather than id alone: the two
     # tables number independently, so kid 1 and parent 1 are different people.
     lanes = [
-        _build_lane("kid", kid, visible_tasks, on_date) for kid in data.get("kids", [])
+        _build_lane("kid", kid, visible_tasks, on_date, group_labels)
+        for kid in data.get("kids", [])
     ] + [
-        _build_lane("parent", parent, visible_tasks, on_date)
+        _build_lane("parent", parent, visible_tasks, on_date, group_labels)
         for parent in data.get("parents", [])
     ]
 
     day_tasks = [t for t in visible_tasks if t.get("due_date") == iso]
     open_today = [t for t in day_tasks if t.get("status") != "Done"]
+    # Counted off the visible set rather than the day's workload, so the header
+    # number and the Done group agree -- including for the Sunday-chore-ticked-
+    # on-Monday case the due-date filter exists to show.
     done_today = [
-        t for t in day_tasks
+        t for t in visible_tasks
         if t.get("status") == "Done" and t.get("completed_date") == iso
     ]
     all_overdue = [t for t in tasks if is_task_overdue(t)]
@@ -366,10 +402,17 @@ def build_board_payload(
         "generated_at": on_date.isoformat(),
         # The result of the last tick, shown once. Null on every other render.
         "flash": flash,
-        "today": iso,
-        "today_label": f"{WEEKDAYS[on_date.weekday()]} {on_date.day} {on_date:%b %Y}",
+        # The header's date is always the real one. It used to follow the day
+        # picker, so browsing to another day rewrote the date under the clock on
+        # the wall -- the one piece of the board that cannot mean anything else.
+        "today": real_today.isoformat(),
+        "today_label": f"{WEEKDAYS[real_today.weekday()]} {real_today.day} {real_today:%b %Y}",
+        # The day actually being looked at, and whether that is today.
+        "selected": iso,
+        "selected_label": day_label,
+        "is_selected_today": is_selected_today,
         "overdue_days": OVERDUE_DAYS,
-        "arc": build_arc(tasks, on_date, anchor_date=date.today()),
+        "arc": build_arc(tasks, on_date, anchor_date=real_today),
         "people": build_people(data, tasks, on_date),
         "lanes": lanes,
         "totals": {
