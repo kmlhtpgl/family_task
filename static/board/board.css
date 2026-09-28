@@ -549,6 +549,12 @@ body {
   grid-template-columns: 128px 1fr;
   gap: 18px;
   align-items: start;
+  /* The list below asks how wide it is rather than how wide the window is. The
+     stage loses a different amount to the rail at every screen size, so a
+     viewport query would put two-up on a tablet portrait where the stage is
+     284px and each task would be 139px wide with nowhere left for its title. */
+  container-type: inline-size;
+  container-name: group;
 }
 
 .group__label {
@@ -598,17 +604,38 @@ body {
   opacity: 1;
 }
 
+/* Two tasks a row. The list is read from across a room and a full-width row
+   spent 80% of its width on a title; two up fits far more of the day on the
+   same wall. The columns are a single repeat so the two tracks always match,
+   with no auto-fit: auto-fit would quietly give three per row on a wide desk
+   and one per row on a narrow one, and the point is a fixed two. */
 .group__items {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
   gap: 7px;
   min-width: 0;
+}
+
+/* Not two-up when the stage is too narrow to carry it. Each task spends about
+   150px on its tick, lock chip, score and padding before the title, so below
+   roughly 720px of list the title is squeezed to nothing -- measured at 0px
+   on a tablet in portrait. One row keeps the title readable there, which is the
+   device somebody walks over to read. */
+@container group (max-width: 720px) {
+  .group__items {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ── Task rows ────────────────────────────────────────────────────────────── */
 .task {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  /* The title gets a floor rather than a bare 1fr. A bare 1fr can be squeezed
+     to nothing once the other three tracks have taken what they need -- which
+     is what happened to the title at tablet width, rendering every task with a
+     zero-width name. */
+  grid-template-columns: auto minmax(7rem, 1fr) auto auto;
   align-items: center;
   gap: 14px;
   padding: 13px 16px;
@@ -669,9 +696,18 @@ body {
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  white-space: nowrap;
+  /* Wraps to two lines instead of being cut off. A task row is now half the
+     width it was, and a task you cannot read is not a task you can act on --
+     the ellipsis hid the second half of most titles on a tablet, which is
+     exactly the size somebody would walk over to read. Two lines is the cap:
+     a third would make one long title grow the whole row and break the
+     two-per-row rhythm. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .task__lock {
@@ -746,6 +782,10 @@ body {
   font-size: 14px;
   font-weight: 700;
   color: var(--muted);
+  /* The remainder is one statement about the whole group, so it spans the row
+     rather than sitting in the first cell where it reads as belonging to a
+     single task. */
+  grid-column: 1 / -1;
 }
 
 .more small {

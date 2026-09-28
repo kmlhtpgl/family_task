@@ -356,7 +356,12 @@ def test_no_open_task_falls_between_the_buckets():
     assert len(overdue["tasks"]) == GROUP_LIMITS["overdue"]
     assert overdue["total"] == 8
     assert overdue["hidden"] == 2
-    assert [t["id"] for t in overdue["tasks"]] == [-10, -9, -8, -7, -6, -5]
+    # Alphabetically, which is what makes a two-per-row list findable. The
+    # titles here are "task -10" and so on, so that is a string order and not
+    # the numeric one the ids suggest.
+    assert [t["title"] for t in overdue["tasks"]] == [
+        "task -10", "task -3", "task -4", "task -5", "task -6", "task -7",
+    ]
     today_group = group(lane, "today")
     assert sorted(t["id"] for t in today_group["tasks"]) == [-2, -1, 0]
     # The two at the edge of the window are marked late but stay tickable.
@@ -368,6 +373,147 @@ def test_no_open_task_falls_between_the_buckets():
     assert sorted(t["id"] for t in group(lane, "later")["tasks"]) == [1, 2, 3]
     assert lane["scheduled"] == 7
     assert all(t["id"] < 4 for t in group(lane, "later")["tasks"])
+
+
+def test_a_group_is_listed_alphabetically():
+    """Position is the only way to find a task in a two-per-row list.
+
+    So the order cannot depend on the order the database happened to return, or
+    on when a task was ticked: the list has to stay put while the day changes
+    under it.
+    """
+    def task(tid, title):
+        return {
+            "id": tid, "title": title, "kid_id": 1, "parent_id": None,
+            "due_date": date.today().isoformat(), "points": 10, "status": "Backlog",
+            "repeat_type": "once", "completed_date": None, "completed_week": None,
+            "created_at": date.today().isoformat(),
+        }
+
+    # Supplied in a deliberately unhelpful order: capitals first, and a title
+    # with the stray leading space a free-text form will happily store.
+    data = {**sample_data(), "tasks": [
+        task(1, "Water the plants"),
+        task(2, "Bathroom"),
+        task(3, "bed, make"),
+        task(4, "  feed the cat"),
+        task(5, "Tidy bedroom"),
+    ]}
+    lane = build_board_payload(data, on_date=date.today(), compact=True)["lanes"][0]
+    titles = [t["title"] for t in group(lane, "today")["tasks"]]
+    # Casefolded, so a capitalised title does not sort ahead of every lowercase
+    # one; the leading space ignored, so it cannot float to the front. The title
+    # is stored and shown as typed -- this is a sort, not a rewrite.
+    assert titles == [
+        "Bathroom", "bed, make", "  feed the cat", "Tidy bedroom", "Water the plants",
+    ]
+
+
+def test_titles_sharing_a_name_keep_a_stable_order():
+    """Recurring chores repeat their title, and one is pre-generated for every
+    upcoming day. They must not swap places between reruns, or the row under a
+    finger moves as the board repaints."""
+    def task(tid, title, due):
+        return {
+            "id": tid, "title": title, "kid_id": 1, "parent_id": None,
+            "due_date": due, "points": 10, "status": "Backlog",
+            "repeat_type": "daily", "completed_date": None, "completed_week": None,
+            "created_at": due,
+        }
+
+    today = date.today()
+    same = "Fajr"
+    forwards = [task(n, same, today.isoformat()) for n in range(5)]
+    orders = [forwards, list(reversed(forwards)), forwards[2:] + forwards[:2]]
+    rendered = []
+    for order in orders:
+        data = {**sample_data(), "tasks": order}
+        rendered.append(
+            [
+                t["id"]
+                for t in group(
+                    build_board_payload(data, on_date=today, compact=True)["lanes"][0],
+                    "today",
+                )["tasks"]
+            ]
+        )
+    assert rendered[0] == [0, 1, 2, 3, 4]
+    assert rendered[1] == rendered[0] == rendered[2]
+
+
+def test_awkward_tasks_do_not_break_the_ordering():
+    """A task can arrive with no title at all, and ids come from several sources.
+
+    Neither may raise out of the sort and take the whole board with it.
+    """
+    def entry(tid, title):
+        return {
+            "id": tid, "title": title, "kid_id": 1, "parent_id": None,
+            "due_date": date.today().isoformat(), "points": 10, "status": "Backlog",
+            "repeat_type": "once", "completed_date": None, "completed_week": None,
+            "created_at": date.today().isoformat(),
+        }
+
+    lane = build_board_payload(
+        {**sample_data(), "tasks": [entry(None, "Alpha"), entry(2, None)]},
+        on_date=date.today(),
+        compact=True,
+    )["lanes"][0]
+    # Empty sorts first rather than raising, so a task added without a title
+    # cannot take the whole board down.
+    assert [t["title"] for t in group(lane, "today")["tasks"]] == [None, "Alpha"]
+
+
+def test_the_order_holds_for_mixed_id_types():
+    """Task ids are numeric from the database, but a task built elsewhere can
+    carry a string. The comparison has to stay total."""
+    def entry(tid, title):
+        return {
+            "id": tid, "title": title, "kid_id": 1, "parent_id": None,
+            "due_date": date.today().isoformat(), "points": 10, "status": "Backlog",
+            "repeat_type": "once", "completed_date": None, "completed_week": None,
+            "created_at": date.today().isoformat(),
+        }
+
+    lane = build_board_payload(
+        {**sample_data(), "tasks": [entry("b", "Same"), entry(7, "Same"),
+                                    entry("a", "Same")]},
+        on_date=date.today(),
+        compact=True,
+    )["lanes"][0]
+    tasks = group(lane, "today")["tasks"]
+    assert [t["title"] for t in tasks] == ["Same", "Same", "Same"]
+    # Numeric ids first in their own order, then the strings: a total order
+    # rather than a comparison that raises when it meets a str.
+    assert [t["id"] for t in tasks] == [7, "a", "b"]
+
+
+def test_the_order_does_not_depend_on_the_order_the_data_arrives_in():
+    """The repaint that follows a tick rebuilds this payload from the database.
+
+    If the list followed the order it came back in, a task could move under a
+    finger at the moment somebody was reaching for it, so the same set of tasks
+    has to render the same way however it is supplied.
+    """
+    def task(tid, title):
+        return {
+            "id": tid, "title": title, "kid_id": 1, "parent_id": None,
+            "due_date": date.today().isoformat(), "points": 10, "status": "Backlog",
+            "repeat_type": "once", "completed_date": None, "completed_week": None,
+            "created_at": date.today().isoformat(),
+        }
+
+    titles = ["Zebra", "apple", "Mango", "bed", "Feed"]
+    forwards = [task(n, t) for n, t in enumerate(titles)]
+    orders = [forwards, list(reversed(forwards)), sorted(forwards, key=lambda t: t["id"])]
+    rendered = []
+    for order in orders:
+        lane = build_board_payload(
+            {**sample_data(), "tasks": order}, on_date=date.today(), compact=True
+        )["lanes"][0]
+        rendered.append([t["title"] for t in group(lane, "today")["tasks"]])
+    assert rendered[0] == ["apple", "bed", "Feed", "Mango", "Zebra"]
+    assert rendered[1] == rendered[0] == rendered[2]
 
 
 def test_groups_are_capped_and_report_what_did_not_fit():

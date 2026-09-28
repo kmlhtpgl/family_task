@@ -138,6 +138,7 @@ def _groups(buckets, labels: dict | None = None) -> list[dict]:
         tasks = buckets.get(key) or []
         if not tasks:
             continue
+        tasks = sorted(tasks, key=_sort_key)
         limit = GROUP_LIMITS[key]
         groups.append(
             {
@@ -150,6 +151,37 @@ def _groups(buckets, labels: dict | None = None) -> list[dict]:
             }
         )
     return groups
+
+
+def _sort_key(entry: dict) -> tuple:
+    """Alphabetical order for a group, on the title as a person reads it.
+
+    Two tasks a row makes position the only way to find one, and a wall list
+    that reorders itself whenever a task is ticked or a day is chosen cannot be
+    scanned at all. Sorting here rather than in the canvas keeps the order the
+    same everywhere the group is shown, and keeps it assertable without a
+    browser.
+
+    Casefolded so `Bed, make` and `Bathroom` do not sort by ASCII value and put
+    every capitalised title first, and whitespace collapsed so a stray space
+    typed into the form cannot push a task to the front. A missing title sorts
+    as empty rather than raising, because the form allows it.
+
+    The id is the final tie-break so that recurring chores sharing a title keep
+    one fixed order instead of following whatever order the database happened to
+    return that time -- a chore is pre-generated for every upcoming day, so that
+    order is not stable between reads, and a row that swaps under a finger is
+    worse than an arbitrary one. A non-numeric id sorts with the rest at the
+    front, which keeps the comparison total instead of raising on mixed data.
+    """
+    text = " ".join((entry.get("title") or "").split())
+    task_id = entry.get("id")
+    if not isinstance(task_id, int):
+        # Numeric ids always come from the database and are never negative, so
+        # a text id sorts after them and still compares as a string.
+        task_id = str(task_id)
+        return (text.casefold(), text, 1, task_id)
+    return (text.casefold(), text, 0, task_id)
 
 
 def _bucket(tasks, on_date: date) -> dict:
