@@ -739,6 +739,20 @@ _NAV_CSS = """
 .admin-create-panel strong, .admin-inventory-heading strong { color: var(--text-primary); font-size: 1.08rem; letter-spacing: -0.025em; }
 .admin-create-panel small, .admin-inventory-heading small { color: var(--text-tertiary); font-size: 0.72rem; }
 .admin-resource-icon { display: grid !important; place-items: center; width: 3rem !important; height: 3rem !important; border-radius: 12px !important; background: var(--accent-subtle) !important; color: var(--accent) !important; font: 600 0.58rem var(--font-mono) !important; letter-spacing: 0.08em; }
+/* Inventory records are deliberately one resource per row. Keep the action
+ * rail narrow so Streamlit cannot make the record read like three unrelated
+ * cards sitting beside one another. */
+[data-testid="stVerticalBlock"]:has(.admin-resource-icon) [data-testid="stHorizontalBlock"] {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 4rem !important;
+    gap: 1rem !important;
+    align-items: center;
+}
+[data-testid="stVerticalBlock"]:has(.admin-resource-icon) [data-testid="stColumn"] {
+    width: auto !important;
+    min-width: 0 !important;
+    flex: none !important;
+}
 .stRadio [role="radiogroup"] {
     gap: 0.35rem;
     flex-wrap: wrap;
