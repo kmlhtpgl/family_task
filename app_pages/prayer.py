@@ -1,3 +1,5 @@
+from html import escape
+
 import streamlit as st
 from utils.page_chrome import render_focus_panel, render_page_header, render_stat_strip
 from datetime import date, timedelta
@@ -35,12 +37,14 @@ def prayer_page(data):
 
     monday = date.today() - timedelta(days=date.today().weekday()) + timedelta(weeks=week_offset)
     sunday = monday + timedelta(days=6)
-    week_dates = {monday + timedelta(days=i) for i in range(7)}
-
     kid_ids = {k["id"] for k in data["kids"]}
     tasks = data["tasks"]
 
     missed = defaultdict(lambda: defaultdict(int))
+    daily = {
+        monday + timedelta(days=i): {"total": 0, "done": 0}
+        for i in range(7)
+    }
 
     for task in tasks:
         kid_id = task.get("kid_id")
@@ -58,42 +62,53 @@ def prayer_page(data):
             continue
         if not (monday <= due_date <= sunday):
             continue
+        daily[due_date]["total"] += 1
         if task.get("status") != "Done":
             missed[title][kid_id] += 1
+        else:
+            daily[due_date]["done"] += 1
 
     kids_sorted = sorted(data["kids"], key=lambda k: k["name"])
     missed_total = sum(missed[prayer].get(kid["id"], 0) for prayer in PRAYER_NAMES for kid in kids_sorted)
+    total_prayers = sum(day["total"] for day in daily.values())
+    completed_prayers = total_prayers - missed_total
+    coverage = round((completed_prayers / total_prayers) * 100) if total_prayers else 100
     render_stat_strip([
         ("Missed", str(missed_total), "prayer tasks this week"),
         ("Children", str(len(kids_sorted)), "in this report"),
-        ("Coverage", f"{max(0, 100 - missed_total)}%", "simple consistency view"),
+        ("Coverage", f"{coverage}%", "completed prayer tasks"),
     ])
-    render_focus_panel("Weekly focus", "Prayer consistency", "Missed prayers across the selected week", str(missed_total), "missed entries")
+    render_focus_panel("Weekly focus", "Prayer consistency", "A seven-day rhythm, with every missed entry visible", f"{coverage}%", "covered")
 
-    header_cols = st.columns([2] + [1] * len(kids_sorted))
-    header_cols[0].markdown('<div class="th">Prayer</div>', unsafe_allow_html=True)
-    for i, kid in enumerate(kids_sorted):
-        header_cols[i + 1].markdown(
-            f'<div class="th center">{kid["name"]}</div>', unsafe_allow_html=True
+    strip = []
+    for day, values in daily.items():
+        ratio = round((values["done"] / values["total"]) * 100) if values["total"] else 100
+        tone = "clear" if ratio == 100 else ("partial" if ratio >= 50 else "missed")
+        strip.append(
+            f'<div class="prayer-day prayer-day--{tone}"><span>{day.strftime("%a")}</span>'
+            f'<strong>{day.day}</strong><small>{values["done"]}/{values["total"]}</small></div>'
         )
+    st.markdown(
+        '<div class="prayer-rhythm-heading"><span>THE RHYTHM</span><strong>Seven days at a glance</strong>'
+        '<small>Completed / scheduled prayers</small></div>'
+        f'<div class="prayer-rhythm">{"".join(strip)}</div>',
+        unsafe_allow_html=True,
+    )
 
-    for prayer in PRAYER_NAMES:
-        cols = st.columns([2] + [1] * len(kids_sorted))
-        cols[0].write(prayer)
-        for i, kid in enumerate(kids_sorted):
+    cells = []
+    cells.append('<div class="prayer-heatmap prayer-heatmap--head"><div>Child</div>' + ''.join(f'<div>{escape(prayer)}</div>' for prayer in PRAYER_NAMES) + '<div>Total</div></div>')
+    for kid in kids_sorted:
+        total = sum(missed[prayer].get(kid["id"], 0) for prayer in PRAYER_NAMES)
+        row = [f'<div class="prayer-heatmap"><div class="prayer-kid">{escape(kid["name"])}</div>']
+        for prayer in PRAYER_NAMES:
             count = missed[prayer].get(kid["id"], 0)
-            tone = "count--missed" if count > 0 else "count--ok"
-            cols[i + 1].markdown(
-                f'<div class="count center {tone}">{count}</div>',
-                unsafe_allow_html=True,
-            )
-
-    st.markdown("---")
-    total_cols = st.columns([2] + [1] * len(kids_sorted))
-    total_cols[0].markdown('<div class="th">Total</div>', unsafe_allow_html=True)
-    for i, kid in enumerate(kids_sorted):
-        total = sum(missed[p][kid["id"]] for p in PRAYER_NAMES)
-        total_cols[i + 1].markdown(
-            f'<div class="count count--total center">{total}</div>',
-            unsafe_allow_html=True,
-        )
+            cls = "prayer-cell--missed" if count else "prayer-cell--clear"
+            row.append(f'<div class="prayer-cell {cls}">{count if count else "OK"}</div>')
+        row.append(f'<div class="prayer-total">{total}</div></div>')
+        cells.append("".join(row))
+    st.markdown(
+        '<div class="prayer-heatmap-heading"><span>THE HEATMAP</span><strong>Where attention is needed</strong>'
+        '<small>Each cell is the number of missed assignments this week</small></div>'
+        + "".join(cells),
+        unsafe_allow_html=True,
+    )

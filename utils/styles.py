@@ -632,6 +632,37 @@ _NAV_CSS = """
 .archive-column-title span { color: var(--accent); font: 0.7rem var(--font-mono); }
 .finished-book-card { margin: 0.5rem 0; padding: 0.85rem 0.95rem; border: 1px solid var(--border-subtle); border-radius: 13px; background: var(--surface-1); }
 .finished-book-card .row-meta { display: block; margin-top: 0.3rem; white-space: normal; }
+.prayer-rhythm-heading, .prayer-heatmap-heading { display: grid; gap: 0.25rem; margin: 1.5rem 0 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-default); }
+.prayer-rhythm-heading span, .prayer-heatmap-heading span { color: var(--accent); font: 600 0.64rem var(--font-mono); letter-spacing: 0.14em; }
+.prayer-rhythm-heading strong, .prayer-heatmap-heading strong { color: var(--text-primary); font-size: 1.3rem; letter-spacing: -0.035em; }
+.prayer-rhythm-heading small, .prayer-heatmap-heading small { color: var(--text-tertiary); font-size: 0.74rem; }
+.prayer-rhythm { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.55rem; }
+.prayer-day { display: grid; gap: 0.2rem; padding: 0.8rem 0.5rem; border: 1px solid var(--border-subtle); border-radius: 15px; background: var(--surface-1); text-align: center; }
+.prayer-day span { color: var(--text-tertiary); font: 0.65rem var(--font-mono); text-transform: uppercase; }
+.prayer-day strong { color: var(--text-primary); font: 700 1.35rem var(--font-mono); }
+.prayer-day small { color: var(--text-secondary); font-size: 0.68rem; }
+.prayer-day--clear { border-color: var(--success-border); }
+.prayer-day--clear strong { color: var(--success); }
+.prayer-day--partial { border-color: var(--warning-border); }
+.prayer-day--partial strong { color: var(--warning); }
+.prayer-day--missed { border-color: var(--danger-border); }
+.prayer-day--missed strong { color: var(--danger); }
+.prayer-heatmap { display: grid; grid-template-columns: 1.5fr repeat(5, minmax(4.5rem, 1fr)) 0.7fr; gap: 0.45rem; align-items: center; margin: 0.45rem 0; }
+.prayer-heatmap--head { margin-bottom: 0.75rem; color: var(--text-tertiary); font: 600 0.64rem var(--font-mono); text-transform: uppercase; }
+.prayer-heatmap--head > div:not(:first-child) { text-align: center; }
+.prayer-kid { color: var(--text-primary); font-weight: 650; }
+.prayer-cell, .prayer-total { padding: 0.75rem 0.4rem; border-radius: 11px; text-align: center; font: 600 0.72rem var(--font-mono); }
+.prayer-cell--clear { background: var(--success-subtle); border: 1px solid var(--success-border); color: var(--success); }
+.prayer-cell--missed { background: var(--danger-subtle); border: 1px solid var(--danger-border); color: var(--danger); }
+.prayer-total { color: var(--text-primary); background: var(--surface-2); }
+@media (max-width: 640px) {
+    .prayer-rhythm { gap: 0.25rem; }
+    .prayer-day { padding: 0.6rem 0.2rem; }
+    .prayer-day strong { font-size: 1rem; }
+    .prayer-heatmap { grid-template-columns: 1fr repeat(5, minmax(2.6rem, 1fr)) 0.6fr; gap: 0.2rem; }
+    .prayer-heatmap--head { font-size: 0.5rem; }
+    .prayer-cell, .prayer-total { padding: 0.6rem 0.1rem; font-size: 0.6rem; }
+}
 @media (max-width: 640px) {
     .focus-panel { align-items: flex-start; flex-direction: column; }
     .focus-panel__value { align-self: flex-end; }
