@@ -438,9 +438,13 @@ def add_child_tab(data):
 def task_list_tab(data):
     render_admin_section_header("Task list", "Shape reusable routines before assigning them.", "03 / ROUTINES")
 
-    st.info("Add, edit or remove tasks from your task library.")
-
     templates = sorted(data["task_templates"], key=lambda t: t["title"].lower())
+    average_points = round(sum(int(t.get("default_points", 0)) for t in templates) / len(templates)) if templates else 0
+    render_stat_strip([
+        ("Routines", str(len(templates)), "reusable task templates"),
+        ("Average", str(average_points), "default points"),
+        ("Assigned", str(len(data.get("tasks", []))), "task records in the home"),
+    ])
 
     # Initialize editing state
     if "editing_task_id" not in st.session_state:
@@ -454,7 +458,7 @@ def task_list_tab(data):
             st.success("✅ Task is removed!")
         del st.session_state.pending_action
 
-    st.write("### Add new task")
+    st.markdown('<div class="admin-create-panel"><span>BUILD A ROUTINE</span><strong>Add a new task template</strong><small>Give the household a repeatable action with a clear reward value.</small></div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -475,7 +479,7 @@ def task_list_tab(data):
 
     st.divider()
 
-    st.write("### Your tasks")
+    st.markdown('<div class="admin-inventory-heading"><span>ROUTINE LIBRARY</span><strong>Your tasks</strong><small>Search, tune, or remove reusable routines.</small></div>', unsafe_allow_html=True)
 
     search_task = st.text_input("🔍 Search tasks", placeholder="Type task name to filter...", label_visibility="collapsed")
     filtered = [t for t in templates if search_task.lower() in t["title"].lower()] if search_task else templates
@@ -497,7 +501,7 @@ def task_list_tab(data):
                 if st.session_state.editing_task_id != template['id']:
                     st.markdown(
                         f'<div class="entity-row">'
-                        f'<div class="entity-icon">📋</div>'
+                        f'<div class="entity-icon admin-resource-icon">TASK</div>'
                         f'<div>'
                         f'<div class="entity-title">{template["title"]}</div>'
                         f'<div class="entity-meta">⭐ {template["default_points"]} points</div>'
@@ -1007,9 +1011,14 @@ def generate_weekday_dates(start_date, end_date, selected_weekdays):
 def book_list_tab(data):
     render_admin_section_header("Book list", "Maintain the shared reading catalogue.", "07 / CONTENT")
 
-    st.info("Add, edit or remove books from your reading library.")
-
     book_templates = data["book_templates"]
+    english = sum(1 for book in book_templates if book.get("language") == "English")
+    pages = sum(int(book.get("total_pages", 0)) for book in book_templates)
+    render_stat_strip([
+        ("Titles", str(len(book_templates)), "in the shared catalogue"),
+        ("Pages", str(pages), "available to read"),
+        ("English", str(english), f"{len(book_templates) - english} Turkish titles"),
+    ])
 
     if "pending_action" in st.session_state:
         action_type, action_value = st.session_state.pending_action
@@ -1019,7 +1028,7 @@ def book_list_tab(data):
             st.success("✅ Book is removed!")
         del st.session_state.pending_action
 
-    st.write("### Add new book")
+    st.markdown('<div class="admin-create-panel"><span>ADD TO THE SHELF</span><strong>Add a new book</strong><small>Create a clean catalogue entry before assigning it to a reader.</small></div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -1048,7 +1057,7 @@ def book_list_tab(data):
 
     st.divider()
 
-    st.write("### Your books")
+    st.markdown('<div class="admin-inventory-heading"><span>READING CATALOGUE</span><strong>Your books</strong><small>Search, tune, or remove titles from the shared shelf.</small></div>', unsafe_allow_html=True)
 
     search_book = st.text_input("🔍 Search books", placeholder="Type book name to filter...", label_visibility="collapsed")
     filtered_books = [b for b in book_templates if search_book.lower() in b["title"].lower()] if search_book else book_templates
@@ -1076,7 +1085,7 @@ def book_list_tab(data):
 
                     st.markdown(
                         f'<div class="entity-row">'
-                        f'<div class="entity-icon entity-icon--tall">📖</div>'
+                        f'<div class="entity-icon entity-icon--tall admin-resource-icon">BOOK</div>'
                         f'<div>'
                         f'<div class="entity-title">{book["title"]}</div>'
                         f'<div class="entity-meta">{writer_line} · {lang_flag} · {book["total_pages"]} pages</div>'

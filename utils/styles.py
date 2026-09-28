@@ -733,6 +733,12 @@ _NAV_CSS = """
 .admin-section-header span { color: var(--accent); font: 600 0.64rem var(--font-mono); letter-spacing: 0.14em; }
 .admin-section-header strong { color: var(--text-primary); font-size: 1.5rem; letter-spacing: -0.04em; }
 .admin-section-header small { color: var(--text-secondary); font-size: 0.78rem; }
+.admin-create-panel, .admin-inventory-heading { display: grid; gap: 0.25rem; margin: 1.4rem 0 0.85rem; padding: 1rem 1.15rem; border: 1px solid var(--border-subtle); border-radius: 16px; background: var(--surface-1); }
+.admin-create-panel { border-color: var(--accent-border); background: linear-gradient(105deg, var(--accent-subtle), var(--surface-1)); }
+.admin-create-panel span, .admin-inventory-heading span { color: var(--accent); font: 600 0.62rem var(--font-mono); letter-spacing: 0.14em; }
+.admin-create-panel strong, .admin-inventory-heading strong { color: var(--text-primary); font-size: 1.08rem; letter-spacing: -0.025em; }
+.admin-create-panel small, .admin-inventory-heading small { color: var(--text-tertiary); font-size: 0.72rem; }
+.admin-resource-icon { display: grid !important; place-items: center; width: 3rem !important; height: 3rem !important; border-radius: 12px !important; background: var(--accent-subtle) !important; color: var(--accent) !important; font: 600 0.58rem var(--font-mono) !important; letter-spacing: 0.08em; }
 .stRadio [role="radiogroup"] {
     gap: 0.35rem;
     flex-wrap: wrap;
