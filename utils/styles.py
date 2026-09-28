@@ -694,6 +694,31 @@ _NAV_CSS = """
     background: var(--surface-1);
 }
 .reward-card h4 { margin: 0; color: var(--text-primary); }
+.reward-month-marker { display: grid; gap: 0.2rem; text-align: center; }
+.reward-month-marker span, .reward-leaderboard-heading span, .reward-exchange-heading span { color: var(--accent); font: 600 0.64rem var(--font-mono); letter-spacing: 0.14em; }
+.reward-month-marker strong { color: var(--text-primary); font-size: 1.35rem; letter-spacing: -0.035em; }
+.reward-month-marker small, .reward-leaderboard-heading small, .reward-exchange-heading small { color: var(--text-tertiary); font-size: 0.72rem; }
+.reward-leaderboard-heading, .reward-exchange-heading { display: grid; gap: 0.25rem; margin: 1.4rem 0 0.7rem; padding-top: 1rem; border-top: 1px solid var(--border-default); }
+.reward-leaderboard-heading strong, .reward-exchange-heading strong { color: var(--text-primary); font-size: 1.3rem; letter-spacing: -0.035em; }
+.reward-leaderboard { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
+.reward-leader-row { display: grid; grid-template-columns: 2.2rem 1fr auto; align-items: center; gap: 0.6rem; padding: 0.8rem 0.9rem; border: 1px solid var(--border-subtle); border-radius: 13px; background: var(--surface-1); }
+.reward-leader-rank { color: var(--accent); font: 600 0.7rem var(--font-mono); }
+.reward-leader-name { color: var(--text-primary); font-weight: 650; }
+.reward-leader-name small, .reward-leader-points small { display: block; color: var(--text-tertiary); font-size: 0.65rem; font-weight: 400; }
+.reward-leader-points { color: var(--text-primary); font: 700 1.1rem var(--font-mono); text-align: right; }
+.reward-exchange-card { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 1rem; margin: 0.65rem 0; padding: 1.1rem 1.2rem; border: 1px solid var(--border-subtle); border-radius: 19px; background: linear-gradient(110deg, var(--surface-1), var(--surface-2)); }
+.reward-exchange-card__identity { display: grid; gap: 0.2rem; }
+.reward-exchange-card__kind { color: var(--accent); font: 600 0.62rem var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; }
+.reward-exchange-card__identity strong { color: var(--text-primary); font-size: 1.1rem; }
+.reward-exchange-card__identity small { color: var(--text-tertiary); font-size: 0.7rem; }
+.reward-exchange-card__value { display: grid; grid-template-columns: auto auto; align-items: baseline; gap: 0.25rem 0.4rem; text-align: right; }
+.reward-exchange-card__value strong { color: var(--accent); font: 700 1.5rem var(--font-mono); }
+.reward-exchange-card__value small { color: var(--text-tertiary); font-size: 0.65rem; }
+.reward-exchange-card__value span { grid-column: 1 / -1; color: var(--text-secondary); font: 0.75rem var(--font-mono); }
+.reward-exchange-card__progress { grid-column: 1 / -1; height: 0.3rem; overflow: hidden; border-radius: 99px; background: var(--surface-3); }
+.reward-exchange-card__progress div { height: 100%; border-radius: inherit; background: var(--accent); }
+.reward-exchange-card__hint { grid-column: 1 / -1; color: var(--text-tertiary); font-size: 0.67rem; }
+@media (max-width: 640px) { .reward-leaderboard { grid-template-columns: 1fr; } }
 .stRadio [role="radiogroup"] {
     gap: 0.35rem;
     flex-wrap: wrap;
