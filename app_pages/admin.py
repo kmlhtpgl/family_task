@@ -493,60 +493,48 @@ def task_list_tab(data):
         prefix = f"Showing {len(filtered)} of {len(templates)}" if search_task else f"Total {len(templates)}"
         st.caption(f"{prefix} task(s)")
 
-    for template in filtered:
-        with st.container(border=True):
-            col_info, col_actions = st.columns([4, 1])
+    for start in range(0, len(filtered), 3):
+        row = st.columns(3, gap="medium")
+        for col, template in zip(row, filtered[start:start + 3]):
+            with col:
+                render_task_template_card(template)
 
-            with col_info:
-                if st.session_state.editing_task_id != template['id']:
-                    st.markdown(
-                        f'<div class="entity-row">'
-                        f'<div class="entity-icon admin-resource-icon">TASK</div>'
-                        f'<div>'
-                        f'<div class="entity-title">{template["title"]}</div>'
-                        f'<div class="entity-meta">⭐ {template["default_points"]} points</div>'
-                        f'</div>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
-                else:
-                    # Edit form
-                    new_title = st.text_input("Task name", value=template["title"], key=f"tt_{template['id']}")
-                    new_points = st.number_input(
-                        "Default points",
-                        min_value=1,
-                        max_value=100,
-                        value=int(template.get("default_points", 10)),
-                        key=f"tp_{template['id']}"
-                    )
 
-                    edit_cols = st.columns(2)
-                    with edit_cols[0]:
-                        if st.button("💾 Save", key=f"save_task_{template['id']}", use_container_width=True):
-                            if not new_title.strip():
-                                st.error("Task name is required.")
-                            else:
-                                update_task_template(template["id"], {
-                                    "title": new_title.strip(),
-                                    "default_points": int(new_points)
-                                })
-                                st.session_state.editing_task_id = None
-                                st.success("Task updated!")
-                                st.rerun()
-
-                    with edit_cols[1]:
-                        if st.button("Cancel", key=f"cancel_task_{template['id']}", use_container_width=True):
-                            st.session_state.editing_task_id = None
-                            st.rerun()
-
-            with col_actions:
-                if st.button("✏️", key=f"edit_btn_task_{template['id']}", help="Edit"):
-                    st.session_state.editing_task_id = template['id']
+def render_task_template_card(template):
+    with st.container(border=True):
+        if st.session_state.editing_task_id != template["id"]:
+            st.markdown(
+                f'<div class="entity-row admin-grid-card">'
+                f'<div class="entity-icon admin-resource-icon">TASK</div>'
+                f'<div><div class="entity-title">{template["title"]}</div>'
+                f'<div class="entity-meta">{template["default_points"]} points</div></div></div>',
+                unsafe_allow_html=True,
+            )
+            edit_cols = st.columns(2)
+            with edit_cols[0]:
+                if st.button("Edit", key=f"edit_btn_task_{template['id']}", use_container_width=True):
+                    st.session_state.editing_task_id = template["id"]
                     st.rerun()
-
-                if st.button("🗑️", key=f"del_btn_task_{template['id']}", help="Delete"):
+            with edit_cols[1]:
+                if st.button("Delete", key=f"del_btn_task_{template['id']}", use_container_width=True):
                     delete_task_template(template["id"])
                     st.session_state.pending_action = ("task_removed", None)
+                    st.rerun()
+        else:
+            new_title = st.text_input("Task name", value=template["title"], key=f"tt_{template['id']}")
+            new_points = st.number_input("Default points", min_value=1, max_value=100, value=int(template.get("default_points", 10)), key=f"tp_{template['id']}")
+            edit_cols = st.columns(2)
+            with edit_cols[0]:
+                if st.button("Save", key=f"save_task_{template['id']}", use_container_width=True):
+                    if not new_title.strip():
+                        st.error("Task name is required.")
+                    else:
+                        update_task_template(template["id"], {"title": new_title.strip(), "default_points": int(new_points)})
+                        st.session_state.editing_task_id = None
+                        st.rerun()
+            with edit_cols[1]:
+                if st.button("Cancel", key=f"cancel_task_{template['id']}", use_container_width=True):
+                    st.session_state.editing_task_id = None
                     st.rerun()
 
 
@@ -1071,89 +1059,54 @@ def book_list_tab(data):
         prefix = f"Showing {len(filtered_books)} of {len(book_templates)}" if search_book else f"Total {len(book_templates)}"
         st.caption(f"{prefix} book(s)")
 
-    for book in filtered_books:
-        lang_flag = "🇬🇧" if book.get("language") == "English" else "🇹🇷"
+    for start in range(0, len(filtered_books), 3):
+        row = st.columns(3, gap="medium")
+        for col, book in zip(row, filtered_books[start:start + 3]):
+            with col:
+                render_book_template_card(book)
 
-        with st.container(border=True):
-            col_info, col_actions = st.columns([4, 1])
 
-            with col_info:
-                is_editing = st.session_state.get(f"edit_book_{book['id']}", False)
-
-                if not is_editing:
-                    writer_line = f"✍️ {book['writer']}" if book.get("writer") else "✍️ Unknown"
-
-                    st.markdown(
-                        f'<div class="entity-row">'
-                        f'<div class="entity-icon entity-icon--tall admin-resource-icon">BOOK</div>'
-                        f'<div>'
-                        f'<div class="entity-title">{book["title"]}</div>'
-                        f'<div class="entity-meta">{writer_line} · {lang_flag} · {book["total_pages"]} pages</div>'
-                        f'</div>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
-                else:
-                    with st.form(f"edit_book_form_{book['id']}"):
-                        new_title = st.text_input("Book name", value=book["title"], key=f"et_{book['id']}")
-                        new_writer = st.text_input("Writer", value=book.get("writer", "") or "", key=f"ew_{book['id']}")
-
-                        new_lang = st.selectbox(
-                            "Language",
-                            ["English", "Turkish"],
-                            index=0 if book.get("language") == "English" else 1,
-                            key=f"el_{book['id']}"
-                        )
-
-                        new_pages = st.number_input(
-                            "Total pages",
-                            min_value=1,
-                            max_value=5000,
-                            value=int(book.get("total_pages", 100)),
-                            key=f"ep_{book['id']}"
-                        )
-
-                        edit_cols = st.columns(2)
-
-                        with edit_cols[0]:
-                            save_clicked = st.form_submit_button("💾 Save", use_container_width=True)
-
-                        with edit_cols[1]:
-                            cancel_clicked = st.form_submit_button("Cancel", use_container_width=True)
-
-                        if save_clicked:
-                            if not new_title.strip():
-                                st.error("Book name is required.")
-                            else:
-                                cleaned = clean_book_templates([{
-                                    "id": book["id"],
-                                    "title": new_title.strip(),
-                                    "writer": new_writer.strip() if new_writer.strip() else None,
-                                    "language": new_lang,
-                                    "total_pages": int(new_pages)
-                                }])
-
-                                if cleaned:
-                                    replace_book_template(book["id"], cleaned[0])
-
-                                st.session_state[f"edit_book_{book['id']}"] = False
-                                st.success("Book updated!")
-                                st.rerun()
-
-                        if cancel_clicked:
-                            st.session_state[f"edit_book_{book['id']}"] = False
-                            st.rerun()
-
-                    continue
-
-            with col_actions:
-                if st.button("✏️", key=f"edit_btn_book_{book['id']}", help="Edit"):
+def render_book_template_card(book):
+    is_editing = st.session_state.get(f"edit_book_{book['id']}", False)
+    with st.container(border=True):
+        if not is_editing:
+            writer_line = book.get("writer") or "Unknown writer"
+            st.markdown(
+                f'<div class="entity-row admin-grid-card">'
+                f'<div class="entity-icon entity-icon--tall admin-resource-icon">BOOK</div>'
+                f'<div><div class="entity-title">{book["title"]}</div>'
+                f'<div class="entity-meta">{writer_line} · {book.get("language", "English")} · {book["total_pages"]} pages</div></div></div>',
+                unsafe_allow_html=True,
+            )
+            edit_cols = st.columns(2)
+            with edit_cols[0]:
+                if st.button("Edit", key=f"edit_btn_book_{book['id']}", use_container_width=True):
                     st.session_state[f"edit_book_{book['id']}"] = True
                     st.rerun()
-
-                if st.button("🗑️", key=f"del_btn_book_{book['id']}", help="Delete"):
+            with edit_cols[1]:
+                if st.button("Delete", key=f"del_btn_book_{book['id']}", use_container_width=True):
                     delete_book_template(book["id"])
                     st.session_state.pending_action = ("book_removed", None)
+                    st.rerun()
+        else:
+            with st.form(f"edit_book_form_{book['id']}"):
+                new_title = st.text_input("Book name", value=book["title"], key=f"et_{book['id']}")
+                new_writer = st.text_input("Writer", value=book.get("writer", "") or "", key=f"ew_{book['id']}")
+                new_lang = st.selectbox("Language", ["English", "Turkish"], index=0 if book.get("language") == "English" else 1, key=f"el_{book['id']}")
+                new_pages = st.number_input("Total pages", min_value=1, max_value=5000, value=int(book.get("total_pages", 100)), key=f"ep_{book['id']}")
+                edit_cols = st.columns(2)
+                with edit_cols[0]: save_clicked = st.form_submit_button("Save", use_container_width=True)
+                with edit_cols[1]: cancel_clicked = st.form_submit_button("Cancel", use_container_width=True)
+                if save_clicked:
+                    if not new_title.strip():
+                        st.error("Book name is required.")
+                    else:
+                        cleaned = clean_book_templates([{"id": book["id"], "title": new_title.strip(), "writer": new_writer.strip() if new_writer.strip() else None, "language": new_lang, "total_pages": int(new_pages)}])
+                        if cleaned: replace_book_template(book["id"], cleaned[0])
+                        st.session_state[f"edit_book_{book['id']}"] = False
+                        st.rerun()
+                if cancel_clicked:
+                    st.session_state[f"edit_book_{book['id']}"] = False
                     st.rerun()
 
 def clean_book_templates(book_templates):
