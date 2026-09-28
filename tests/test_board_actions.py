@@ -17,6 +17,7 @@ Two things are being protected, and they are not the same thing:
 """
 
 import datetime as dt
+from pathlib import Path
 
 import pytest
 import streamlit as st
@@ -292,6 +293,59 @@ def test_apply_action_ignores_a_replayed_action(data, store, session):
     # A genuinely new action still lands.
     assert apply_action(data, {**action, "seq": 2}) is not None
     assert len(store.recorded("update_task")) == 2
+
+
+def test_a_remounted_frame_is_told_where_the_seq_count_reached(data, store, session):
+    """Coming back to the board must not cost the user their clicks.
+
+    The seq lives in the frame, so leaving the board for another page and
+    returning remounts it at 1 while Python still remembers the count. Every
+    click up to the remembered number was then dropped as a replay: the day
+    picker and the task ticks were dead until a refresh, which is the one thing
+    that clears session state. The payload now carries the count so a fresh
+    frame resumes above it.
+    """
+    from utils.board.bridge import HANDLED_SEQ_KEY, SEQ_FIELD, is_new, seq_floor
+
+    session[HANDLED_SEQ_KEY] = 3
+    # The next action a remounted frame sends must be accepted, not discarded.
+    assert seq_floor() == 3
+    assert is_new({"verb": COMPLETE, "task_id": 1, "seq": seq_floor() + 1})
+    assert not is_new({"verb": COMPLETE, "task_id": 1, "seq": seq_floor()})
+    # And the frame is handed the number in the payload it paints from.
+    assert SEQ_FIELD == "handled_seq"
+
+
+def test_a_fresh_session_reports_a_floor_a_frame_can_start_from(data, store, session):
+    from utils.board.bridge import HANDLED_SEQ_KEY, is_new, seq_floor
+
+    session[HANDLED_SEQ_KEY] = 0
+    assert seq_floor() == 0
+    assert is_new({"verb": COMPLETE, "task_id": 1, "seq": 1})
+
+
+def test_seq_floor_survives_a_nonsense_stored_value(data, store, session):
+    """A corrupted session must not turn every later action into a replay."""
+    from utils.board.bridge import HANDLED_SEQ_KEY, is_new, seq_floor
+
+    session[HANDLED_SEQ_KEY] = "not a number"
+    assert seq_floor() == 0
+    session[HANDLED_SEQ_KEY] = None
+    assert seq_floor() == 0
+    session[HANDLED_SEQ_KEY] = 5
+    assert is_new({"verb": COMPLETE, "task_id": 1, "seq": 6})
+
+
+def test_the_frame_continues_its_count_from_the_payload():
+    """The JS half of the contract, asserted on the source.
+
+    The frame is the only place that knows the count, so without this seed a
+    remount silently restarts it. A browser test would catch the symptom; this
+    catches the cause, and runs without one.
+    """
+    source = (Path(__file__).resolve().parent.parent / "static" / "board" / "board.js").read_text()
+    assert "payload.handled_seq" in source
+    assert "floor > state.seq" in source, "the frame must not lower its own count"
 
 
 def test_apply_action_ignores_junk(data, store, session):

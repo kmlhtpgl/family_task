@@ -46,6 +46,7 @@ _ARGS = {"channel": "board", "version": 1}
 
 DATA_NODE_ID = "board-data"
 HANDLED_SEQ_KEY = "board_handled_seq"
+SEQ_FIELD = "handled_seq"
 
 
 def render(payload: dict, height: int = 900) -> dict | None:
@@ -54,14 +55,23 @@ def render(payload: dict, height: int = 900) -> dict | None:
     Order matters: the node has to exist in the host document before the frame
     is told to paint, so it is written first. The returned action belongs to the
     *previous* interaction, which is the only value available at this point.
+
+    The handled seq travels with the payload so a remounted frame resumes the
+    count instead of restarting it. See `seq_floor`.
     """
     st.markdown(
         f'<div id="{DATA_NODE_ID}" style="display:none">'
-        f"{json.dumps(payload, separators=(',', ':'), default=str)}"
+        f"{json.dumps({**payload, SEQ_FIELD: seq_floor()}, separators=(',', ':'), default=str)}"
         f"</div>",
         unsafe_allow_html=True,
     )
     return _board(payload=_ARGS, default=None, key="family-board", height=height)
+
+
+def seq_floor() -> int:
+    """The highest seq Python has already handled, for a fresh frame to beat."""
+    value = st.session_state.get(HANDLED_SEQ_KEY, 0)
+    return value if isinstance(value, int) else 0
 
 
 def is_new(action: dict | None) -> bool:

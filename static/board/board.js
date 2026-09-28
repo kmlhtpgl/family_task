@@ -58,7 +58,9 @@
 
   /* Actions carry a monotonic seq. Streamlit holds a widget's value until it
      changes, so Python sees the same action again on the next rerun; the seq is
-     how it tells "new" from "already handled". */
+     how it tells "new" from "already handled". `state.seq` is seeded from
+     payload.handled_seq in paint() so a remounted frame starts above what
+     Python has already seen rather than back at 1. */
   function send(verb, fields) {
     post({
       type: "streamlit:setComponentValue",
@@ -739,6 +741,17 @@
   function paint() {
     var payload = readPayload();
     if (payload === null) return;
+
+    /* Resume the action count rather than restarting it. The seq is the frame's
+       only "this is new" signal, and it lives in the frame's memory, so a
+       remounted frame -- leaving the board for another page and coming back --
+       began again at 1 while Python still remembered handling 3. Every click up
+       to that number was then discarded as a replay, which is why the day picker
+       looked dead until the page was refreshed. Python sends the count it has
+       reached, so the frame continues above it. */
+    var floor = payload.handled_seq;
+    if (typeof floor === "number" && floor > state.seq) state.seq = floor;
+
     cachedOverdueDays = payload.overdue_days || 2;
 
     var json = JSON.stringify(payload);
