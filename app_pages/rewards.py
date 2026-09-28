@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 import streamlit as st
-from utils.page_chrome import render_page_header
+from utils.page_chrome import render_page_header, render_stat_strip
 
 from utils.task_helpers import get_monthly_points_for_kid, get_monthly_points_for_parent, get_monthly_adjustment_points
 from utils.db_helpers import add_reward_session, update_reward_session
@@ -49,6 +49,16 @@ def rewards_page(data):
             unsafe_allow_html=True,
         )
 
+    total_points = sum(get_monthly_points_for_kid(data, kid["id"], target_year, target_month) + get_monthly_adjustment_points(data, kid["id"], "kid", target_year, target_month) for kid in data["kids"])
+    total_points += sum(get_monthly_points_for_parent(data, parent["id"], target_year, target_month) + get_monthly_adjustment_points(data, parent["id"], "parent", target_year, target_month) for parent in data.get("parents", []))
+    saved = sum(1 for session in data.get("reward_sessions", []) if session.get("month") == f"{target_year:04d}-{target_month:02d}")
+    paid = sum(1 for session in data.get("reward_sessions", []) if session.get("month") == f"{target_year:04d}-{target_month:02d}" and session.get("paid"))
+    render_stat_strip([
+        ("Earned", str(total_points), "points this month"),
+        ("Saved", str(saved), "reward records"),
+        ("Paid", str(paid), "completed payouts"),
+    ])
+
     st.divider()
 
     for kid in data["kids"]:
@@ -68,8 +78,8 @@ def show_kid_reward(data, kid, year, month):
 
     with st.container():
         st.markdown(
-            f'<div class="task-item row">'
-            f'<span class="row-title"><h4>🧒 {kid["name"]}</h4></span>'
+            f'<div class="reward-card">'
+            f'<span class="row-title"><h4>{kid["name"]}</h4></span>'
             f'<span class="row-end">'
             f'<span class="num strong text-accent" style="font-size:1.375rem;">{pts} pts</span><br>'
             f'<span class="num" style="font-size:1.0625rem;">= £{gbp:.2f}</span>'
@@ -109,8 +119,8 @@ def show_parent_reward(data, parent, year, month):
 
     with st.container():
         st.markdown(
-            f'<div class="task-item row">'
-            f'<span class="row-title"><h4>👨‍👩‍👧 {parent["name"]}</h4></span>'
+            f'<div class="reward-card">'
+            f'<span class="row-title"><h4>{parent["name"]}</h4></span>'
             f'<span class="row-end">'
             f'<span class="num strong text-accent" style="font-size:1.375rem;">{pts} pts</span><br>'
             f'<span class="num" style="font-size:1.0625rem;">= £{gbp:.2f}</span>'

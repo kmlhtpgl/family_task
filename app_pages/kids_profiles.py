@@ -15,7 +15,7 @@ from utils.surah_helpers import (
 from utils.achievement_helpers import get_kid_achievements
 from utils.styles import avatar_image, achievement_badge
 from utils.summary_helpers import compute_weekly_summary
-from utils.page_chrome import render_page_header
+from utils.page_chrome import render_page_header, render_profile_identity, render_stat_strip
 
 
 def kids_profiles_page(data):
@@ -55,44 +55,27 @@ def show_kid_profile(data, kid):
     with col1:
         avatar_image(kid.get("photo_path"), width=150)
 
-        st.subheader(kid["name"])
-        st.write(f"Age: **{kid.get('age', 'Not entered')}**")
-
         total_points = get_total_points_for_kid(data, kid["id"])
         rank, icon = get_rank(total_points)
-        st.markdown(
-            f'<div class="metric-card"><h3>⭐ Total Points</h3><div class="value">{total_points}</div></div>',
-            unsafe_allow_html=True
-        )
-
         today = date.today()
         monthly_pts = get_monthly_points_for_kid(data, kid["id"], today.year, today.month)
-        gbp = monthly_pts / 300
-        st.markdown(
-            f'<div class="banner banner--gold">'
-            f'<strong>💰 This Month:</strong> {monthly_pts} pts = £{gbp:.2f}'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-
         overdue = get_overdue_task_count(data, kid["id"], is_kid=True)
+        render_profile_identity(kid["name"], "Kid profile", f"Age {kid.get('age', 'not entered')}", rank)
+        render_stat_strip([
+            ("Total points", str(total_points), "all-time progress"),
+            ("This month", str(monthly_pts), "points in the current month"),
+            ("Open attention", str(overdue), "past-due items"),
+        ])
         if overdue > 0:
             st.markdown(
                 f'<div class="banner banner--warn">'
-                f'<strong>⚠️ Overdue:</strong> {overdue} task(s) past due date'
+                f'<strong>Needs attention:</strong> {overdue} task(s) past due date'
                 f'</div>',
                 unsafe_allow_html=True
             )
-        st.markdown(
-            f'<div class="banner banner--rank">'
-            f'<span class="rank-icon">{icon}</span>'
-            f'<span class="rank-name">{rank}</span>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
 
         st.divider()
-        st.write("### 🏆 Achievements")
+        st.markdown('<div class="route-section-label">Achievements</div>', unsafe_allow_html=True)
 
         achievements = get_kid_achievements(data, kid["id"])
 
@@ -109,7 +92,7 @@ def show_kid_profile(data, kid):
 
 
 def show_child_read_books(data, kid):
-    st.subheader("📚 Reading")
+    st.subheader("Reading")
 
     finished_books = get_finished_books(data, kid["id"])
     english_books, turkish_books = split_books_by_language(finished_books)
@@ -160,7 +143,7 @@ def show_child_read_books(data, kid):
 
 
 def show_child_quran(data, kid):
-    st.subheader("📖 Quran Memorization")
+    st.subheader("Quran memorization")
 
     surahs = get_quran_surahs_in_progress(data, kid["id"])
     finished_surahs = get_finished_quran_surahs(data, kid["id"])
@@ -218,7 +201,7 @@ def show_child_quran(data, kid):
 
 def show_weekly_summary(data, kid):
     st.divider()
-    st.subheader("📊 Weekly Summary")
+    st.subheader("Weekly summary")
 
     today = date.today()
     week_offset = st.session_state.get("kid_week_offset", 0)

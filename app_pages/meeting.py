@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 
 import streamlit as st
 from utils.page_chrome import render_page_header
+from utils.page_chrome import render_stat_strip
 
 from utils.db_helpers import (
     add_meeting_note,
@@ -114,6 +115,12 @@ def meeting_page(data):
         chosen_kind, chosen_id, _ = chosen
     else:
         chosen_kind, chosen_id = "upcoming", None
+
+    render_stat_strip([
+        ("Sessions", str(len(sessions)), "stored family meetings"),
+        ("Templates", str(len(templates)), "reusable agenda items"),
+        ("Next", upcoming.strftime("%d %b"), "upcoming meeting"),
+    ])
 
     if chosen_kind == "upcoming":
         session = None

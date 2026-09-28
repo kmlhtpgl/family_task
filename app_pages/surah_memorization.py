@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.page_chrome import render_page_header
+from utils.page_chrome import render_page_header, render_stat_strip
 
 from utils.surah_helpers import (
     calculate_surah_progress,
@@ -23,27 +23,42 @@ def surah_memorization_page(data):
         st.info("No surahs or duas assigned yet. Go to Admin to assign them.")
         return
 
-    reader_labels = [f"🧒 {k['name']}" for k in data["kids"]]
-    reader_labels += [f"👨‍👩‍👧 {p['name']}" for p in data.get("parents", [])]
+    reader_labels = [f"Kid · {k['name']}" for k in data["kids"]]
+    reader_labels += [f"Parent · {p['name']}" for p in data.get("parents", [])]
 
     selected_label = st.radio("Choose reader", reader_labels, horizontal=True, key="surah_reader_select")
 
-    if selected_label.startswith("🧒 "):
-        name = selected_label.replace("🧒 ", "")
+    if selected_label.startswith("Kid · "):
+        name = selected_label.replace("Kid · ", "")
         reader_id = next(k["id"] for k in data["kids"] if k["name"] == name)
         is_parent = False
     else:
-        name = selected_label.replace("👨‍👩‍👧 ", "")
+        name = selected_label.replace("Parent · ", "")
         reader_id = next(p["id"] for p in data["parents"] if p["name"] == name)
         is_parent = True
 
+    if is_parent:
+        in_progress = get_quran_surahs_in_progress_for_parent(data, reader_id)
+        finished = get_finished_quran_surahs_for_parent(data, reader_id)
+        duas = get_duas_in_progress_for_parent(data, reader_id)
+        finished_duas = get_finished_duas_for_parent(data, reader_id)
+    else:
+        in_progress = get_quran_surahs_in_progress(data, reader_id)
+        finished = get_finished_quran_surahs(data, reader_id)
+        duas = get_duas_in_progress(data, reader_id)
+        finished_duas = get_finished_duas(data, reader_id)
+    render_stat_strip([
+        ("Surahs active", str(len(in_progress)), "currently practicing"),
+        ("Duas active", str(len(duas)), "currently practicing"),
+        ("Memorized", str(len(finished) + len(finished_duas)), "completed items"),
+    ])
     show_surahs_common(data, reader_id, is_parent)
     st.divider()
     show_duas_common(data, reader_id, is_parent)
 
 
 def show_surahs_common(data, reader_id, is_parent):
-    st.subheader("📖 Surahs")
+    st.markdown('<div class="route-section-label">Surahs</div>', unsafe_allow_html=True)
 
     if is_parent:
         surahs = get_quran_surahs_in_progress_for_parent(data, reader_id)
@@ -73,7 +88,7 @@ def show_surahs_common(data, reader_id, is_parent):
 
 
 def show_duas_common(data, reader_id, is_parent):
-    st.subheader("🤲 Duas (Prayers)")
+    st.markdown('<div class="route-section-label">Duas</div>', unsafe_allow_html=True)
 
     if is_parent:
         duas = get_duas_in_progress_for_parent(data, reader_id)

@@ -73,11 +73,12 @@ def admin_page(data):
     tab_keys = [t[0] for t in admin_tabs]
     current_index = tab_keys.index(st.session_state.admin_tab)
 
-    selected_label = st.selectbox(
+    selected_label = st.radio(
         "Admin section",
         tab_labels,
         index=current_index,
-        key="admin_tab_selector"
+        key="admin_tab_radio",
+        horizontal=True,
     )
 
     selected_key = tab_keys[tab_labels.index(selected_label)]
@@ -122,7 +123,7 @@ def admin_page(data):
 # -----------------------
 
 def parents_tab(data):
-    st.subheader("👨‍👩‍👧‍👦 Parents Management")
+    st.subheader("Parents management")
     st.caption("Add and manage parent profiles for task and book assignments.")
 
     # Add Parent Form
@@ -279,7 +280,7 @@ def parents_tab(data):
 # -----------------------
 
 def add_child_tab(data):
-    st.subheader("🧒 Children Management")
+    st.subheader("Children management")
 
     # Add Child Form
     st.write("### Add New Child")
@@ -428,7 +429,7 @@ def add_child_tab(data):
 # -----------------------
 
 def task_list_tab(data):
-    st.subheader("📋 Task List")
+    st.subheader("Task list")
 
     st.info("Add, edit or remove tasks from your task library.")
 
@@ -543,7 +544,7 @@ def task_list_tab(data):
 # -----------------------
 
 def meeting_templates_tab(data):
-    st.subheader("🤝 Meeting Templates")
+    st.subheader("Meeting templates")
     st.caption("Create reusable common agenda items, then add selected ones to the weekly Meeting list.")
 
     templates = sorted(data.get("meeting_templates", []), key=lambda t: t["title"].lower())
@@ -690,7 +691,7 @@ def clean_task_templates(templates):
 # -----------------------
 
 def assign_task_tab(data):
-    st.subheader("🎯 Assign Task")
+    st.subheader("Assign task")
 
     if not data["kids"] and not data.get("parents"):
         st.info("Add children or parents first.")
@@ -805,7 +806,7 @@ def assign_task_tab(data):
 # -----------------------
 
 def remove_assignment_tab(data):
-    st.subheader("🗑️ Remove Task Assignment")
+    st.subheader("Remove task assignment")
 
     tasks = data.get("tasks", [])
     kids = {k["id"]: k["name"] for k in data.get("kids", [])}
@@ -997,7 +998,7 @@ def generate_weekday_dates(start_date, end_date, selected_weekdays):
 # -----------------------
 
 def book_list_tab(data):
-    st.subheader("📚 Book List")
+    st.subheader("Book list")
 
     st.info("Add, edit or remove books from your reading library.")
 
@@ -1174,7 +1175,7 @@ def clean_book_templates(book_templates):
 # -----------------------
 
 def assign_book_tab(data):
-    st.subheader("📖 Assign Book")
+    st.subheader("Assign book")
 
     if not data["kids"] and not data.get("parents"):
         st.info("Add children or parents first.")
@@ -1236,7 +1237,7 @@ def assign_book_tab(data):
 # -----------------------
 
 def surah_list_tab(data):
-    st.subheader("📖 Surah & Dua List")
+    st.subheader("Quran and dua list")
 
     st.info("Assign surahs or duas from the list below to children or parents via the 'Assign Surah/Dua' tab.")
 
@@ -1360,7 +1361,7 @@ def surah_list_tab(data):
 # -----------------------
 
 def assign_surah_tab(data):
-    st.subheader("🎯 Assign Surah / Dua")
+    st.subheader("Assign Quran or dua")
 
     if not data["kids"] and not data.get("parents"):
         st.info("Add children or parents first.")
@@ -1420,7 +1421,7 @@ def assign_surah_tab(data):
 # -----------------------
 
 def bonus_penalty_tab(data):
-    st.subheader("🎯 Bonus / Penalty Points")
+    st.subheader("Bonus and penalty points")
     st.caption("Add bonus points as a reward or deduct points as a punishment.")
 
     st.markdown("### ➕ Add Adjustment")
@@ -1528,11 +1529,9 @@ def kiosk_settings_tab(data):
 
     _t1, _t2, _t3 = st.columns([1, 1, 1])
     with _t1:
-        st.markdown(
-            '<button class="kiosk-direct-test" type="button" '
-            'onclick="window.Kiosk && window.Kiosk.screensaver()">Preview screensaver</button>',
-            unsafe_allow_html=True,
-        )
+        if st.button("Preview screensaver", key="kiosk_preview_button", use_container_width=True, type="primary"):
+            st.session_state.kiosk_test_screensaver = True
+            st.rerun()
     with _t2:
         _test_prayer = st.selectbox(
             "Prayer",
@@ -1540,11 +1539,9 @@ def kiosk_settings_tab(data):
             label_visibility="collapsed",
         )
     with _t3:
-        st.markdown(
-            f'<button class="kiosk-direct-test" type="button" '
-            f'onclick="window.Kiosk && window.Kiosk.playAdhan(\'{_test_prayer}\')">Play test adhan</button>',
-            unsafe_allow_html=True,
-        )
+        if st.button("Play test adhan", key="kiosk_play_button", use_container_width=True, type="primary"):
+            st.session_state.kiosk_test_adhan = _test_prayer
+            st.rerun()
 
     st.caption("There is no separate setup step. Tap once anywhere if the browser has blocked sound; "
                "the test button then plays immediately. "
@@ -1721,7 +1718,7 @@ def kiosk_settings_tab(data):
 # -----------------------
 
 def settings_tab(data):
-    st.subheader("⚙️ Settings")
+    st.subheader("Settings")
 
     st.info(
         "Main family data is now saved in Supabase. "
@@ -1731,7 +1728,7 @@ def settings_tab(data):
     st.success("✅ Parent and child profiles with photos are fully available!")
 
     st.divider()
-    st.subheader("🔄 Reset Points")
+    st.subheader("Reset points")
 
     st.warning("⚠️ This action cannot be undone. Choose carefully.")
 
@@ -1794,7 +1791,7 @@ def settings_tab(data):
         st.rerun()
 
     st.divider()
-    st.subheader("🔑 Change Admin Password")
+    st.subheader("Change admin password")
 
     with st.form("change_admin_password_form"):
         current_pwd = st.text_input("Current admin password", type="password")

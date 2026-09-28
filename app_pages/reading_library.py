@@ -12,7 +12,7 @@ from utils.book_helpers import (
 )
 from utils.db_helpers import update_book, delete_book, add_reading_log
 from utils.data_helpers import today_string
-from utils.page_chrome import render_page_header
+from utils.page_chrome import render_page_header, render_stat_strip
 
 
 def reading_library_page(data):
@@ -22,27 +22,36 @@ def reading_library_page(data):
         st.info("Add children or parents first in Admin.")
         return
 
-    reader_labels = [f"🧒 {k['name']}" for k in data["kids"]]
-    reader_labels += [f"👨‍👩‍👧 {p['name']}" for p in data.get("parents", [])]
+    reader_labels = [f"Kid · {k['name']}" for k in data["kids"]]
+    reader_labels += [f"Parent · {p['name']}" for p in data.get("parents", [])]
 
     selected_label = st.radio("Choose reader", reader_labels, horizontal=True, key="reader_select")
 
-    if selected_label.startswith("🧒 "):
-        name = selected_label.replace("🧒 ", "")
+    if selected_label.startswith("Kid · "):
+        name = selected_label.replace("Kid · ", "")
         reader_id = next(k["id"] for k in data["kids"] if k["name"] == name)
-        show_books_in_progress(data, reader_id, is_parent=False)
-        st.divider()
-        show_finished_books(data, reader_id, is_parent=False)
+        current = get_books_in_progress(data, reader_id)
+        finished = get_finished_books(data, reader_id)
+        is_parent = False
     else:
-        name = selected_label.replace("👨‍👩‍👧 ", "")
+        name = selected_label.replace("Parent · ", "")
         reader_id = next(p["id"] for p in data["parents"] if p["name"] == name)
-        show_books_in_progress(data, reader_id, is_parent=True)
-        st.divider()
-        show_finished_books(data, reader_id, is_parent=True)
+        current = get_books_in_progress_for_parent(data, reader_id)
+        finished = get_finished_books_for_parent(data, reader_id)
+        is_parent = True
+
+    render_stat_strip([
+        ("In progress", str(len(current)), "books currently open"),
+        ("Finished", str(len(finished)), "books completed"),
+        ("Pages finished", str(sum(int(book.get("total_pages", 0)) for book in finished)), "across the library"),
+    ])
+    show_books_in_progress(data, reader_id, is_parent=is_parent)
+    st.divider()
+    show_finished_books(data, reader_id, is_parent=is_parent)
 
 
 def show_books_in_progress(data, reader_id, is_parent=False):
-    st.subheader("📖 Books in Progress")
+    st.markdown('<div class="route-section-label">Books in progress</div>', unsafe_allow_html=True)
 
     if is_parent:
         books = get_books_in_progress_for_parent(data, reader_id)
@@ -138,7 +147,7 @@ def show_books_in_progress(data, reader_id, is_parent=False):
 
 
 def show_finished_books(data, reader_id, is_parent=False):
-    st.subheader("✨ Finished Books")
+    st.markdown('<div class="route-section-label">Finished books</div>', unsafe_allow_html=True)
 
     if is_parent:
         finished_books = get_finished_books_for_parent(data, reader_id)

@@ -9,7 +9,7 @@ from utils.achievement_helpers import get_parent_achievements
 from utils.data_helpers import today_string
 from utils.styles import avatar_image, achievement_badge
 from utils.summary_helpers import compute_weekly_summary
-from utils.page_chrome import render_page_header
+from utils.page_chrome import render_page_header, render_profile_identity, render_stat_strip
 
 
 def parents_profiles_page(data):
@@ -51,51 +51,29 @@ def show_parent_profile(data, parent):
     with col1:
         avatar_image(parent.get("photo_url"), width=150)
 
-        st.subheader(parent["name"])
-
-        if parent.get("email"):
-            st.write(f"📧 {parent['email']}")
-
-        if parent.get("phone"):
-            st.write(f"📞 {parent['phone']}")
-
         total_points = get_total_points_for_parent(data, parent["id"])
         weekly_points = get_weekly_points_for_parent(data, parent["id"])
         rank, icon = get_rank(total_points)
-
-        st.markdown(
-            f'<div class="metric-card"><h3>⭐ Total Points</h3><div class="value">{total_points}</div><div class="label">{weekly_points} this week</div></div>',
-            unsafe_allow_html=True
-        )
-
         today = date.today()
         monthly_pts = get_monthly_points_for_parent(data, parent["id"], today.year, today.month)
-        gbp = monthly_pts / 300
-        st.markdown(
-            f'<div class="banner banner--gold">'
-            f'<strong>💰 This Month:</strong> {monthly_pts} pts = £{gbp:.2f}'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-
         overdue = get_overdue_task_count(data, parent["id"], is_kid=False)
+        contact = " · ".join(filter(None, [parent.get("email"), parent.get("phone")])) or "No contact details yet"
+        render_profile_identity(parent["name"], "Parent profile", contact, rank)
+        render_stat_strip([
+            ("Total points", str(total_points), f"{weekly_points} earned this week"),
+            ("This month", str(monthly_pts), "points in the current month"),
+            ("Open attention", str(overdue), "past-due items"),
+        ])
         if overdue > 0:
             st.markdown(
                 f'<div class="banner banner--warn">'
-                f'<strong>⚠️ Overdue:</strong> {overdue} task(s) past due date'
+                f'<strong>Needs attention:</strong> {overdue} task(s) past due date'
                 f'</div>',
                 unsafe_allow_html=True
             )
-        st.markdown(
-            f'<div class="banner banner--rank">'
-            f'<span class="rank-icon">{icon}</span>'
-            f'<span class="rank-name">{rank}</span>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
 
         st.divider()
-        st.write("### 🏆 Achievements")
+        st.markdown('<div class="route-section-label">Achievements</div>', unsafe_allow_html=True)
 
         achievements = get_parent_achievements(data, parent["id"])
 
@@ -113,7 +91,7 @@ def show_parent_profile(data, parent):
 
 def show_parent_weekly_summary(data, parent):
     st.divider()
-    st.subheader("📊 Weekly Summary")
+    st.subheader("Weekly summary")
 
     today = date.today()
     week_offset = st.session_state.get("parent_week_offset", 0)
@@ -200,7 +178,7 @@ def show_parent_weekly_summary(data, parent):
 
 
 def show_parent_tasks(data, parent):
-    st.subheader("📋 Assigned Tasks")
+    st.subheader("Assigned tasks")
 
     assigned_tasks = [
         task for task in data["tasks"]
@@ -246,7 +224,7 @@ def show_parent_tasks(data, parent):
 
 
 def show_parent_books(data, parent):
-    st.subheader("📚 Reading List")
+    st.subheader("Reading list")
 
     assigned_books = [
         book for book in data["books"]

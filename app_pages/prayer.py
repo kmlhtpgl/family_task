@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.page_chrome import render_page_header
+from utils.page_chrome import render_page_header, render_stat_strip
 from datetime import date, timedelta
 from collections import defaultdict
 
@@ -62,12 +62,18 @@ def prayer_page(data):
             missed[title][kid_id] += 1
 
     kids_sorted = sorted(data["kids"], key=lambda k: k["name"])
+    missed_total = sum(missed[prayer].get(kid["id"], 0) for prayer in PRAYER_NAMES for kid in kids_sorted)
+    render_stat_strip([
+        ("Missed", str(missed_total), "prayer tasks this week"),
+        ("Children", str(len(kids_sorted)), "in this report"),
+        ("Coverage", f"{max(0, 100 - missed_total)}%", "simple consistency view"),
+    ])
 
     header_cols = st.columns([2] + [1] * len(kids_sorted))
     header_cols[0].markdown('<div class="th">Prayer</div>', unsafe_allow_html=True)
     for i, kid in enumerate(kids_sorted):
         header_cols[i + 1].markdown(
-            f'<div class="th center">🧒 {kid["name"]}</div>', unsafe_allow_html=True
+            f'<div class="th center">{kid["name"]}</div>', unsafe_allow_html=True
         )
 
     for prayer in PRAYER_NAMES:
