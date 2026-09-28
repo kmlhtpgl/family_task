@@ -56,52 +56,48 @@ def parents_profiles_page(data):
 
 
 def show_parent_profile(data, parent):
-    col1, col2 = st.columns([1, 2])
+    total_points = get_total_points_for_parent(data, parent["id"])
+    weekly_points = get_weekly_points_for_parent(data, parent["id"])
+    rank, _ = get_rank(total_points)
+    today = date.today()
+    monthly_pts = get_monthly_points_for_parent(data, parent["id"], today.year, today.month)
+    overdue = get_overdue_task_count(data, parent["id"], is_kid=False)
+    contact = " · ".join(filter(None, [parent.get("email"), parent.get("phone")])) or "No contact details yet"
 
-    with col1:
-        avatar_image(parent.get("photo_url"), width=150)
-
-        total_points = get_total_points_for_parent(data, parent["id"])
-        weekly_points = get_weekly_points_for_parent(data, parent["id"])
-        rank, icon = get_rank(total_points)
-        today = date.today()
-        monthly_pts = get_monthly_points_for_parent(data, parent["id"], today.year, today.month)
-        overdue = get_overdue_task_count(data, parent["id"], is_kid=False)
-        contact = " · ".join(filter(None, [parent.get("email"), parent.get("phone")])) or "No contact details yet"
+    hero_left, hero_right = st.columns([1, 4])
+    with hero_left:
+        avatar_image(parent.get("photo_url"), width=160)
+    with hero_right:
         render_profile_identity(parent["name"], "Parent profile", contact, rank)
-        render_stat_strip([
-            ("Total points", str(total_points), f"{weekly_points} earned this week"),
-            ("This month", str(monthly_pts), "points in the current month"),
-            ("Open attention", str(overdue), "past-due items"),
-        ])
-        if overdue > 0:
-            st.markdown(
-                f'<div class="banner banner--warn">'
-                f'<strong>Needs attention:</strong> {overdue} task(s) past due date'
-                f'</div>',
-                unsafe_allow_html=True
-            )
 
-        st.divider()
-        st.markdown('<div class="route-section-label">Achievements</div>', unsafe_allow_html=True)
+    render_stat_strip([
+        ("Total points", str(total_points), f"{weekly_points} earned this week"),
+        ("This month", str(monthly_pts), "points in the current month"),
+        ("Open attention", str(overdue), "past-due items"),
+    ])
 
-        achievements = get_parent_achievements(data, parent["id"])
-
-        if achievements:
-            for ach in achievements:
-                achievement_badge(ach["icon"], ach["label"])
-        else:
-            st.caption("Complete tasks and read books to earn badges!")
-
-    with col2:
-        show_parent_weekly_summary(data, parent)
+    st.markdown('<div class="profile-command-grid">', unsafe_allow_html=True)
+    command_left, command_right = st.columns(2)
+    with command_left:
         show_parent_tasks(data, parent)
+    with command_right:
         show_parent_books(data, parent)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    show_parent_weekly_summary(data, parent)
+
+    achievements = get_parent_achievements(data, parent["id"])
+    st.markdown('<div class="profile-achievement-deck"><div class="route-section-label">Achievements</div>', unsafe_allow_html=True)
+    if achievements:
+        for ach in achievements:
+            achievement_badge(ach["icon"], ach["label"])
+    else:
+        st.caption("Complete tasks and read books to earn badges!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def show_parent_weekly_summary(data, parent):
-    st.divider()
-    st.subheader("Weekly summary")
+    st.markdown('<div class="profile-wide-module"><div class="profile-module-title">Momentum map</div><div class="profile-module-subtitle">Weekly rhythm, reading, and follow-through</div>', unsafe_allow_html=True)
 
     today = date.today()
     week_offset = st.session_state.get("parent_week_offset", 0)
@@ -185,10 +181,11 @@ def show_parent_weekly_summary(data, parent):
             f'</div>',
             unsafe_allow_html=True
         )
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def show_parent_tasks(data, parent):
-    st.subheader("Assigned tasks")
+    st.markdown('<div class="profile-module-title">Task command center</div><div class="profile-module-subtitle">The next three days</div>', unsafe_allow_html=True)
 
     assigned_tasks = [
         task for task in data["tasks"]
@@ -199,32 +196,32 @@ def show_parent_tasks(data, parent):
         st.caption("No tasks assigned yet.")
         return
 
-    today = today_string()
-    active = [t for t in assigned_tasks if t["status"] != "Done" and t.get("due_date") == today]
+    today = date.today()
+    window = {(today + timedelta(days=offset)).isoformat() for offset in (-1, 0, 1)}
+    active = [t for t in assigned_tasks if t["status"] != "Done" and t.get("due_date") in window]
     done = [t for t in assigned_tasks if t["status"] == "Done"]
 
     if active:
-        st.write(f"**Today's Tasks ({len(active)})**")
+        st.markdown(f'<div class="profile-module-count">{len(active)} open in the short horizon</div>', unsafe_allow_html=True)
 
         for task in active:
             status_class = task["status"].lower().replace(" ", "-")
             st.markdown(
-                f'<div class="task-item row">'
+                f'<div class="profile-task-card">'
                 f'<span class="row-title">{task["title"]}</span>'
-                f'<span class="status-badge status-{status_class}">{task["status"]}</span>'
-                f'<span class="row-meta num">{task["points"]} pts</span>'
+                f'<span class="profile-task-card__meta">{task.get("due_date", "unscheduled")} · {task["points"]} pts</span>'
                 f'</div>',
                 unsafe_allow_html=True
             )
 
     if done:
-        st.write(f"**✅ Completed ({len(done)})**")
+        st.markdown(f'<div class="profile-module-count profile-module-count--muted">{len(done)} completed assignments</div>', unsafe_allow_html=True)
 
         for task in done[:5]:
             st.markdown(
-                f'<div class="task-item task-done row">'
-                f'<span class="row-title">✅ {task["title"]}</span>'
-                f'<span class="num strong text-success">+{task["points"]} pts</span>'
+                f'<div class="profile-task-card profile-task-card--done">'
+                f'<span class="row-title">{task["title"]}</span>'
+                f'<span class="profile-task-card__meta">+{task["points"]} pts</span>'
                 f'</div>',
                 unsafe_allow_html=True
             )
@@ -234,7 +231,7 @@ def show_parent_tasks(data, parent):
 
 
 def show_parent_books(data, parent):
-    st.subheader("Reading list")
+    st.markdown('<div class="profile-module-title">Reading shelf</div><div class="profile-module-subtitle">Assigned books and progress</div>', unsafe_allow_html=True)
 
     assigned_books = [
         book for book in data["books"]
@@ -249,7 +246,7 @@ def show_parent_books(data, parent):
     finished = [b for b in assigned_books if b.get("status") == "Finished"]
 
     if in_progress:
-        st.write("### 📖 In Progress")
+        st.markdown('<div class="profile-module-count">In progress</div>', unsafe_allow_html=True)
 
         for book in in_progress:
             progress = book.get("current_page", 0) / book["total_pages"] if book["total_pages"] > 0 else 0

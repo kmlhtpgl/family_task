@@ -529,6 +529,41 @@ _NAV_CSS = """
 .focus-panel__detail { margin-top: 0.25rem; color: var(--text-secondary); font-size: 0.8rem; }
 .focus-panel__value { color: var(--text-primary); font: 700 2.2rem/1 var(--font-mono); position: relative; z-index: 1; text-align: right; }
 .focus-panel__value small { display: block; margin-top: 0.35rem; color: var(--text-tertiary); font: 0.65rem var(--font); }
+.profile-command-grid,
+.profile-wide-module,
+.profile-achievement-deck {
+    margin-top: 1.25rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 22px;
+    background: linear-gradient(145deg, var(--surface-1), var(--surface-0));
+}
+.profile-command-grid > [data-testid="stHorizontalBlock"] { gap: 1.25rem; }
+.profile-module-title { color: var(--text-primary); font-size: 1.15rem; font-weight: 700; letter-spacing: -0.035em; }
+.profile-module-subtitle { margin-top: 0.25rem; color: var(--text-tertiary); font-size: 0.76rem; }
+.profile-module-count { margin: 1rem 0 0.65rem; color: var(--accent); font: 600 0.7rem var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.profile-module-count--muted { color: var(--text-tertiary); }
+.profile-task-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0.45rem 0;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    background: var(--surface-2);
+}
+.profile-task-card--done { opacity: 0.65; border-left: 3px solid var(--success); }
+.profile-task-card__meta { color: var(--text-tertiary); font: 0.68rem var(--font-mono); white-space: nowrap; }
+.profile-achievement-deck { min-height: 5rem; }
+@media (max-width: 640px) {
+    .focus-panel { align-items: flex-start; flex-direction: column; }
+    .focus-panel__value { align-self: flex-end; }
+    .profile-command-grid, .profile-wide-module, .profile-achievement-deck { padding: 1rem; border-radius: 18px; }
+    .profile-task-card { align-items: flex-start; flex-direction: column; gap: 0.3rem; }
+    .profile-task-card__meta { white-space: normal; }
+}
 .route-section-label {
     margin: 1.35rem 0 0.6rem;
     color: var(--text-primary);

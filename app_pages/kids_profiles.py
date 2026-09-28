@@ -61,49 +61,68 @@ def kids_profiles_page(data):
 
 
 def show_kid_profile(data, kid):
-    col1, col2 = st.columns([1, 2])
+    total_points = get_total_points_for_kid(data, kid["id"])
+    rank, _ = get_rank(total_points)
+    today = date.today()
+    monthly_pts = get_monthly_points_for_kid(data, kid["id"], today.year, today.month)
+    overdue = get_overdue_task_count(data, kid["id"], is_kid=True)
 
-    with col1:
-        avatar_image(kid.get("photo_path"), width=150)
-
-        total_points = get_total_points_for_kid(data, kid["id"])
-        rank, icon = get_rank(total_points)
-        today = date.today()
-        monthly_pts = get_monthly_points_for_kid(data, kid["id"], today.year, today.month)
-        overdue = get_overdue_task_count(data, kid["id"], is_kid=True)
+    hero_left, hero_right = st.columns([1, 4])
+    with hero_left:
+        avatar_image(kid.get("photo_path"), width=160)
+    with hero_right:
         render_profile_identity(kid["name"], "Kid profile", f"Age {kid.get('age', 'not entered')}", rank)
-        render_stat_strip([
-            ("Total points", str(total_points), "all-time progress"),
-            ("This month", str(monthly_pts), "points in the current month"),
-            ("Open attention", str(overdue), "past-due items"),
-        ])
-        if overdue > 0:
-            st.markdown(
-                f'<div class="banner banner--warn">'
-                f'<strong>Needs attention:</strong> {overdue} task(s) past due date'
-                f'</div>',
-                unsafe_allow_html=True
-            )
 
-        st.divider()
-        st.markdown('<div class="route-section-label">Achievements</div>', unsafe_allow_html=True)
+    render_stat_strip([
+        ("Total points", str(total_points), "all-time progress"),
+        ("This month", str(monthly_pts), "points in the current month"),
+        ("Open attention", str(overdue), "past-due items"),
+    ])
 
-        achievements = get_kid_achievements(data, kid["id"])
-
-        if achievements:
-            for ach in achievements:
-                achievement_badge(ach["icon"], ach["label"])
-        else:
-            st.caption("Complete tasks and read books to earn badges!")
-
-    with col2:
-        show_weekly_summary(data, kid)
+    show_kid_task_command_center(data, kid)
+    show_weekly_summary(data, kid)
+    learning_left, learning_right = st.columns(2)
+    with learning_left:
         show_child_read_books(data, kid)
+    with learning_right:
         show_child_quran(data, kid)
+
+    achievements = get_kid_achievements(data, kid["id"])
+    st.markdown('<div class="profile-achievement-deck"><div class="route-section-label">Achievements</div>', unsafe_allow_html=True)
+    if achievements:
+        for ach in achievements:
+            achievement_badge(ach["icon"], ach["label"])
+    else:
+        st.caption("Complete tasks and read books to earn badges!")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def show_kid_task_command_center(data, kid):
+    """A short-horizon task module that puts action before history."""
+    today = date.today()
+    window = {(today + timedelta(days=offset)).isoformat() for offset in (-1, 0, 1)}
+    tasks = [
+        task for task in data.get("tasks", [])
+        if task.get("kid_id") == kid["id"] and task.get("due_date") in window
+    ]
+    open_tasks = [task for task in tasks if task.get("status") != "Done"]
+    done_tasks = [task for task in tasks if task.get("status") == "Done"]
+    st.markdown('<div class="profile-wide-module"><div class="profile-module-title">Task command center</div><div class="profile-module-subtitle">A calm three-day runway for what matters next</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="profile-module-count">{len(open_tasks)} open · {len(done_tasks)} complete</div>', unsafe_allow_html=True)
+    if open_tasks:
+        for task in open_tasks:
+            st.markdown(
+                f'<div class="profile-task-card"><span class="row-title">{task["title"]}</span>'
+                f'<span class="profile-task-card__meta">{task.get("due_date")} · {task.get("points", 0)} pts</span></div>',
+                unsafe_allow_html=True,
+            )
+    else:
+        st.caption("The next three days are clear.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def show_child_read_books(data, kid):
-    st.subheader("Reading")
+    st.markdown('<div class="profile-module-title">Reading studio</div><div class="profile-module-subtitle">Books in motion and finished shelves</div>', unsafe_allow_html=True)
 
     finished_books = get_finished_books(data, kid["id"])
     english_books, turkish_books = split_books_by_language(finished_books)
@@ -154,7 +173,7 @@ def show_child_read_books(data, kid):
 
 
 def show_child_quran(data, kid):
-    st.subheader("Quran memorization")
+    st.markdown('<div class="profile-module-title">Quran studio</div><div class="profile-module-subtitle">Surahs and duas in practice</div>', unsafe_allow_html=True)
 
     surahs = get_quran_surahs_in_progress(data, kid["id"])
     finished_surahs = get_finished_quran_surahs(data, kid["id"])
@@ -211,8 +230,7 @@ def show_child_quran(data, kid):
 
 
 def show_weekly_summary(data, kid):
-    st.divider()
-    st.subheader("Weekly summary")
+    st.markdown('<div class="profile-wide-module"><div class="profile-module-title">Momentum map</div><div class="profile-module-subtitle">A weekly view of effort, not just outcomes</div>', unsafe_allow_html=True)
 
     today = date.today()
     week_offset = st.session_state.get("kid_week_offset", 0)
@@ -296,3 +314,4 @@ def show_weekly_summary(data, kid):
             f'</div>',
             unsafe_allow_html=True
         )
+    st.markdown('</div>', unsafe_allow_html=True)
