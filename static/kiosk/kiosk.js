@@ -116,6 +116,12 @@
                     Object.keys(c.adhan_files || {}).length >= 5, true);
         html += row('Backgrounds', (c.backgrounds || []).length + ' images',
                     (c.backgrounds || []).length > 0, true);
+        /* A picture that fails to load on the wall tablet is invisible
+         * otherwise: the screensaver just shows the fallback text. */
+        if (K.bgFailed) {
+            html += row('Background load failures', K.bgFailed + ' so far',
+                        false, true);
+        }
         html += row('Screensaver', K.ssActive ? 'showing' : 'armed in ' + idleMin + ' min',
                     K.ssActive || !!K.idle, true);
         html += row('Next adhan', np ? np.name + ' ' + np.label + ' · in ' + mins + 'h' : 'unknown',
@@ -571,9 +577,27 @@
         return a;
     }
 
+    /* Walks a shuffled order, reshuffling each time it runs out.
+
+     * K.pos starts at -1 so the first call lands on order[0] by incrementing
+     * like every other call. It used to start at 0 with a special case in
+     * paintImage() for "the first image", and that special case never advanced
+     * the counter -- so the screensaver showed the same picture for its entire
+     * life and only ever looked random on the very first load. */
     function nextIndex() {
         K.pos++;
-        if (K.pos >= K.order.length) { K.order = shuffle(K.order.length); K.pos = 0; }
+        if (K.pos >= K.order.length) {
+            var previous = K.order[K.order.length - 1];
+            K.order = shuffle(K.order.length);
+            /* A fresh shuffle can legally put the image we just showed first
+             * again, which reads as "it is stuck" on a wall display. Swap it
+             * out rather than repeating a picture back to back. */
+            if (K.order[0] === previous && K.order.length > 1) {
+                var j = 1 + Math.floor(Math.random() * (K.order.length - 1));
+                var t = K.order[0]; K.order[0] = K.order[j]; K.order[j] = t;
+            }
+            K.pos = 0;
+        }
         return K.order[K.pos];
     }
 
@@ -618,7 +642,7 @@
         K.ssEl = el;
 
         K.order = shuffle(imgs.length);
-        K.pos = 0;
+        K.pos = -1;
         if (imgs.length) paintImage(imgs);
         else {
             box.classList.add('kiosk-screensaver-images--fallback');
@@ -643,19 +667,30 @@
         var box = K.ssEl.querySelector('.kiosk-screensaver-images');
         if (!box) return;
         if (!imgs.length) return;
-        var idx = K.pos === 0 ? K.order[0] : nextIndex();
+        var idx = nextIndex();
         while (box.firstChild) box.removeChild(box.firstChild);
+        /* Cleared, not just re-set. The fallback below used to be sticky: once
+         * one image failed the "Kiosk mode active" text stayed for the rest of
+         * the session, because the class and the text were added on the error
+         * path and paintImage() never took them back off. So a single bad file
+         * turned the screensaver into a text screen permanently, on a wall
+         * display nobody is there to clear. */
+        box.classList.remove('kiosk-screensaver-images--fallback');
+        box.removeAttribute('aria-label');
         var img = doc.createElement('img');
         img.src = imgs[idx];
+        img.alt = '';
         img.className = 'kiosk-screensaver-img active';
         img.addEventListener('error', function () {
             /* A wall display must never turn into an unexplained black page
              * when a CDN/static asset is unavailable. Keep the screensaver
-             * layer alive and show a deliberate fallback surface instead. */
+             * layer alive and show a deliberate fallback surface instead --
+             * but only until the next picture, which is very likely fine. */
             img.style.display = 'none';
             box.classList.add('kiosk-screensaver-images--fallback');
             box.setAttribute('aria-label', 'Kiosk screensaver active');
             box.textContent = 'Kiosk mode active';
+            K.bgFailed = (K.bgFailed || 0) + 1;
         });
         box.appendChild(img);
     }

@@ -304,6 +304,69 @@ def test_screensaver_has_backgrounds():
     )
 
 
+def test_the_screensaver_actually_advances():
+    """The slideshow must move. Showing one picture forever is not a slideshow.
+
+    This is the shape of the bug that shipped: paintImage() special-cased
+    "the first image" with `K.pos === 0 ? K.order[0] : nextIndex()`, but K.pos
+    was initialised to 0 and that branch never incremented it, so every later
+    call took the same branch and returned order[0] again. The screensaver
+    looked random exactly once, on the first load, and then held a single
+    picture for the rest of the session.
+    """
+    source = KIOSK_JS.read_text()
+
+    paint = source[source.index("function paintImage") :]
+    paint = paint[: paint.index("\n    function nextPrayerInfo")]
+
+    assert "K.pos === 0" not in paint, (
+        "paintImage() still special-cases the first image; that branch never "
+        "advances K.pos, so the same picture is shown for the whole session"
+    )
+    assert "nextIndex()" in paint, (
+        "paintImage() must advance through the shuffled order on every paint"
+    )
+    assert "K.pos = -1" in source, (
+        "K.pos must start before the first element, so the opening picture is "
+        "reached by the same increment as every other one"
+    )
+    # A reshuffle is allowed to put the previous picture first, which reads as
+    # "stuck" on a wall display nobody is watching.
+    assert "K.order[0] === previous" in source, (
+        "the reshuffle must avoid repeating the previous picture back to back"
+    )
+
+
+def test_a_failed_background_does_not_stick():
+    """One unreadable file must not turn the screensaver into a text screen.
+
+    The fallback added its class and its text on the image error path and
+    nothing ever removed them, so a single bad file pinned "Kiosk mode active"
+    on the display until the page was reloaded.
+    """
+    source = KIOSK_JS.read_text()
+
+    paint = source[source.index("function paintImage") :]
+    paint = paint[: paint.index("\n    function nextPrayerInfo")]
+
+    assert "classList.remove('kiosk-screensaver-images--fallback')" in paint, (
+        "paintImage() must clear the fallback class; otherwise one failed image "
+        "leaves 'Kiosk mode active' on the wall display permanently"
+    )
+    assert "removeAttribute('aria-label')" in paint, (
+        "the fallback aria-label must be cleared alongside the class"
+    )
+    # The fallback still has to exist: a black page is worse than a caption.
+    assert "kiosk-screensaver-images--fallback" in paint, (
+        "an image that fails to load must still produce a deliberate surface "
+        "rather than an unexplained black screen"
+    )
+    assert "K.bgFailed" in source, (
+        "a background that fails to load is invisible on the wall tablet unless "
+        "it is counted in the diagnostics panel"
+    )
+
+
 def test_assets_are_requested_with_the_runtime_version():
     """Backgrounds and adhan files must carry the runtime's ?v=.
 
