@@ -699,6 +699,10 @@
      * #kiosk-config, cfg() was null, no timer was ever created, and nothing
      * later re-armed it: on a tablet nobody touches, the screensaver could
      * then never appear at all. */
+    /* The Admin test buttons update #kiosk-config after a Streamlit rerun. A
+     * four-second poll makes a working test look broken, especially when the
+     * page settles or the tablet is being checked by hand. This is a tiny local
+     * DOM read, so keep the handoff responsive without touching any API. */
     K.sync = setInterval(function () {
         var c = readConfig();
         if (!c) return;
@@ -737,7 +741,7 @@
                 ? 'Adhan is waiting — tap anywhere once to allow sound'
                 : 'Tap anywhere once to enable the adhan');
         }
-    }, 4000);
+    }, 500);
 
     /* ── init ───────────────────────────────────────────────────────────── */
 
