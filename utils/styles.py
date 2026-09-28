@@ -1876,7 +1876,6 @@ _KIOSK_CSS = """
     position: static;
     transform: none;
 }
-.kiosk-test-frame { display: block; width: 100%; height: 52px; border: 0; background: transparent; }
 @keyframes kioskFadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
