@@ -653,6 +653,15 @@
         idle();
     }
 
+    function handleKioskControl(event) {
+        var target = event.target && event.target.closest
+            ? event.target.closest('[data-kiosk-action]') : null;
+        if (!target) return;
+        var action = target.getAttribute('data-kiosk-action');
+        if (action === 'screensaver') showScreensaver();
+        if (action === 'adhan') playAdhan(target.getAttribute('data-kiosk-prayer') || 'Fajr', true);
+    }
+
     /* ══════════════════════════════════════════════════════════════════════
      * WIRING
      * ══════════════════════════════════════════════════════════════════════ */
@@ -672,6 +681,10 @@
     GESTURES.forEach(function (evt) {
         doc.addEventListener(evt, onGesture, { passive: true });
     });
+    /* The controls are mounted by Streamlit after this runtime. Capture the
+     * click at the parent window so the test remains a real browser gesture. */
+    win.addEventListener('pointerdown', handleKioskControl, true);
+    win.addEventListener('click', handleKioskControl, true);
 
     var IDLE_EVENTS = ['mousemove', 'wheel', 'scroll', 'touchstart', 'click'];
     IDLE_EVENTS.forEach(function (evt) {
