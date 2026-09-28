@@ -316,15 +316,9 @@ def test_the_screensaver_actually_advances():
     """
     source = KIOSK_JS.read_text()
 
-    paint = source[source.index("function paintImage") :]
-    paint = paint[: paint.index("\n    function nextPrayerInfo")]
-
-    assert "K.pos === 0" not in paint, (
-        "paintImage() still special-cases the first image; that branch never "
-        "advances K.pos, so the same picture is shown for the whole session"
-    )
-    assert "nextIndex()" in paint, (
-        "paintImage() must advance through the shuffled order on every paint"
+    assert "K.pos === 0" not in source, (
+        "the 'first image' special case is back; that branch never advances "
+        "K.pos, so the same picture is shown for the whole session"
     )
     assert "K.pos = -1" in source, (
         "K.pos must start before the first element, so the opening picture is "
@@ -337,33 +331,96 @@ def test_the_screensaver_actually_advances():
     )
 
 
-def test_a_failed_background_does_not_stick():
-    """One unreadable file must not turn the screensaver into a text screen.
+def test_a_failed_background_does_not_stop_the_slideshow():
+    """One unreadable picture must not replace the whole slideshow with text.
 
-    The fallback added its class and its text on the image error path and
-    nothing ever removed them, so a single bad file pinned "Kiosk mode active"
-    on the display until the page was reloaded.
+    The old code showed the fallback on the FIRST image error, so a single file
+    the tablet could not decode put "Kiosk mode active" on the wall for the
+    rest of the session -- reported as "a few images then it stops". There are
+    39 backgrounds; failing to show one is not a reason to show none, and the
+    previous picture is a far better thing to leave on screen than a caption.
     """
     source = KIOSK_JS.read_text()
 
-    paint = source[source.index("function paintImage") :]
-    paint = paint[: paint.index("\n    function nextPrayerInfo")]
+    show = source[source.index("function showPicture") :]
+    show = show[: show.index("\n    function nextPrayerInfo")]
 
-    assert "classList.remove('kiosk-screensaver-images--fallback')" in paint, (
-        "paintImage() must clear the fallback class; otherwise one failed image "
-        "leaves 'Kiosk mode active' on the wall display permanently"
+    # The caption is gated on never having displayed anything at all.
+    assert "!K.bgShown && K.bgStreak >= SCAN_GIVE_UP" in show, (
+        "the caption must require that nothing has ever displayed; otherwise one "
+        "bad file still stops a working slideshow"
     )
-    assert "removeAttribute('aria-label')" in paint, (
-        "the fallback aria-label must be cleared alongside the class"
+    # And bounded, because a full pass at the timeout would leave the display
+    # blank for minutes.
+    assert re.search(r"var SCAN_GIVE_UP = \d+;", source), (
+        "the give-up threshold must be a fixed number, not a full pass over the "
+        "set; at 12s per picture that is over eight minutes of blank screen"
     )
-    # The fallback still has to exist: a black page is worse than a caption.
-    assert "kiosk-screensaver-images--fallback" in paint, (
-        "an image that fails to load must still produce a deliberate surface "
-        "rather than an unexplained black screen"
+    # A request that never settles must not wedge the slideshow silently.
+    assert "IMG_LOAD_TIMEOUT" in show, (
+        "a picture whose request hangs needs a timeout, or the screensaver stops "
+        "with no error event and no way on"
+    )
+    # The swap happens on load, so a slow image never blanks the screen.
+    assert show.index("addEventListener('load'") < show.index("box.appendChild(img)"), (
+        "the outgoing picture must stay on screen until its replacement has "
+        "actually decoded"
     )
     assert "K.bgFailed" in source, (
         "a background that fails to load is invisible on the wall tablet unless "
         "it is counted in the diagnostics panel"
+    )
+
+
+def test_backgrounds_are_not_oversized_for_a_wall_tablet():
+    """Backgrounds must be display-sized, not camera-sized.
+
+    The screensaver renders at 90vw/90vh. Serving 4000-5000px originals meant
+    a single frame decoded to tens of megabytes in the browser, and a slideshow
+    that re-decodes one every ten seconds on a tablet is what exhausted memory
+    and started failing partway through. Half-size is visually identical at that
+    size and roughly a quarter of the memory.
+    """
+    Image = pytest.importorskip("PIL.Image", reason="Pillow is needed to read sizes")
+
+    offenders = []
+    for path in (REPO_ROOT / "static" / "backgrounds").iterdir():
+        if path.suffix.lower() not in (".jpg", ".jpeg", ".png"):
+            continue
+        with Image.open(path) as im:
+            w, h = im.size
+        if max(w, h) > 1920:
+            offenders.append(f"{path.name} {w}x{h}")
+    assert not offenders, (
+        "backgrounds are larger than a wall display can show and cost tablet "
+        f"memory to decode: {offenders[:5]}"
+    )
+
+
+def test_the_slideshow_has_exactly_one_timer():
+    """Two timers drove the slideshow, and the loser blanked the screen.
+
+    A 10s interval and a separate recursive retry chain both cleared the box.
+    When every image was failing they raced: the caption appeared, then the
+    other timer wiped it ten seconds later, leaving the wall display blank with
+    no explanation. One timer, one job.
+    """
+    source = KIOSK_JS.read_text()
+
+    assert "setInterval(function () { paintImage" not in source, (
+        "the slideshow is back on a fixed interval that can abandon a picture "
+        "mid-download"
+    )
+    assert source.count("K.slide = setTimeout") == 1, (
+        "K.slide must be set in exactly one place, or a second chain can wipe "
+        "what the first one just drew"
+    )
+    # Stopping has to match: a chained timeout is stopped with clearTimeout.
+    hide = source[source.index("function hideScreensaver") :]
+    hide = hide[: hide.index("\n    /*")]
+    assert "clearTimeout(K.slide)" in hide, (
+        "a chained timeout is not stopped by clearInterval, so the next picture "
+        "is still requested after the screensaver is dismissed"
     )
 
 

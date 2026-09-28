@@ -643,56 +643,130 @@
 
         K.order = shuffle(imgs.length);
         K.pos = -1;
-        if (imgs.length) paintImage(imgs);
-        else {
+        if (imgs.length) {
+            /* The slideshow starts either way. A failed first picture must not
+             * leave the screensaver frozen on whatever the fallback says, so
+             * the chain continues on the short retry delay instead. */
+            showPicture(imgs, nextIndex(), function (ok) {
+                if (imgs.length > 1) scheduleSlide(imgs, nextDelay(ok));
+            });
+        } else {
             box.classList.add('kiosk-screensaver-images--fallback');
             box.textContent = 'Kiosk mode active';
         }
 
-        var self = this;
         renderFooter();
         K.foot = setInterval(renderFooter, 30000);
-
-        if (imgs.length > 1) {
-            K.slide = setInterval(function () { paintImage(imgs); }, 10000);
-        }
 
         var dismiss = function () { hideScreensaver(); };
         el.addEventListener('click', dismiss);
         el.addEventListener('touchend', dismiss);
     }
 
-    function paintImage(imgs) {
+    /* How long one picture gets to arrive before it is written off. A request
+     * that never settles would otherwise hang the slideshow forever with no
+     * error event at all. */
+    var IMG_LOAD_TIMEOUT = 12000;
+    var SLIDE_MS = 10000;
+    /* How fast to move on after a failure, rather than sitting out the whole
+     * slide duration waiting for a picture that is never going to arrive. */
+    var RETRY_MS = 1500;
+    /* While nothing has ever displayed there is no picture to look at, so the
+     * screensaver scans the set quickly instead of at slideshow pace. */
+    var SCAN_MS = 250;
+    /* Consecutive failures with nothing shown before the screensaver admits
+     * the display is not working. Set well below the number of backgrounds,
+     * because a blank wall is worse than a caption -- but also well above a
+     * single bad file, which must never stop the slideshow on its own. */
+    var SCAN_GIVE_UP = 12;
+
+    /* A successful picture is held for the full slide. A failure is retried
+     * briskly, and briskly again while there is still nothing on screen, so a
+     * display that cannot load anything reaches the caption in seconds rather
+     * than minutes. */
+    function nextDelay(ok) {
+        if (ok) return SLIDE_MS;
+        return K.bgShown ? RETRY_MS : SCAN_MS;
+    }
+
+    /* The single timer that drives the slideshow.
+
+     * There used to be two: a 10s interval and a separate recursive retry
+     * chain. They raced, and the loser cleared the box -- so when every image
+     * was failing, the "Kiosk mode active" caption appeared and was wiped 10
+     * seconds later, leaving the wall display blank. One timer, one job. */
+    function scheduleSlide(imgs, delay) {
         if (!K.ssEl) return;
-        var box = K.ssEl.querySelector('.kiosk-screensaver-images');
-        if (!box) return;
-        if (!imgs.length) return;
-        var idx = nextIndex();
-        while (box.firstChild) box.removeChild(box.firstChild);
-        /* Cleared, not just re-set. The fallback below used to be sticky: once
-         * one image failed the "Kiosk mode active" text stayed for the rest of
-         * the session, because the class and the text were added on the error
-         * path and paintImage() never took them back off. So a single bad file
-         * turned the screensaver into a text screen permanently, on a wall
-         * display nobody is there to clear. */
-        box.classList.remove('kiosk-screensaver-images--fallback');
-        box.removeAttribute('aria-label');
+        if (K.slide) { clearTimeout(K.slide); K.slide = null; }
+        K.slide = setTimeout(function () {
+            K.slide = null;
+            if (!K.ssEl) return;
+            showPicture(imgs, nextIndex(), function (ok) {
+                /* The next slide is scheduled from the load settling, not from
+                 * a fixed tick, so a slow connection never has two
+                 * multi-megabyte downloads in flight at once. */
+                scheduleSlide(imgs, nextDelay(ok));
+            });
+        }, delay);
+    }
+
+    /* Shows one picture, and only swaps it in once it has actually decoded.
+     *
+     * The old code emptied the box and then started loading, so any slow or
+     * failed image left a blank frame; on a wall display a caption about the
+     * screensaver is a worse answer than the previous picture, which was
+     * perfectly good. Now the outgoing picture stays up until its replacement
+     * is decoded, a failure just tries the next one, and the caption is
+     * reserved for the case where nothing has ever displayed. */
+    function showPicture(imgs, idx, done) {
+        var box = K.ssEl && K.ssEl.querySelector('.kiosk-screensaver-images');
+        if (!box || !imgs.length) { done(false); return; }
+
         var img = doc.createElement('img');
-        img.src = imgs[idx];
         img.alt = '';
-        img.className = 'kiosk-screensaver-img active';
-        img.addEventListener('error', function () {
-            /* A wall display must never turn into an unexplained black page
-             * when a CDN/static asset is unavailable. Keep the screensaver
-             * layer alive and show a deliberate fallback surface instead --
-             * but only until the next picture, which is very likely fine. */
-            img.style.display = 'none';
-            box.classList.add('kiosk-screensaver-images--fallback');
-            box.setAttribute('aria-label', 'Kiosk screensaver active');
-            box.textContent = 'Kiosk mode active';
+        img.className = 'kiosk-screensaver-img';
+        var settled = false;
+
+        function failed() {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
             K.bgFailed = (K.bgFailed || 0) + 1;
+            /* Counted as a streak, not as a depth. The retry is no longer
+             * recursive, so a per-attempt counter would always read zero and
+             * the caption below could never be reached. */
+            K.bgStreak = (K.bgStreak || 0) + 1;
+            /* Nothing has ever displayed, so there is no earlier picture to
+             * fall back on and a caption is the honest thing to put on the
+             * wall. Bounded rather than waiting for a full pass of the set:
+             * with a 12s timeout per picture, exhausting 39 of them would
+             * leave the display blank for over eight minutes. */
+            if (!K.bgShown && K.bgStreak >= SCAN_GIVE_UP) {
+                box.classList.add('kiosk-screensaver-images--fallback');
+                box.setAttribute('aria-label', 'Kiosk screensaver active');
+                box.textContent = 'Kiosk mode active';
+            }
+            done(false);
+        }
+
+        var timer = setTimeout(failed, IMG_LOAD_TIMEOUT);
+        img.addEventListener('load', function () {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            /* The swap happens here, at the last moment, so the screen is
+             * never showing an empty box. */
+            while (box.firstChild) box.removeChild(box.firstChild);
+            box.classList.remove('kiosk-screensaver-images--fallback');
+            box.removeAttribute('aria-label');
+            img.classList.add('active');
+            box.appendChild(img);
+            K.bgShown = (K.bgShown || 0) + 1;
+            K.bgStreak = 0;
+            done(true);
         });
-        box.appendChild(img);
+        img.addEventListener('error', failed);
+        img.src = imgs[idx];
     }
 
     function nextPrayerInfo() {
@@ -746,7 +820,9 @@
         K.ssActive = false;
         K.ssPreview = false;
         doc.documentElement.classList.remove('kiosk-active');
-        if (K.slide) { clearInterval(K.slide); K.slide = null; }
+        /* clearTimeout, not clearInterval: the slideshow is a chained timeout,
+         * so this is what actually stops the next picture being requested. */
+        if (K.slide) { clearTimeout(K.slide); K.slide = null; }
         if (K.foot) { clearInterval(K.foot); K.foot = null; }
         if (K.ssEl && K.ssEl.parentNode) K.ssEl.parentNode.removeChild(K.ssEl);
         K.ssEl = null;
