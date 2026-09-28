@@ -50,3 +50,11 @@ def render_focus_panel(label: str, title: str, detail: str, value: str, side: st
         f'<small>{escape(side)}</small></div></div>',
         unsafe_allow_html=True,
     )
+
+
+def render_admin_section_header(title: str, description: str, code: str) -> None:
+    st.markdown(
+        f'<div class="admin-section-header"><span>{escape(code)}</span>'
+        f'<strong>{escape(title)}</strong><small>{escape(description)}</small></div>',
+        unsafe_allow_html=True,
+    )

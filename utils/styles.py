@@ -719,6 +719,10 @@ _NAV_CSS = """
 .reward-exchange-card__progress div { height: 100%; border-radius: inherit; background: var(--accent); }
 .reward-exchange-card__hint { grid-column: 1 / -1; color: var(--text-tertiary); font-size: 0.67rem; }
 @media (max-width: 640px) { .reward-leaderboard { grid-template-columns: 1fr; } }
+.admin-section-header { display: grid; gap: 0.25rem; margin: 1.75rem 0 1rem; padding: 1.15rem 1.25rem; border-left: 3px solid var(--accent); border-radius: 0 17px 17px 0; background: linear-gradient(100deg, var(--accent-subtle), transparent 70%); }
+.admin-section-header span { color: var(--accent); font: 600 0.64rem var(--font-mono); letter-spacing: 0.14em; }
+.admin-section-header strong { color: var(--text-primary); font-size: 1.5rem; letter-spacing: -0.04em; }
+.admin-section-header small { color: var(--text-secondary); font-size: 0.78rem; }
 .stRadio [role="radiogroup"] {
     gap: 0.35rem;
     flex-wrap: wrap;

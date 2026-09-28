@@ -42,7 +42,7 @@ from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
 from utils.admin_helpers import load_admin_password, save_admin_password
 from utils.kiosk_helpers import get_prayer_times, get_audio_bytes, get_weather
-from utils.page_chrome import render_focus_panel, render_page_header, render_stat_strip
+from utils.page_chrome import render_admin_section_header, render_focus_panel, render_page_header, render_stat_strip
 
 DATA_DIR = Path("data")
 
@@ -129,7 +129,7 @@ def admin_page(data):
 # -----------------------
 
 def parents_tab(data):
-    st.subheader("Parents management")
+    render_admin_section_header("Parents management", "Profiles, contacts, and household roles.", "01 / PEOPLE")
     st.caption("Add and manage parent profiles for task and book assignments.")
 
     # Add Parent Form
@@ -286,7 +286,7 @@ def parents_tab(data):
 # -----------------------
 
 def add_child_tab(data):
-    st.subheader("Children management")
+    render_admin_section_header("Children management", "Build the people who will use the board every day.", "02 / PEOPLE")
 
     # Add Child Form
     st.write("### Add New Child")
@@ -435,7 +435,7 @@ def add_child_tab(data):
 # -----------------------
 
 def task_list_tab(data):
-    st.subheader("Task list")
+    render_admin_section_header("Task list", "Shape reusable routines before assigning them.", "03 / ROUTINES")
 
     st.info("Add, edit or remove tasks from your task library.")
 
@@ -550,7 +550,7 @@ def task_list_tab(data):
 # -----------------------
 
 def meeting_templates_tab(data):
-    st.subheader("Meeting templates")
+    render_admin_section_header("Meeting templates", "Keep the family conversation ready to repeat.", "04 / ROUTINES")
     st.caption("Create reusable common agenda items, then add selected ones to the weekly Meeting list.")
 
     templates = sorted(data.get("meeting_templates", []), key=lambda t: t["title"].lower())
@@ -697,7 +697,7 @@ def clean_task_templates(templates):
 # -----------------------
 
 def assign_task_tab(data):
-    st.subheader("Assign task")
+    render_admin_section_header("Assign task", "Turn a routine into a dated commitment.", "05 / ROUTINES")
 
     if not data["kids"] and not data.get("parents"):
         st.info("Add children or parents first.")
@@ -812,7 +812,7 @@ def assign_task_tab(data):
 # -----------------------
 
 def remove_assignment_tab(data):
-    st.subheader("Remove task assignment")
+    render_admin_section_header("Remove task assignment", "Clean up assignments without deleting the routine.", "06 / ROUTINES")
 
     tasks = data.get("tasks", [])
     kids = {k["id"]: k["name"] for k in data.get("kids", [])}
@@ -1004,7 +1004,7 @@ def generate_weekday_dates(start_date, end_date, selected_weekdays):
 # -----------------------
 
 def book_list_tab(data):
-    st.subheader("Book list")
+    render_admin_section_header("Book list", "Maintain the shared reading catalogue.", "07 / CONTENT")
 
     st.info("Add, edit or remove books from your reading library.")
 
@@ -1181,7 +1181,7 @@ def clean_book_templates(book_templates):
 # -----------------------
 
 def assign_book_tab(data):
-    st.subheader("Assign book")
+    render_admin_section_header("Assign book", "Put the next story in the right person’s hands.", "08 / CONTENT")
 
     if not data["kids"] and not data.get("parents"):
         st.info("Add children or parents first.")
@@ -1243,7 +1243,7 @@ def assign_book_tab(data):
 # -----------------------
 
 def surah_list_tab(data):
-    st.subheader("Quran and dua list")
+    render_admin_section_header("Quran and dua list", "Maintain the practice catalogue and its progress rules.", "09 / CONTENT")
 
     st.info("Assign surahs or duas from the list below to children or parents via the 'Assign Surah/Dua' tab.")
 
@@ -1367,7 +1367,7 @@ def surah_list_tab(data):
 # -----------------------
 
 def assign_surah_tab(data):
-    st.subheader("Assign Quran or dua")
+    render_admin_section_header("Assign Quran or dua", "Start a focused memorization path.", "10 / CONTENT")
 
     if not data["kids"] and not data.get("parents"):
         st.info("Add children or parents first.")
@@ -1427,7 +1427,7 @@ def assign_surah_tab(data):
 # -----------------------
 
 def bonus_penalty_tab(data):
-    st.subheader("Bonus and penalty points")
+    render_admin_section_header("Bonus and penalty points", "Make exceptional effort visible and accountable.", "11 / REWARDS")
     st.caption("Add bonus points as a reward or deduct points as a punishment.")
 
     st.markdown("### ➕ Add Adjustment")
@@ -1492,7 +1492,7 @@ def bonus_penalty_tab(data):
 # -----------------------
 
 def kiosk_settings_tab(data):
-    st.subheader("Kiosk control room")
+    render_admin_section_header("Kiosk control room", "Tune the wall display and verify its browser runtime.", "12 / DISPLAY")
     st.caption("Tune the wall display, preview the screensaver, and verify adhan playback from this browser.")
 
     from utils.kiosk_helpers import load_kiosk_settings, save_kiosk_settings
@@ -1724,7 +1724,7 @@ def kiosk_settings_tab(data):
 # -----------------------
 
 def settings_tab(data):
-    st.subheader("Settings")
+    render_admin_section_header("Settings", "Manage the household defaults and app behavior.", "13 / SYSTEM")
 
     st.info(
         "Main family data is now saved in Supabase. "
