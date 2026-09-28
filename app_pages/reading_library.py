@@ -12,7 +12,7 @@ from utils.book_helpers import (
 )
 from utils.db_helpers import update_book, delete_book, add_reading_log
 from utils.data_helpers import today_string
-from utils.page_chrome import render_page_header, render_stat_strip
+from utils.page_chrome import render_focus_panel, render_page_header, render_stat_strip
 
 
 def reading_library_page(data):
@@ -45,6 +45,14 @@ def reading_library_page(data):
         ("Finished", str(len(finished)), "books completed"),
         ("Pages finished", str(sum(int(book.get("total_pages", 0)) for book in finished)), "across the library"),
     ])
+    focus = current[0] if current else None
+    render_focus_panel(
+        "Reading focus",
+        focus["title"] if focus else "Choose a book to begin",
+        f"{focus.get('current_page', 0)} of {focus.get('total_pages', 0)} pages complete" if focus else "Your active reading queue is clear",
+        f"{round(calculate_book_progress(focus) * 100)}%" if focus else "0%",
+        "complete",
+    )
     show_books_in_progress(data, reader_id, is_parent=is_parent)
     st.divider()
     show_finished_books(data, reader_id, is_parent=is_parent)

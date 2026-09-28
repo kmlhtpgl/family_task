@@ -2,7 +2,7 @@ import html
 from datetime import date, datetime, timedelta
 
 import streamlit as st
-from utils.page_chrome import render_page_header
+from utils.page_chrome import render_focus_panel, render_page_header
 from utils.page_chrome import render_stat_strip
 
 from utils.db_helpers import (
@@ -121,7 +121,6 @@ def meeting_page(data):
         ("Templates", str(len(templates)), "reusable agenda items"),
         ("Next", upcoming.strftime("%d %b"), "upcoming meeting"),
     ])
-
     if chosen_kind == "upcoming":
         session = None
         week_date = upcoming
@@ -134,6 +133,7 @@ def meeting_page(data):
 
     is_current_week = (week_date == upcoming)
     is_archived = bool(session and session.get("closed"))
+    render_focus_panel("Next gathering", fmt_sunday(week_date), "The agenda becomes the shared family record", str(len(notes)), "notes in this meeting")
 
     # ── Set up this week ──
     if chosen_kind == "upcoming" or (session is None):

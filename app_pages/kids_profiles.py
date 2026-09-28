@@ -15,7 +15,7 @@ from utils.surah_helpers import (
 from utils.achievement_helpers import get_kid_achievements
 from utils.styles import avatar_image, achievement_badge
 from utils.summary_helpers import compute_weekly_summary
-from utils.page_chrome import render_page_header, render_profile_identity, render_stat_strip
+from utils.page_chrome import render_focus_panel, render_page_header, render_profile_identity, render_stat_strip
 
 
 def kids_profiles_page(data):
@@ -54,6 +54,9 @@ def kids_profiles_page(data):
         st.error("Child profile not found.")
         return
 
+    kid_tasks = [task for task in data.get("tasks", []) if task.get("kid_id") == selected_kid["id"]]
+    due_today = sum(1 for task in kid_tasks if task.get("due_date") == date.today().isoformat() and task.get("status") != "Done")
+    render_focus_panel("Today’s focus", selected_kid["name"], "Open tasks due today", str(due_today), "tasks remaining")
     show_kid_profile(data, selected_kid)
 
 

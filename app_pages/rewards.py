@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 import streamlit as st
-from utils.page_chrome import render_page_header, render_stat_strip
+from utils.page_chrome import render_focus_panel, render_page_header, render_stat_strip
 
 from utils.task_helpers import get_monthly_points_for_kid, get_monthly_points_for_parent, get_monthly_adjustment_points
 from utils.db_helpers import add_reward_session, update_reward_session
@@ -58,6 +58,7 @@ def rewards_page(data):
         ("Saved", str(saved), "reward records"),
         ("Paid", str(paid), "completed payouts"),
     ])
+    render_focus_panel("Monthly focus", month_name, "Total value currently earned by the household", str(total_points), "points earned")
 
     st.divider()
 

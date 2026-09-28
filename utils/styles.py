@@ -500,6 +500,35 @@ _NAV_CSS = """
     font-weight: 600;
     white-space: nowrap;
 }
+.focus-panel {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin: 1rem 0 1.25rem;
+    padding: 1.35rem 1.5rem;
+    border: 1px solid var(--accent-border);
+    border-radius: 22px;
+    background: linear-gradient(105deg, var(--accent-subtle), var(--surface-1) 62%);
+    overflow: hidden;
+    position: relative;
+}
+.focus-panel::after {
+    content: "";
+    width: 11rem;
+    height: 11rem;
+    position: absolute;
+    right: -4rem;
+    bottom: -7rem;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    opacity: 0.45;
+}
+.focus-panel__label { color: var(--accent); font: 600 0.65rem var(--font-mono); letter-spacing: 0.13em; text-transform: uppercase; }
+.focus-panel__title { margin-top: 0.35rem; color: var(--text-primary); font-size: 1.25rem; font-weight: 650; letter-spacing: -0.03em; }
+.focus-panel__detail { margin-top: 0.25rem; color: var(--text-secondary); font-size: 0.8rem; }
+.focus-panel__value { color: var(--text-primary); font: 700 2.2rem/1 var(--font-mono); position: relative; z-index: 1; text-align: right; }
+.focus-panel__value small { display: block; margin-top: 0.35rem; color: var(--text-tertiary); font: 0.65rem var(--font); }
 .route-section-label {
     margin: 1.35rem 0 0.6rem;
     color: var(--text-primary);

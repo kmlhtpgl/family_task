@@ -38,3 +38,15 @@ def render_profile_identity(name: str, role: str, detail: str, rank: str) -> Non
         f'</div>',
         unsafe_allow_html=True,
     )
+
+
+def render_focus_panel(label: str, title: str, detail: str, value: str, side: str) -> None:
+    st.markdown(
+        f'<div class="focus-panel"><div class="focus-panel__copy">'
+        f'<div class="focus-panel__label">{escape(label)}</div>'
+        f'<div class="focus-panel__title">{escape(title)}</div>'
+        f'<div class="focus-panel__detail">{escape(detail)}</div>'
+        f'</div><div class="focus-panel__value">{escape(value)}'
+        f'<small>{escape(side)}</small></div></div>',
+        unsafe_allow_html=True,
+    )

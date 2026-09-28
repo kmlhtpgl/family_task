@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.page_chrome import render_page_header, render_stat_strip
+from utils.page_chrome import render_focus_panel, render_page_header, render_stat_strip
 
 from utils.surah_helpers import (
     calculate_surah_progress,
@@ -52,6 +52,14 @@ def surah_memorization_page(data):
         ("Duas active", str(len(duas)), "currently practicing"),
         ("Memorized", str(len(finished) + len(finished_duas)), "completed items"),
     ])
+    focus = in_progress[0] if in_progress else (duas[0] if duas else None)
+    render_focus_panel(
+        "Practice focus",
+        focus["name"] if focus else "Choose a practice item",
+        f"{focus.get('memorized_ayahs', 0)} of {focus.get('total_ayahs', 0)} ayahs complete" if focus else "No active memorization item",
+        f"{round(calculate_surah_progress(focus) * 100)}%" if focus else "0%",
+        "memorized",
+    )
     show_surahs_common(data, reader_id, is_parent)
     st.divider()
     show_duas_common(data, reader_id, is_parent)

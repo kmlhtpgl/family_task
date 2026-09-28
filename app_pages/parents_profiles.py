@@ -9,7 +9,7 @@ from utils.achievement_helpers import get_parent_achievements
 from utils.data_helpers import today_string
 from utils.styles import avatar_image, achievement_badge
 from utils.summary_helpers import compute_weekly_summary
-from utils.page_chrome import render_page_header, render_profile_identity, render_stat_strip
+from utils.page_chrome import render_focus_panel, render_page_header, render_profile_identity, render_stat_strip
 
 
 def parents_profiles_page(data):
@@ -49,6 +49,9 @@ def parents_profiles_page(data):
         st.error("Parent profile not found.")
         return
 
+    parent_tasks = [task for task in data.get("tasks", []) if task.get("parent_id") == selected_parent["id"]]
+    due_today = sum(1 for task in parent_tasks if task.get("due_date") == date.today().isoformat() and task.get("status") != "Done")
+    render_focus_panel("Today’s focus", selected_parent["name"], "Open tasks due today", str(due_today), "tasks remaining")
     show_parent_profile(data, selected_parent)
 
 

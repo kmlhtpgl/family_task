@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.page_chrome import render_page_header, render_stat_strip
+from utils.page_chrome import render_focus_panel, render_page_header, render_stat_strip
 from datetime import date, timedelta
 from collections import defaultdict
 
@@ -68,6 +68,7 @@ def prayer_page(data):
         ("Children", str(len(kids_sorted)), "in this report"),
         ("Coverage", f"{max(0, 100 - missed_total)}%", "simple consistency view"),
     ])
+    render_focus_panel("Weekly focus", "Prayer consistency", "Missed prayers across the selected week", str(missed_total), "missed entries")
 
     header_cols = st.columns([2] + [1] * len(kids_sorted))
     header_cols[0].markdown('<div class="th">Prayer</div>', unsafe_allow_html=True)
