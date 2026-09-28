@@ -557,6 +557,31 @@ _NAV_CSS = """
 .profile-task-card--done { opacity: 0.65; border-left: 3px solid var(--success); }
 .profile-task-card__meta { color: var(--text-tertiary); font: 0.68rem var(--font-mono); white-space: nowrap; }
 .profile-achievement-deck { min-height: 5rem; }
+.profile-weekly-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+    margin: 1.5rem 0 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-default);
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+.profile-weekly-heading span { color: var(--accent); font: 600 0.68rem var(--font-mono); }
+.profile-weekly-heading small { color: var(--text-tertiary); font-size: 0.7rem; font-weight: 400; }
+.profile-week-task {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0.45rem 0;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    background: var(--surface-2);
+}
 @media (max-width: 640px) {
     .focus-panel { align-items: flex-start; flex-direction: column; }
     .focus-panel__value { align-self: flex-end; }

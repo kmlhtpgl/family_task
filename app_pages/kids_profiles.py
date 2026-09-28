@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 import streamlit as st
 
-from utils.task_helpers import get_total_points_for_kid, get_monthly_points_for_kid, get_rank, get_overdue_task_count
+from utils.task_helpers import get_total_points_for_kid, get_monthly_points_for_kid, get_weekly_points_for_kid, get_rank
 from utils.book_helpers import get_finished_books, split_books_by_language
 from utils.surah_helpers import (
     calculate_surah_progress,
@@ -15,17 +15,17 @@ from utils.surah_helpers import (
 from utils.achievement_helpers import get_kid_achievements
 from utils.styles import avatar_image, achievement_badge
 from utils.summary_helpers import compute_weekly_summary
-from utils.page_chrome import render_focus_panel, render_page_header, render_profile_identity, render_stat_strip
+from utils.page_chrome import render_page_header, render_profile_identity, render_stat_strip
 
 
 def kids_profiles_page(data):
     render_page_header("Kids", "See each child’s momentum, commitments, and wins.")
 
-    open_tasks = sum(1 for task in data.get("tasks", []) if task.get("status") != "Done")
     completed = sum(1 for task in data.get("tasks", []) if task.get("status") == "Done")
+    reading = sum(1 for book in data.get("books", []) if book.get("kid_id") is not None)
     render_stat_strip([
         ("People", str(len(data.get("kids", []))), "kid profiles"),
-        ("Open work", str(open_tasks), "tasks across the home"),
+        ("Reading", str(reading), "books in the household"),
         ("Completed", str(completed), "all-time completions"),
     ])
 
@@ -54,9 +54,6 @@ def kids_profiles_page(data):
         st.error("Child profile not found.")
         return
 
-    kid_tasks = [task for task in data.get("tasks", []) if task.get("kid_id") == selected_kid["id"]]
-    due_today = sum(1 for task in kid_tasks if task.get("due_date") == date.today().isoformat() and task.get("status") != "Done")
-    render_focus_panel("Today’s focus", selected_kid["name"], "Open tasks due today", str(due_today), "tasks remaining")
     show_kid_profile(data, selected_kid)
 
 
@@ -65,7 +62,6 @@ def show_kid_profile(data, kid):
     rank, _ = get_rank(total_points)
     today = date.today()
     monthly_pts = get_monthly_points_for_kid(data, kid["id"], today.year, today.month)
-    overdue = get_overdue_task_count(data, kid["id"], is_kid=True)
 
     hero_left, hero_right = st.columns([1, 4])
     with hero_left:
@@ -76,10 +72,9 @@ def show_kid_profile(data, kid):
     render_stat_strip([
         ("Total points", str(total_points), "all-time progress"),
         ("This month", str(monthly_pts), "points in the current month"),
-        ("Open attention", str(overdue), "past-due items"),
+        ("Weekly pace", str(get_weekly_points_for_kid(data, kid["id"])), "points earned this week"),
     ])
 
-    show_kid_task_command_center(data, kid)
     show_weekly_summary(data, kid)
     learning_left, learning_right = st.columns(2)
     with learning_left:
@@ -94,30 +89,6 @@ def show_kid_profile(data, kid):
             achievement_badge(ach["icon"], ach["label"])
     else:
         st.caption("Complete tasks and read books to earn badges!")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-
-def show_kid_task_command_center(data, kid):
-    """A short-horizon task module that puts action before history."""
-    today = date.today()
-    window = {(today + timedelta(days=offset)).isoformat() for offset in (-1, 0, 1)}
-    tasks = [
-        task for task in data.get("tasks", [])
-        if task.get("kid_id") == kid["id"] and task.get("due_date") in window
-    ]
-    open_tasks = [task for task in tasks if task.get("status") != "Done"]
-    done_tasks = [task for task in tasks if task.get("status") == "Done"]
-    st.markdown('<div class="profile-wide-module"><div class="profile-module-title">Task command center</div><div class="profile-module-subtitle">A calm three-day runway for what matters next</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="profile-module-count">{len(open_tasks)} open · {len(done_tasks)} complete</div>', unsafe_allow_html=True)
-    if open_tasks:
-        for task in open_tasks:
-            st.markdown(
-                f'<div class="profile-task-card"><span class="row-title">{task["title"]}</span>'
-                f'<span class="profile-task-card__meta">{task.get("due_date")} · {task.get("points", 0)} pts</span></div>',
-                unsafe_allow_html=True,
-            )
-    else:
-        st.caption("The next three days are clear.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -257,7 +228,7 @@ def show_weekly_summary(data, kid):
 
     summary = compute_weekly_summary(data, kid["id"], monday, sunday)
 
-    st.markdown("**📚 Reading this week**")
+    st.markdown('<div class="profile-weekly-heading"><span>01</span> Reading this week <small>Pages and language momentum</small></div>', unsafe_allow_html=True)
     en_a, tr_a, read_tot = st.columns(3)
     with en_a:
         st.markdown(
@@ -278,7 +249,7 @@ def show_weekly_summary(data, kid):
             unsafe_allow_html=True
         )
 
-    st.markdown("**📋 Tasks this week**")
+    st.markdown('<div class="profile-weekly-heading"><span>02</span> Tasks this week <small>Completion across the selected week</small></div>', unsafe_allow_html=True)
 
     agg = OrderedDict()
     for task in summary["done_tasks"]:
@@ -295,11 +266,10 @@ def show_weekly_summary(data, kid):
     if agg:
         for title, (done, total) in sorted(agg.items()):
             complete = done == total
-            icon = "✅" if complete else "📋"
             tone = "text-success" if complete else "text-danger"
             st.markdown(
-                f'<div class="task-item row">'
-                f'<span class="row-title">{icon} {title}</span>'
+                f'<div class="profile-week-task">'
+                f'<span class="row-title">{title}</span>'
                 f'<span class="num strong {tone}">{done}/{total}</span>'
                 f'</div>',
                 unsafe_allow_html=True
@@ -310,7 +280,7 @@ def show_weekly_summary(data, kid):
     if total_assigned:
         st.markdown(
             f'<div class="banner banner--ok">'
-            f'<strong>🏁 {total_done} of {total_assigned} tasks done this week</strong>'
+            f'<strong>{total_done} of {total_assigned} tasks done this week</strong>'
             f'</div>',
             unsafe_allow_html=True
         )

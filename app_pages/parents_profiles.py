@@ -3,24 +3,24 @@ from collections import OrderedDict
 
 import streamlit as st
 
-from utils.task_helpers import get_total_points_for_parent, get_weekly_points_for_parent, get_monthly_points_for_parent, get_rank, get_overdue_task_count
+from utils.task_helpers import get_total_points_for_parent, get_weekly_points_for_parent, get_monthly_points_for_parent, get_rank
 from utils.book_helpers import get_finished_books_for_parent, split_books_by_language
 from utils.achievement_helpers import get_parent_achievements
 from utils.data_helpers import today_string
 from utils.styles import avatar_image, achievement_badge
 from utils.summary_helpers import compute_weekly_summary
-from utils.page_chrome import render_focus_panel, render_page_header, render_profile_identity, render_stat_strip
+from utils.page_chrome import render_page_header, render_profile_identity, render_stat_strip
 
 
 def parents_profiles_page(data):
     render_page_header("Parents", "A clear view of household progress, tasks, and reading.")
 
     parents = data.get("parents", [])
-    open_tasks = sum(1 for task in data.get("tasks", []) if task.get("status") != "Done")
     completed = sum(1 for task in data.get("tasks", []) if task.get("status") == "Done")
+    reading = sum(1 for book in data.get("books", []) if book.get("parent_id") is not None)
     render_stat_strip([
         ("People", str(len(parents)), "parent profiles"),
-        ("Open work", str(open_tasks), "tasks across the home"),
+        ("Reading", str(reading), "books in the household"),
         ("Completed", str(completed), "all-time completions"),
     ])
 
@@ -49,9 +49,6 @@ def parents_profiles_page(data):
         st.error("Parent profile not found.")
         return
 
-    parent_tasks = [task for task in data.get("tasks", []) if task.get("parent_id") == selected_parent["id"]]
-    due_today = sum(1 for task in parent_tasks if task.get("due_date") == date.today().isoformat() and task.get("status") != "Done")
-    render_focus_panel("Today’s focus", selected_parent["name"], "Open tasks due today", str(due_today), "tasks remaining")
     show_parent_profile(data, selected_parent)
 
 
@@ -61,7 +58,6 @@ def show_parent_profile(data, parent):
     rank, _ = get_rank(total_points)
     today = date.today()
     monthly_pts = get_monthly_points_for_parent(data, parent["id"], today.year, today.month)
-    overdue = get_overdue_task_count(data, parent["id"], is_kid=False)
     contact = " · ".join(filter(None, [parent.get("email"), parent.get("phone")])) or "No contact details yet"
 
     hero_left, hero_right = st.columns([1, 4])
@@ -73,18 +69,14 @@ def show_parent_profile(data, parent):
     render_stat_strip([
         ("Total points", str(total_points), f"{weekly_points} earned this week"),
         ("This month", str(monthly_pts), "points in the current month"),
-        ("Open attention", str(overdue), "past-due items"),
+        ("Weekly pace", str(weekly_points), "points earned this week"),
     ])
 
-    st.markdown('<div class="profile-command-grid">', unsafe_allow_html=True)
-    command_left, command_right = st.columns(2)
-    with command_left:
-        show_parent_tasks(data, parent)
-    with command_right:
-        show_parent_books(data, parent)
-    st.markdown('</div>', unsafe_allow_html=True)
-
     show_parent_weekly_summary(data, parent)
+
+    st.markdown('<div class="profile-command-grid">', unsafe_allow_html=True)
+    show_parent_books(data, parent)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     achievements = get_parent_achievements(data, parent["id"])
     st.markdown('<div class="profile-achievement-deck"><div class="route-section-label">Achievements</div>', unsafe_allow_html=True)
@@ -124,7 +116,7 @@ def show_parent_weekly_summary(data, parent):
 
     summary = compute_weekly_summary(data, parent["id"], monday, sunday, is_kid=False)
 
-    st.markdown("**📚 Reading this week**")
+    st.markdown('<div class="profile-weekly-heading"><span>01</span> Reading this week <small>Pages and language momentum</small></div>', unsafe_allow_html=True)
     en_a, tr_a, read_tot = st.columns(3)
     with en_a:
         st.markdown(
@@ -145,7 +137,7 @@ def show_parent_weekly_summary(data, parent):
             unsafe_allow_html=True
         )
 
-    st.markdown("**📋 Tasks this week**")
+    st.markdown('<div class="profile-weekly-heading"><span>02</span> Tasks this week <small>Completion across the selected week</small></div>', unsafe_allow_html=True)
 
     agg = OrderedDict()
     for task in summary["done_tasks"]:
@@ -162,11 +154,10 @@ def show_parent_weekly_summary(data, parent):
     if agg:
         for title, (done, total) in sorted(agg.items()):
             complete = done == total
-            icon = "✅" if complete else "📋"
             tone = "text-success" if complete else "text-danger"
             st.markdown(
-                f'<div class="task-item row">'
-                f'<span class="row-title">{icon} {title}</span>'
+                f'<div class="profile-week-task">'
+                f'<span class="row-title">{title}</span>'
                 f'<span class="num strong {tone}">{done}/{total}</span>'
                 f'</div>',
                 unsafe_allow_html=True
@@ -177,57 +168,11 @@ def show_parent_weekly_summary(data, parent):
     if total_assigned:
         st.markdown(
             f'<div class="banner banner--ok">'
-            f'<strong>🏁 {total_done} of {total_assigned} tasks done this week</strong>'
+            f'<strong>{total_done} of {total_assigned} tasks done this week</strong>'
             f'</div>',
             unsafe_allow_html=True
         )
     st.markdown('</div>', unsafe_allow_html=True)
-
-
-def show_parent_tasks(data, parent):
-    st.markdown('<div class="profile-module-title">Task command center</div><div class="profile-module-subtitle">The next three days</div>', unsafe_allow_html=True)
-
-    assigned_tasks = [
-        task for task in data["tasks"]
-        if task.get("parent_id") == parent["id"]
-    ]
-
-    if not assigned_tasks:
-        st.caption("No tasks assigned yet.")
-        return
-
-    today = date.today()
-    window = {(today + timedelta(days=offset)).isoformat() for offset in (-1, 0, 1)}
-    active = [t for t in assigned_tasks if t["status"] != "Done" and t.get("due_date") in window]
-    done = [t for t in assigned_tasks if t["status"] == "Done"]
-
-    if active:
-        st.markdown(f'<div class="profile-module-count">{len(active)} open in the short horizon</div>', unsafe_allow_html=True)
-
-        for task in active:
-            status_class = task["status"].lower().replace(" ", "-")
-            st.markdown(
-                f'<div class="profile-task-card">'
-                f'<span class="row-title">{task["title"]}</span>'
-                f'<span class="profile-task-card__meta">{task.get("due_date", "unscheduled")} · {task["points"]} pts</span>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-
-    if done:
-        st.markdown(f'<div class="profile-module-count profile-module-count--muted">{len(done)} completed assignments</div>', unsafe_allow_html=True)
-
-        for task in done[:5]:
-            st.markdown(
-                f'<div class="profile-task-card profile-task-card--done">'
-                f'<span class="row-title">{task["title"]}</span>'
-                f'<span class="profile-task-card__meta">+{task["points"]} pts</span>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-
-        if len(done) > 5:
-            st.caption(f"...and {len(done) - 5} more")
 
 
 def show_parent_books(data, parent):
