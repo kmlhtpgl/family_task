@@ -534,6 +534,7 @@
 
     function showScreensaver() {
         if (K.ssActive) return;
+        K.ignoreActivityUntil = Date.now() + 1500;
         var imgs = bgUrls();
         K.ssActive = true;
         doc.documentElement.classList.add('kiosk-active');
@@ -662,6 +663,7 @@
     }
 
     function activity() {
+        if (K.ignoreActivityUntil && Date.now() < K.ignoreActivityUntil) return;
         if (K.ssActive) hideScreensaver();
         idle();
     }
