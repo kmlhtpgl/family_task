@@ -1,4 +1,5 @@
 import json
+from html import escape
 from pathlib import Path
 
 import streamlit as st
@@ -1508,9 +1509,19 @@ def kiosk_settings_tab(data):
 
     _t1, _t2, _t3 = st.columns([1, 1, 1])
     with _t1:
-        if st.button("Preview screensaver", key="kiosk_preview_button", use_container_width=True, type="primary"):
-            st.session_state.kiosk_test_screensaver = True
-            st.rerun()
+        _screen_frame = (
+            '<!doctype html><html><body style="margin:0;background:transparent">'
+            '<button id="b" style="width:100%;height:42px;border:0;border-radius:10px;'
+            'background:#00c7ff;color:#071018;font:600 13px system-ui;cursor:pointer">'
+            'Preview screensaver</button><script>'
+            'document.getElementById("b").onclick=function(){parent.postMessage({familyKiosk:"screensaver"},"*")}'
+            '</script></body></html>'
+        )
+        st.markdown(
+            f'<iframe class="kiosk-test-frame" title="Preview screensaver" '
+            f'srcdoc="{escape(_screen_frame, quote=True)}"></iframe>',
+            unsafe_allow_html=True,
+        )
     with _t2:
         _test_prayer = st.selectbox(
             "Prayer",
@@ -1518,9 +1529,19 @@ def kiosk_settings_tab(data):
             label_visibility="collapsed",
         )
     with _t3:
-        if st.button("Play test adhan", key="kiosk_play_button", use_container_width=True, type="primary"):
-            st.session_state.kiosk_test_adhan = _test_prayer
-            st.rerun()
+        _adhan_frame = (
+            '<!doctype html><html><body style="margin:0;background:transparent">'
+            '<button id="b" style="width:100%;height:42px;border:0;border-radius:10px;'
+            'background:#00c7ff;color:#071018;font:600 13px system-ui;cursor:pointer">'
+            f'Play test adhan · {_test_prayer}</button><script>'
+            f'document.getElementById("b").onclick=function(){{parent.postMessage({{familyKiosk:"adhan",prayer:"{_test_prayer}"}},"*")}}'
+            '</script></body></html>'
+        )
+        st.markdown(
+            f'<iframe class="kiosk-test-frame" title="Play test adhan" '
+            f'srcdoc="{escape(_adhan_frame, quote=True)}"></iframe>',
+            unsafe_allow_html=True,
+        )
 
     st.caption("There is no separate setup step. Tap once anywhere if the browser has blocked sound; "
                "the test button then plays immediately. "

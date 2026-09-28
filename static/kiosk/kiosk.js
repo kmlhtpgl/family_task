@@ -700,6 +700,11 @@
      * click at the parent window so the test remains a real browser gesture. */
     win.addEventListener('pointerdown', handleKioskControl, true);
     win.addEventListener('click', handleKioskControl, true);
+    win.addEventListener('message', function (event) {
+        var data = event.data || {};
+        if (data.familyKiosk === 'screensaver') showScreensaver();
+        if (data.familyKiosk === 'adhan') playAdhan(data.prayer || 'Fajr', true);
+    });
 
     var IDLE_EVENTS = ['mousemove', 'wheel', 'scroll', 'touchstart', 'click'];
     IDLE_EVENTS.forEach(function (evt) {
