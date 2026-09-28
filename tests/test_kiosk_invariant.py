@@ -45,48 +45,110 @@ def app_tree():
     return ast.parse(APP_PY.read_text())
 
 
-def test_iframe_html_points_at_the_runtime_and_is_stable():
-    """The iframe URL must keep its path, and must not vary per rerun.
+def test_iframe_html_inlines_the_runtime_and_is_stable():
+    """The runtime must be INLINED, and the HTML must not vary per rerun.
 
-    Two failure modes are being prevented here, and they pull in opposite
-    directions. If the URL drifts (or gains a per-rerun token) Streamlit
-    recreates the frame and the audio element dies. If it is a fixed URL with
-    no version, the browser keeps the copy it first fetched -- Streamlit serves
-    static assets with a one-year max-age -- so a fix to kiosk.js never reaches
-    the wall tablet and every local test keeps passing against code the
-    deployment is not running.
+    The inlining is the whole point. Referencing the runtime as a separate
+    /app/static request meant the entire feature hinged on that one request
+    succeeding: behind a login, behind nosniff, behind deployment headers. When
+    it failed the runtime simply never ran, every control went inert, and the
+    status strip stayed on the "connecting..." that Python renders -- so the
+    app looked healthy while the feature was absent.
+
+    The stability half still matters: if this string varies per rerun, Streamlit
+    recreates the frame and the audio element dies with it. The runtime only
+    changes on deploy, so within a deploy this stays byte-identical.
     """
     from utils.kiosk_helpers import KIOSK_IFRAME_HTML
 
-    assert KIOSK_IFRAME_HTML == KIOSK_IFRAME_HTML, "unreachable"
-    assert KIOSK_RUNTIME_PATH in KIOSK_IFRAME_HTML, (
-        f"the kiosk iframe must load {KIOSK_RUNTIME_PATH}, "
-        f"but it is {KIOSK_IFRAME_HTML}"
+    assert KIOSK_RUNTIME_PATH not in KIOSK_IFRAME_HTML, (
+        "the kiosk runtime is being fetched from /app/static again; a separate "
+        "request is what made the whole feature fail silently in deployment"
     )
-    assert re.fullmatch(
-        rf'<script src="{re.escape(KIOSK_RUNTIME_PATH)}\?v=[0-9a-f]+"></script>',
-        KIOSK_IFRAME_HTML,
-    ), (
-        "the iframe URL must be exactly the runtime path plus a hex ?v= version, "
-        "and nothing that changes between reruns"
+    assert "<script src=" not in KIOSK_IFRAME_HTML, (
+        "the kiosk iframe must not depend on any externally loaded script"
     )
 
-    # The version is derived from the file, so it is stable within a deploy and
-    # moves only when the runtime itself moves.
-    # Import it a second time: the URL must be recomputed to the same value, so
-    # a rerun reuses the iframe instead of tearing it down.
+    # The runtime's own source must actually be inlined, verbatim.
+    assert KIOSK_JS.read_text(encoding="utf-8") in KIOSK_IFRAME_HTML, (
+        "the runtime body is not inlined into the iframe; the version marker and "
+        "the watchdog are no substitutes for the code that draws the screensaver"
+    )
+
+    # A literal </script> inside the inlined source would close the tag early
+    # and leave the rest of the runtime as page text. The runtime must therefore
+    # survive intact inside ONE block.
+    blocks = re.findall(r"<script>(.*?)</script>", KIOSK_IFRAME_HTML, re.S)
+    assert KIOSK_JS.read_text(encoding="utf-8") in blocks, (
+        "the inlined runtime is not intact inside a single <script> block, so a "
+        "</script> in the source is truncating it"
+    )
+
+    # Import it a second time: recomputing must yield the same string, so a
+    # rerun reuses the iframe instead of tearing it down.
     from utils.kiosk_helpers import KIOSK_IFRAME_HTML as again
 
-    assert again == KIOSK_IFRAME_HTML, "the iframe URL is not stable across imports"
+    assert again == KIOSK_IFRAME_HTML, "the iframe HTML is not stable across imports"
 
-    version = re.search(r"\?v=([0-9a-f]+)", KIOSK_IFRAME_HTML).group(1)
-    import hashlib
 
-    digest = hashlib.sha256(KIOSK_JS.read_bytes()).hexdigest()[: len(version)]
-    assert version == digest, (
-        "the ?v= cache-buster no longer matches the contents of kiosk.js, so the "
-        "browser cannot tell a new runtime from an old one"
+def test_runtime_failure_is_reported_on_the_page():
+    """A dead runtime must say so, in the page, without a console.
+
+    The runtime is the only code that can report success, so when it dies
+    nothing is left to distinguish "still loading" from "broken" -- which is
+    exactly how this stayed hidden. Two independent tripwires are required:
+
+      * a marker armed before the runtime runs and disarmed only by a separate
+        script that runs even when the runtime throws, and
+      * a watchdog outside the runtime that rewrites the status strip.
+
+    Both probe window.parent.Kiosk, because that is where the runtime installs
+    itself. Probing this frame's own window always reads empty and would report
+    a false failure on a healthy runtime.
+    """
+    from utils.kiosk_helpers import KIOSK_IFRAME_HTML, KIOSK_RUNTIME_FAILED
+
+    assert KIOSK_RUNTIME_FAILED.isidentifier(), (
+        "the failure marker is interpolated as window.<NAME>, so a hyphenated "
+        "name is a syntax error rather than a property access"
     )
+    assert KIOSK_RUNTIME_FAILED in KIOSK_IFRAME_HTML, (
+        "the failure marker is never set, so a dead runtime cannot be detected"
+    )
+    assert "RUNTIME NOT LOADED" in KIOSK_IFRAME_HTML, (
+        "the watchdog must overwrite the status strip with a diagnosis"
+    )
+    # The strip is rendered when the Kiosk tab opens, long after the iframe
+    # mounted on the landing page. A single timer therefore fires long before
+    # there is anything to fix, and the diagnosis never appears.
+    assert "MutationObserver" in KIOSK_IFRAME_HTML, (
+        "the watchdog must observe the document; a one-shot timer runs before the "
+        "Kiosk tab renders #kiosk-status and then gives up"
+    )
+    # Streamlit redraws the strip on every rerun, resetting it to the
+    # placeholder, so the watchdog has to be able to fire more than once.
+    assert "connecting" in KIOSK_IFRAME_HTML, (
+        "the watchdog must re-check the untouched placeholder, or the first "
+        "Streamlit rerun restores 'connecting…' over the diagnosis"
+    )
+    assert "window.parent.Kiosk" in KIOSK_IFRAME_HTML, (
+        "the tripwire/watchdog must probe window.parent.Kiosk; the runtime "
+        "installs itself on the parent, so probing this frame reports a false "
+        "failure on a healthy runtime"
+    )
+    assert "KIOSK_RUNTIME_BOOTED" in KIOSK_IFRAME_HTML, (
+        "the boot flag is how a browser check distinguishes a live runtime"
+    )
+
+    # The watchdog is the only code left when the runtime dies, so it must be
+    # syntactically sound. Balanced braces catch the failure mode that already
+    # bit this once: a hand-doubled f-string brace that never parsed.
+    blocks = re.findall(r"<script>(.*?)</script>", KIOSK_IFRAME_HTML, re.S)
+    for block in blocks:
+        assert block.count("{") == block.count("}"), (
+            "unbalanced braces in an inlined script block; the block will not "
+            f"parse: {block[:120]!r}"
+        )
 
 
 def test_app_passes_the_constant_not_a_string():
@@ -259,12 +321,20 @@ def test_assets_are_requested_with_the_runtime_version():
         "asset() no longer appends the runtime version, so backgrounds and adhan "
         "are served from whatever the browser cached first"
     )
-    assert "doc.currentScript" not in source, (
-        "kiosk.js reads currentScript from the parent document, which is always "
-        "null; the version silently degrades to 0 and nothing is cache-busted"
+    assert "currentScript" not in source, (
+        "kiosk.js is INLINED into the iframe, so there is no script URL and no "
+        "usable currentScript; the version must come from the value the inliner "
+        "sets on this frame's window"
     )
-    assert "document.currentScript" in source, (
-        "the runtime version must be read from this file's own document"
+    assert "window.KIOSK_RUNTIME_VERSION" in source, (
+        "the runtime version must be read from window.KIOSK_RUNTIME_VERSION, "
+        "which the inliner sets on the iframe window before this file runs"
+    )
+    # Reading it off the parent instead silently degrades every asset to an
+    # unversioned URL, which looks like a caching bug and is not one.
+    assert "win.KIOSK_RUNTIME_VERSION" not in source, (
+        "the runtime version must not be read from the parent realm; the value "
+        "only exists on the iframe window and reading it from win yields 0"
     )
 
 
@@ -304,10 +374,32 @@ def test_there_is_only_one_set_of_adhan_test_controls():
 
 
 def test_static_serving_is_enabled():
-    """kiosk.js is fetched from /app/static, which needs this flag."""
+    """The screensaver backgrounds and adhan files still need this flag.
+
+    The runtime no longer does -- it is inlined -- but the images and audio it
+    points at are still fetched from /app/static, so the flag stays on.
+    """
     config = (REPO_ROOT / ".streamlit" / "config.toml").read_text()
     assert "enableStaticServing = true" in config, (
-        "enableStaticServing must stay on or kiosk.js 404s and adhan never arms"
+        "enableStaticServing must stay on or the backgrounds and adhan 404 and "
+        "the screensaver comes up blank"
+    )
+
+
+def test_streamlit_version_is_pinned():
+    """Local and deployed Streamlit must be the same version.
+
+    An unpinned `streamlit` installs whatever is newest in the cloud, so a fix
+    verified locally can be running against a different Streamlit than the one
+    that was tested. That is not a hypothetical: it is how a fully passing local
+    suite left the deployed app visibly unchanged.
+    """
+    requirements = (REPO_ROOT / "requirements.txt").read_text().splitlines()
+    pins = [line for line in requirements if line.strip().startswith("streamlit")]
+    assert pins, "streamlit is not listed in requirements.txt at all"
+    assert all("==" in line for line in pins), (
+        f"streamlit is not pinned: {pins!r}. Local verification then runs against "
+        "a different Streamlit than the deployment does."
     )
 
 

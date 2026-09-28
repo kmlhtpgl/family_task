@@ -1528,10 +1528,11 @@ def kiosk_settings_tab(data):
         '</div>',
         unsafe_allow_html=True,
     )
-    st.caption("The screensaver preview stays up until you tap it. The adhan test plays immediately; "
-               "if the browser has blocked sound, tap anywhere once and it will resume. "
-               "If the line above still says “connecting…”, this browser is running a "
-                   "cached copy of the runtime — see the note below.")
+    st.caption("The screensaver preview stays up until you tap it. The adhan test plays "
+               "immediately; if the browser has blocked sound, tap anywhere once and it "
+               "will resume. The controls above do nothing while the line still says "
+               "“connecting…” — if it does not change to “Runtime ready”, the "
+               "runtime did not start, and the far right will name the reason.")
 
     # ── 1b. Weather ──
     st.write("### Screensaver weather")
