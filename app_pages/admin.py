@@ -999,7 +999,10 @@ def generate_weekday_dates(start_date, end_date, selected_weekdays):
 def book_list_tab(data):
     render_admin_section_header("Book list", "Maintain the shared reading catalogue.", "07 / CONTENT")
 
-    book_templates = data["book_templates"]
+    book_templates = sorted(
+        data["book_templates"],
+        key=lambda book: str(book.get("title", "")).casefold(),
+    )
     english = sum(1 for book in book_templates if book.get("language") == "English")
     pages = sum(int(book.get("total_pages", 0)) for book in book_templates)
     render_stat_strip([
