@@ -7,9 +7,11 @@ from html import escape
 def render_page_header(title: str, description: str, eyebrow: str = "Family workspace") -> None:
     st.markdown(
         f'<div class="page-heading">'
+        f'<div class="page-heading__signal"><span></span><span></span><span></span></div>'
         f'<div class="page-heading__eyebrow">{eyebrow}</div>'
         f'<div class="page-heading__title">{title}</div>'
         f'<div class="page-heading__description">{description}</div>'
+        f'<div class="page-heading__mode">LIVE WORKSPACE <b>2026</b></div>'
         f'</div>',
         unsafe_allow_html=True,
     )

@@ -16,6 +16,13 @@ def parents_profiles_page(data):
     render_page_header("Parents", "A clear view of household progress, tasks, and reading.")
 
     parents = data.get("parents", [])
+    open_tasks = sum(1 for task in data.get("tasks", []) if task.get("status") != "Done")
+    completed = sum(1 for task in data.get("tasks", []) if task.get("status") == "Done")
+    render_stat_strip([
+        ("People", str(len(parents)), "parent profiles"),
+        ("Open work", str(open_tasks), "tasks across the home"),
+        ("Completed", str(completed), "all-time completions"),
+    ])
 
     if not parents:
         st.info("No parents added yet. Go to Admin to add a parent.")

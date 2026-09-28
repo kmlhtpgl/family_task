@@ -42,13 +42,18 @@ from utils.storage_helpers import upload_profile_photo, delete_profile_photo
 from utils.task_helpers import get_effective_points
 from utils.admin_helpers import load_admin_password, save_admin_password
 from utils.kiosk_helpers import get_prayer_times, get_audio_bytes, get_weather
-from utils.page_chrome import render_page_header
+from utils.page_chrome import render_page_header, render_stat_strip
 
 DATA_DIR = Path("data")
 
 
 def admin_page(data):
     render_page_header("Admin", "Shape the household system: people, routines, content, and settings.", "Control room")
+    render_stat_strip([
+        ("People", str(len(data.get("kids", [])) + len(data.get("parents", []))), "profiles in the household"),
+        ("Tasks", str(len(data.get("tasks", []))), "assigned and scheduled"),
+        ("Content", str(len(data.get("books", [])) + len(data.get("surahs", []))), "books and Quran items"),
+    ])
 
     admin_tabs = [
         ("parents", "Parents"),

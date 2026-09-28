@@ -21,6 +21,14 @@ from utils.page_chrome import render_page_header, render_profile_identity, rende
 def kids_profiles_page(data):
     render_page_header("Kids", "See each child’s momentum, commitments, and wins.")
 
+    open_tasks = sum(1 for task in data.get("tasks", []) if task.get("status") != "Done")
+    completed = sum(1 for task in data.get("tasks", []) if task.get("status") == "Done")
+    render_stat_strip([
+        ("People", str(len(data.get("kids", []))), "kid profiles"),
+        ("Open work", str(open_tasks), "tasks across the home"),
+        ("Completed", str(completed), "all-time completions"),
+    ])
+
     if not data["kids"]:
         st.info("No children added yet. Go to Admin to add a child.")
         return
