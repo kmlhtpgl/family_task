@@ -178,9 +178,11 @@ html, body,
 
 [data-testid="stAppViewContainer"] .block-container,
 .block-container {
-    padding-top: 0.75rem !important;
-    padding-bottom: 3rem !important;
-    max-width: var(--max-width);
+    /* Board is full-bleed. Classic routes use the same stage now instead of
+     * shrinking into the old centered 1200px application shell. */
+    width: 100% !important;
+    max-width: none !important;
+    padding: 1rem clamp(1rem, 4vw, 4rem) 3rem !important;
 }
 
 #MainMenu { visibility: hidden; }
@@ -325,6 +327,14 @@ _NAV_CSS = """
     text-decoration: none;
     color: inherit;
     cursor: pointer;
+}
+.navbar-brand::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--success);
 }
 .top-navbar a[href*="nav"] {
     text-decoration: none;
@@ -1992,6 +2002,13 @@ _RESPONSIVE_CSS = """
         flex-wrap: wrap;
     }
     .navbar-brand h1 { font-size: 1.0625rem; }
+    .navbar-brand h1 { display: none !important; }
+    .navbar-brand::after {
+        content: "Family Task";
+        color: var(--text-primary);
+        font-size: 0.78rem;
+        font-weight: var(--weight-semibold);
+    }
     .navbar-brand span,
     .navbar-actions .nav-date { display: none; }
 

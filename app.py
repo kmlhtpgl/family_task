@@ -52,7 +52,7 @@ _lands_on_board = board_enabled()
 if "page" not in st.session_state:
     st.session_state.page = "board" if _lands_on_board else CLASSIC_LANDING
 
-# The "Family Task" title on the other pages is a link back to the board.
+# The compact workspace flag on the other pages is a link back to the board.
 if st.query_params.get("nav") == "board":
     st.session_state.page = "board"
     st.query_params.clear()
