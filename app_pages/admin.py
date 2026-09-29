@@ -1,4 +1,5 @@
 import json
+from html import escape
 from pathlib import Path
 
 import streamlit as st
@@ -43,6 +44,7 @@ from utils.task_helpers import get_effective_points
 from utils.admin_helpers import load_admin_password, save_admin_password
 from utils.kiosk_helpers import get_prayer_times, get_audio_bytes, get_weather
 from utils.page_chrome import render_admin_section_header, render_focus_panel, render_page_header, render_stat_strip
+from utils.styles import avatar_image
 
 DATA_DIR = Path("data")
 
@@ -125,6 +127,69 @@ def admin_page(data):
 
 
 # -----------------------
+# Shared profile UI
+# -----------------------
+
+def _make_close_handler(state_key):
+    """Return a callable that collapses the editor that owns `state_key`."""
+    def _close():
+        st.session_state[state_key] = None
+    return _close
+
+
+def _render_profile_row(profile, photo_field, details, edit_key, delete_key):
+    """Draw one parent or child row. Returns "edit"/"delete" when a button is pressed."""
+    with st.container(border=True):
+        avatar_col, detail_col, edit_col, delete_col = st.columns([1, 3, 1, 1], gap="medium")
+
+        with avatar_col:
+            avatar_image(profile.get(photo_field) or "", width=72)
+
+        with detail_col:
+            meta = "".join(f'<div class="entity-meta">{escape(line)}</div>' for line in details if line)
+            st.markdown(
+                f'<div class="entity-row admin-grid-card"><div>'
+                f'<div class="entity-title">{escape(str(profile.get("name", "")))}</div>'
+                f'{meta}</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        pressed = None
+        with edit_col:
+            if st.button("✏️ Edit", key=edit_key, use_container_width=True):
+                pressed = "edit"
+        with delete_col:
+            if st.button("🗑️ Delete", key=delete_key, use_container_width=True):
+                pressed = "delete"
+
+    return pressed
+
+
+def _render_profile_fields(fields, key_prefix):
+    """Render the editor's text/number inputs and return their values by key."""
+    values = {}
+    for field in fields:
+        key = f"{key_prefix}_{field['key']}"
+        if field["kind"] == "number":
+            values[field["key"]] = st.number_input(
+                field["label"],
+                min_value=field.get("min", 1),
+                max_value=field.get("max", 18),
+                value=field["value"],
+                step=1,
+                key=key,
+            )
+        else:
+            values[field["key"]] = st.text_input(
+                field["label"],
+                value=field["value"],
+                key=key,
+                placeholder=field.get("placeholder", ""),
+            )
+    return values
+
+
+# -----------------------
 # Parents Management
 # -----------------------
 
@@ -133,7 +198,7 @@ def parents_tab(data):
     st.caption("Add and manage parent profiles for task and book assignments.")
 
     # Add Parent Form
-    st.write("### Add New Parent")
+    st.markdown('<div class="admin-create-panel"><span>ADD A PERSON</span><strong>Add a new parent</strong><small>Give a parent a profile so tasks and books can reach them.</small></div>', unsafe_allow_html=True)
     with st.form("add_parent_form"):
         col1, col2 = st.columns([1, 2])
 
@@ -181,7 +246,7 @@ def parents_tab(data):
     st.divider()
 
     # Display Parents
-    st.write("### Parents List")
+    st.markdown('<div class="admin-inventory-heading"><span>PARENT DIRECTORY</span><strong>Your parents</strong><small>Open a profile to change its photo or contact details.</small></div>', unsafe_allow_html=True)
     parents = data.get("parents", [])
 
     if not parents:
@@ -189,96 +254,134 @@ def parents_tab(data):
         return
 
     for parent in parents:
-        with st.container(border=True):
-            col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
+        details = []
+        if parent.get("email"):
+            details.append(f"📧 {parent['email']}")
+        if parent.get("phone"):
+            details.append(f"📞 {parent['phone']}")
 
-            with col1:
-                if parent.get("photo_url"):
-                    st.markdown(
-                        f'<img src="{parent["photo_url"]}" class="avatar-circle" width="80" height="80" />',
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        '<div class="avatar-circle avatar-fallback" style="width:80px;height:80px;font-size:30px;">👤</div>',
-                        unsafe_allow_html=True
-                    )
+        pressed = _render_profile_row(
+            parent,
+            "photo_url",
+            details,
+            edit_key=f"edit_parent_{parent['id']}",
+            delete_key=f"delete_parent_{parent['id']}",
+        )
 
-            with col2:
-                st.write(f"**{parent['name']}**")
-                if parent.get("email"):
-                    st.caption(f"📧 {parent['email']}")
-                if parent.get("phone"):
-                    st.caption(f"📞 {parent['phone']}")
+        if pressed == "edit":
+            st.session_state.editing_parent_id = parent["id"]
+            st.rerun()
 
-            with col3:
-                if st.button("✏️ Edit", key=f"edit_parent_{parent['id']}"):
-                    st.session_state.editing_parent_id = parent['id']
-                    st.rerun()
+        if pressed == "delete":
+            if parent.get("photo_url"):
+                delete_profile_photo(parent["photo_url"])
 
-            with col4:
-                if st.button("🗑️ Delete", key=f"delete_parent_{parent['id']}"):
-                    if parent.get("photo_url"):
-                        delete_profile_photo(parent["photo_url"])
+            delete_parent(parent['id'])
+            st.success(f"Parent '{parent['name']}' removed.")
+            st.rerun()
 
-                    delete_parent(parent['id'])
-                    st.warning(f"Parent '{parent['name']}' removed.")
-                    st.rerun()
-
-        # Edit form if selected
         if st.session_state.get("editing_parent_id") == parent["id"]:
-            st.write("#### Edit Parent")
-            with st.form(f"edit_parent_form_{parent['id']}"):
-                col1, col2 = st.columns([1, 2])
+            _render_profile_editor(
+                profile=parent,
+                photo_field="photo_url",
+                fields=[
+                    {"label": "Parent name", "key": "name", "kind": "text",
+                     "value": parent.get("name") or "", "required": True},
+                    {"label": "Email", "key": "email", "kind": "text",
+                     "value": parent.get("email") or "", "placeholder": "name@example.com"},
+                    {"label": "Phone", "key": "phone", "kind": "text",
+                     "value": parent.get("phone") or "", "placeholder": "Optional"},
+                ],
+                form_key=f"edit_parent_form_{parent['id']}",
+                save_handler=update_parent,
+                close_handler=_make_close_handler("editing_parent_id"),
+            )
 
-                with col1:
-                    uploaded_photo = st.file_uploader(
-                        "New photo (optional)",
-                        type=["jpg", "jpeg", "png"],
-                        key=f"edit_parent_photo_{parent['id']}"
-                    )
 
-                    if parent.get("photo_url"):
-                        st.markdown(
-                            f'<img src="{parent["photo_url"]}" class="avatar-circle" width="80" height="80" />',
-                            unsafe_allow_html=True
-                        )
+def _render_profile_editor(profile, photo_field, fields, form_key, save_handler, close_handler):
+    """Shared parent/child editor.
 
-                        if st.button("🗑️ Remove photo", key=f"remove_parent_photo_{parent['id']}"):
-                            delete_profile_photo(parent["photo_url"])
-                            update_parent(parent['id'], {"photo_url": None})
-                            st.success("Photo removed.")
-                            st.session_state.editing_parent_id = None
-                            st.rerun()
+    The photo uploader lives inside the form so a single "Save changes" commits
+    the picture and the details together. "Remove photo" has to sit outside the
+    form: st.button is not allowed inside st.form, and reaching for it there
+    raised and took the name, age and save button down with it, which is what
+    made the uploader look like it had no submit button at all.
+    """
+    photo_url = profile.get(photo_field)
 
-                with col2:
-                    new_name = st.text_input("Parent name", value=parent['name'])
-                    new_email = st.text_input("Email", value=parent.get("email", ""))
-                    new_phone = st.text_input("Phone", value=parent.get("phone", ""))
+    st.markdown(
+        f'<div class="admin-create-panel"><span>EDITING PROFILE</span>'
+        f'<strong>{escape(str(profile.get("name", "")))}</strong>'
+        f'<small>Pick a photo, adjust the details, then save everything in one go.</small></div>',
+        unsafe_allow_html=True,
+    )
 
-                if st.form_submit_button("Save Changes"):
-                    updates = {
-                        "name": new_name.strip(),
-                        "email": new_email.strip() if new_email else None,
-                        "phone": new_phone.strip() if new_phone else None
-                    }
+    with st.form(form_key):
+        photo_col, field_col = st.columns([1, 2], gap="medium")
 
-                    if uploaded_photo:
-                        try:
-                            if parent.get("photo_url"):
-                                delete_profile_photo(parent["photo_url"])
+        with photo_col:
+            uploaded_photo = st.file_uploader(
+                "Profile photo",
+                type=["jpg", "jpeg", "png"],
+                key=f"{form_key}_photo",
+            )
+            st.caption("JPG or PNG. Saved when you press Save changes.")
 
-                            updates["photo_url"] = upload_profile_photo(
-                                uploaded_photo.getvalue(),
-                                uploaded_photo.name
-                            )
-                        except Exception as e:
-                            st.error(f"Failed to upload photo: {e}")
+        with field_col:
+            values = _render_profile_fields(fields, form_key)
 
-                    update_parent(parent['id'], updates)
-                    st.success("Parent updated! ✅")
-                    st.session_state.editing_parent_id = None
-                    st.rerun()
+        save_col, cancel_col = st.columns([2, 1], gap="medium")
+        with save_col:
+            save_clicked = st.form_submit_button("Save changes", type="primary")
+        with cancel_col:
+            cancel_clicked = st.form_submit_button("Cancel")
+
+    if cancel_clicked:
+        close_handler()
+        st.rerun()
+
+    # Deliberately outside the form, see the note above.
+    if photo_url and st.button("🗑️ Remove photo", key=f"{form_key}_remove_photo"):
+        delete_profile_photo(photo_url)
+        save_handler(profile["id"], {photo_field: None})
+        st.success("Photo removed.")
+        close_handler()
+        st.rerun()
+
+    if not save_clicked:
+        return
+
+    updates = {}
+    for field in fields:
+        raw = values.get(field["key"])
+        if field["kind"] == "number":
+            updates[field["key"]] = int(raw)
+        else:
+            text = str(raw).strip()
+            if field.get("required"):
+                if not text:
+                    st.error(f"Please enter a {field['label'].lower()}.")
+                    return
+                updates[field["key"]] = text
+            else:
+                updates[field["key"]] = text or None
+
+    if uploaded_photo:
+        # Upload first: deleting the old picture before the new one lands would
+        # throw the photo away whenever the upload failed.
+        try:
+            new_photo = upload_profile_photo(uploaded_photo.getvalue(), uploaded_photo.name)
+        except Exception as exc:
+            st.error(f"Could not upload that photo: {exc}")
+            return
+        if photo_url:
+            delete_profile_photo(photo_url)
+        updates[photo_field] = new_photo
+
+    save_handler(profile["id"], updates)
+    st.success(f"{profile.get('name', '')} updated.")
+    close_handler()
+    st.rerun()
 
 
 # -----------------------
@@ -289,7 +392,7 @@ def add_child_tab(data):
     render_admin_section_header("Children management", "Build the people who will use the board every day.", "02 / PEOPLE")
 
     # Add Child Form
-    st.write("### Add New Child")
+    st.markdown('<div class="admin-create-panel"><span>ADD A PERSON</span><strong>Add a new child</strong><small>Create the profile the board and daily routines will follow.</small></div>', unsafe_allow_html=True)
     with st.form("add_child_form"):
         col1, col2 = st.columns([1, 2])
 
@@ -335,7 +438,7 @@ def add_child_tab(data):
     st.divider()
 
     # Display Children
-    st.write("### Children List")
+    st.markdown('<div class="admin-inventory-heading"><span>CHILD DIRECTORY</span><strong>Your children</strong><small>Open a profile to change the photo, name or age.</small></div>', unsafe_allow_html=True)
     kids = data.get("kids", [])
 
     if not kids:
@@ -343,91 +446,42 @@ def add_child_tab(data):
         return
 
     for kid in kids:
-        with st.container(border=True):
-            col1, col2, col3, col4 = st.columns([1, 3, 1, 1])
+        details = [f"Age: {kid.get('age', 'Not set')}"]
 
-            with col1:
-                if kid.get("photo_path"):
-                    st.markdown(
-                        f'<img src="{kid["photo_path"]}" class="avatar-circle" width="80" height="80" />',
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        '<div class="avatar-circle avatar-fallback" style="width:80px;height:80px;font-size:30px;">👤</div>',
-                        unsafe_allow_html=True
-                    )
+        pressed = _render_profile_row(
+            kid,
+            "photo_path",
+            details,
+            edit_key=f"edit_kid_{kid['id']}",
+            delete_key=f"delete_kid_{kid['id']}",
+        )
 
-            with col2:
-                st.write(f"**{kid['name']}**")
-                st.caption(f"Age: {kid.get('age', 'Not set')}")
+        if pressed == "edit":
+            st.session_state.editing_kid_id = kid["id"]
+            st.rerun()
 
-            with col3:
-                if st.button("✏️ Edit", key=f"edit_kid_{kid['id']}"):
-                    st.session_state.editing_kid_id = kid['id']
-                    st.rerun()
+        if pressed == "delete":
+            if kid.get("photo_path"):
+                delete_profile_photo(kid["photo_path"])
 
-            with col4:
-                if st.button("🗑️ Delete", key=f"delete_kid_{kid['id']}"):
-                    if kid.get("photo_path"):
-                        delete_profile_photo(kid["photo_path"])
+            delete_kid(kid['id'])
+            st.success(f"Child '{kid['name']}' removed.")
+            st.rerun()
 
-                    delete_kid(kid['id'])
-                    st.warning(f"Child '{kid['name']}' removed.")
-                    st.rerun()
-
-        # Edit form if selected
         if st.session_state.get("editing_kid_id") == kid["id"]:
-            st.write("#### Edit Child")
-            with st.form(f"edit_kid_form_{kid['id']}"):
-                col1, col2 = st.columns([1, 2])
-
-                with col1:
-                    uploaded_photo = st.file_uploader(
-                        "New photo (optional)",
-                        type=["jpg", "jpeg", "png"],
-                        key=f"edit_kid_photo_{kid['id']}"
-                    )
-
-                    if kid.get("photo_path"):
-                        st.markdown(
-                            f'<img src="{kid["photo_path"]}" class="avatar-circle" width="80" height="80" />',
-                            unsafe_allow_html=True
-                        )
-
-                        if st.button("🗑️ Remove photo", key=f"remove_kid_photo_{kid['id']}"):
-                            delete_profile_photo(kid["photo_path"])
-                            update_kid(kid['id'], {"photo_path": None})
-                            st.success("Photo removed.")
-                            st.session_state.editing_kid_id = None
-                            st.rerun()
-
-                with col2:
-                    new_name = st.text_input("Child name", value=kid['name'])
-                    new_age = st.number_input("Age", min_value=1, max_value=18, value=kid.get('age', 6))
-
-                if st.form_submit_button("Save Changes"):
-                    updates = {
-                        "name": new_name.strip(),
-                        "age": int(new_age)
-                    }
-
-                    if uploaded_photo:
-                        try:
-                            if kid.get("photo_path"):
-                                delete_profile_photo(kid["photo_path"])
-
-                            updates["photo_path"] = upload_profile_photo(
-                                uploaded_photo.getvalue(),
-                                uploaded_photo.name
-                            )
-                        except Exception as e:
-                            st.error(f"Failed to upload photo: {e}")
-
-                    update_kid(kid['id'], updates)
-                    st.success("Child updated! ✅")
-                    st.session_state.editing_kid_id = None
-                    st.rerun()
+            _render_profile_editor(
+                profile=kid,
+                photo_field="photo_path",
+                fields=[
+                    {"label": "Child name", "key": "name", "kind": "text",
+                     "value": kid.get("name") or "", "required": True},
+                    {"label": "Age", "key": "age", "kind": "number",
+                     "value": int(kid.get("age") or 6), "min": 1, "max": 18},
+                ],
+                form_key=f"edit_kid_form_{kid['id']}",
+                save_handler=update_kid,
+                close_handler=_make_close_handler("editing_kid_id"),
+            )
 
 
 # -----------------------
