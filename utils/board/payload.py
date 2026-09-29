@@ -27,14 +27,14 @@ from utils.task_helpers import (
 # on a wall without turning into a month strip nobody can scan from across a room.
 ARC_PAST = 3
 ARC_FUTURE = 3
-# The picker offers the real today and the two days before it, and nothing else.
-# It showed three either side, which let a child walk onto a future day where
-# every task reads as live but none of them can honestly be ticked -- a row that
-# looks tickable and refuses is worse than not being offered. Two days back is
-# enough to record what was done and to correct a mis-click; the rest of the
-# week is the classic app's job.
-DISPLAY_ARC_PAST = 2
-DISPLAY_ARC_FUTURE = 0
+# The strip shows the same week the bucket rules are built around. It used to
+# offer today and the two days behind it only, on the theory that a future day
+# is a dead end: a child walks onto it and every task refuses to be ticked.
+# That is no longer a reason to hide the days, because a future row now says so
+# itself -- it is locked and captioned "Not yet" rather than offering a live tick
+# that the write path then withdraws. Looking ahead is the point of a week strip.
+DISPLAY_ARC_PAST = 3
+DISPLAY_ARC_FUTURE = 3
 
 # Curated, not hashed. A wall display is looked at by name, so a person's colour
 # has to be the same every render and recognisable at a distance.
@@ -55,12 +55,6 @@ WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 # every past day "Yesterday" and every future one "Tomorrow".
 RELATIVE_LABELS = {-1: "Yesterday", 0: "Today", 1: "Tomorrow"}
 
-# A wall display is read from across a room, so a lane cannot be an unbounded
-# list. The cap is decided here rather than in the canvas so it can be asserted
-# without a browser, and so the "+N more" count is computed from the same list
-# that was truncated.
-GROUP_LIMITS = {"overdue": 6, "today": 14, "later": 6, "anytime": 6, "done": 8}
-
 # Order is the order a person wants them in: what went wrong, what is on today,
 # what is coming.
 GROUP_META = (
@@ -68,10 +62,15 @@ GROUP_META = (
     ("today", "Today", ""),
     ("later", "Coming up", ""),
     ("anytime", "Anytime", ""),
-    # Last, and only ever today's. It exists so a tick can be undone: without
-    # it a completed task leaves the board entirely and a mis-click on a wall
-    # tablet is only fixable by going to the database.
-    ("done", "Done today", "done"),
+    # Last, and never named after a day any more. It is the finished half of
+    # whichever day is on screen, so the day is already spelled out in the
+    # neighbouring heading and repeating it here made "Done on Sun 27" read as
+    # finished-on-Sunday for chores that were merely due Sunday.
+    #
+    # It exists so a tick can be undone: without it a completed task leaves the
+    # board entirely and a mis-click on a wall tablet is only fixable by going
+    # to the database.
+    ("done", "Done", "done"),
 )
 
 
@@ -137,17 +136,20 @@ def _task_entry(task, on_date: date, rule_date: date) -> dict:
 
 
 def _groups(buckets, labels: dict | None = None) -> list[dict]:
-    """Shape the buckets into renderable groups, capped for a wall display.
+    """Shape the buckets into renderable groups.
 
     A group with nothing in it is left out entirely, so the canvas renders
-    `groups` directly rather than having to hide empty sections. `hidden` is
-    the number that did not fit, and `total` is how many exist, so the canvas
-    can say "17 more past due" without being told anything it could get wrong.
+    `groups` directly rather than having to hide empty sections.
 
-    `labels` renames groups after the day being looked at. The "Today" and
-    "Done today" headings were hardcoded, so choosing any other day produced a
-    column headed "Today" listing that day's work -- a wall board contradicting
-    itself about which day it was on.
+    Every task is listed. Groups used to be capped here and the overflow was
+    summarised as "+6 more, shown in the classic app", which quietly hid real
+    work: with a Done cap of 8, a child with 14 finished chores on the 27th was
+    missing six of them from the wall with nothing on the board to say which
+    six. A cap that hides a child's finished work to keep a screen tidy is the
+    wrong trade for a display the point of which is to show what was done. The
+    stage scrolls, so a long day gets longer rather than becoming a lie.
+
+    `labels` renames groups after the day being looked at.
     """
     labels = labels or {}
     groups = []
@@ -156,16 +158,13 @@ def _groups(buckets, labels: dict | None = None) -> list[dict]:
         tasks = buckets.get(key) or []
         if not tasks:
             continue
-        tasks = sorted(tasks, key=_sort_key)
-        limit = GROUP_LIMITS[key]
         groups.append(
             {
                 "key": key,
                 "name": name,
                 "tone": tone,
-                "tasks": tasks[:limit],
+                "tasks": sorted(tasks, key=_sort_key),
                 "total": len(tasks),
-                "hidden": max(0, len(tasks) - limit),
             }
         )
     return groups
@@ -237,7 +236,15 @@ def _bucket(tasks, on_date: date, rule_date: date | None = None) -> dict:
     for task in tasks:
         due = task.get("due_date")
         if task.get("status") == "Done":
-            if task.get("completed_date") == today:
+            # Keyed on the day the work was *for*, not the day it was finished.
+            #
+            # 481 of 1158 completed chores in the live data were ticked on a day
+            # other than their due date, so keying the group on completion date
+            # filed a chore due the 27th under the 29th, next to work that had
+            # nothing to do with it. Undoing it from the 29th then cleared the
+            # completion and the task left the day you were looking at entirely,
+            # reappearing on the 27th where nobody was. One task, one day.
+            if due == today:
                 out["done"].append(_task_entry(task, on_date, rule_date))
             continue
         if is_task_overdue(task):
@@ -422,24 +429,23 @@ def build_board_payload(
     real_today = date.today()
     is_selected_today = on_date == real_today
     day_label = f"{WEEKDAYS[on_date.weekday()]} {on_date.day} {on_date:%b %Y}"
-    # The wall is a short-horizon action surface, not an archive. Selecting a
-    # day shows the work due on it, plus whatever was *finished* on it: a chore
-    # due Sunday and ticked Monday happened on Monday, and filtering on the due
-    # date alone left every day but the one that day was due looking untouched.
+    # The wall is a short-horizon action surface, not an archive. A day shows
+    # the work due on it, and the finished work from that same day.
+    #
+    # It used to also pull in anything *completed* on the day, which is how a
+    # chore due Sunday and ticked Monday came to sit under Monday. That put
+    # someone else's date on it: a task that is not due today has no business in
+    # today's list, and undoing it from the wrong day moved it across the strip
+    # instead of bringing it back. A task belongs to its own day or to no day.
     visible_tasks = (
-        [
-            task for task in tasks
-            if task.get("due_date") == iso or task.get("completed_date") == iso
-        ]
-        if compact
-        else tasks
+        [task for task in tasks if task.get("due_date") == iso] if compact else tasks
     )
-    # The finished group is a record of the chosen day, so it is named after it,
-    # as is the day's own workload column.
-    group_labels = {
-        "done": "Done today" if is_selected_today else f"Done on {day_label}"
-    }
+    group_labels = {}
     if not is_selected_today:
+        # The day's own workload column is the only heading that needs the date.
+        # "Today" and "Done today" used to be hardcoded, so choosing any other
+        # day produced a column headed "Today" listing that day's work -- a wall
+        # board contradicting itself about which day it was on.
         group_labels["today"] = day_label
 
     # Kids and parents get lanes too. They are the same shape of work, and
@@ -456,13 +462,12 @@ def build_board_payload(
 
     day_tasks = [t for t in visible_tasks if t.get("due_date") == iso]
     open_today = [t for t in day_tasks if t.get("status") != "Done"]
-    # Counted off the visible set rather than the day's workload, so the header
-    # number and the Done group agree -- including for the Sunday-chore-ticked-
-    # on-Monday case the due-date filter exists to show.
-    done_today = [
-        t for t in visible_tasks
-        if t.get("status") == "Done" and t.get("completed_date") == iso
-    ]
+    # Counted off the day's own tasks rather than the whole visible set, so the
+    # header number and the Done group agree, and so the unfiltered everyone
+    # view does not count every finished chore in the family. Both sides are
+    # keyed on the due date now, so "6 done" and the six rows underneath it are
+    # the same six tasks.
+    done_today = [t for t in day_tasks if t.get("status") == "Done"]
     all_overdue = [t for t in tasks if is_task_overdue(t)]
 
     return {

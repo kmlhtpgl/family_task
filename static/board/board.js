@@ -274,12 +274,10 @@
     });
     node.appendChild(svg("path", { class: "arc__track", d: pathThrough(all) }));
 
-    /* There is no progress fill here, and there should not be. It ran from the
-       left edge to today to answer "how far through the week are we", which only
-       means something when future days are on the strip. The strip is today and
-       the two days behind it, so today is always the rightmost node and the fill
-       would cover the whole track every single time -- a picture of progress
-       that never moves. Three discs, today the big one, tell the truth instead. */
+    /* There is no progress fill here, and there still should not be. Each disc
+       already carries that day's own completion percentage, so a bar running
+       along the track would be summing a week into one number and implying a
+       trend the individual days do not show. */
 
     arc.forEach(function (day, i) {
       var p = pointAt(i);
@@ -296,19 +294,36 @@
       });
 
       var pct = day.ratio == null ? "–" : Math.round(day.ratio * 100) + "%";
+      /* The big bright disc is the day the board is *showing*, which is the day
+         a tap would act on. It used to be the real today, so browsing back made
+         the selected day look like an ordinary node while the day you were not
+         on was the one lit up. The real today keeps its own ring instead, in
+         board.css, so the two are never the same signal. */
       g.appendChild(
-        svg("circle", { class: "arc__disc", r: day.is_today ? 21 : 17 })
+        svg("circle", { class: "arc__disc", r: day.is_selected ? 21 : 17 })
       );
       var label = svg("text", { class: "arc__pct", y: 0 });
       label.textContent = pct;
       g.appendChild(label);
       node.appendChild(g);
 
-      var num = svg("text", { class: "arc__num", x: p.x, y: p.y + 40 });
+      var num = svg("text", {
+        class: "arc__num" + (day.is_today ? " arc__num--today" : ""),
+        x: p.x,
+        y: p.y + 40,
+      });
       num.textContent = String(day.day);
       node.appendChild(num);
 
-      var dow = svg("text", { class: "arc__day", x: p.x, y: p.y + 55 });
+      /* The day name is tagged rather than styled through a sibling selector,
+         because the labels are siblings of the node groups, not children. A
+         sibling combinator here would light up every label to the right of
+         today. */
+      var dow = svg("text", {
+        class: "arc__day" + (day.is_today ? " arc__day--today" : ""),
+        x: p.x,
+        y: p.y + 55,
+      });
       dow.textContent = day.relative || day.label;
       node.appendChild(dow);
 
@@ -580,8 +595,11 @@
     var node = el("div", "group" + (group.tone ? " group--" + group.tone : ""));
     var label = el("div", "group__label");
     label.appendChild(el("div", "group__name", group.name));
-    /* The count is the real total, not what fits on screen, so the board never
-       implies there is less left than there is. */
+    /* There is no "+N more" line any more, and no cap in Python to make one.
+       It used to point at the classic app for the overflow, which was a worse
+       answer than showing the work: on a day with 14 chores finished, six of
+       them were off the wall with the board itself naming where to look. Every
+       task is listed now, so the count is simply how many rows follow. */
     label.appendChild(
       el(
         "div",
@@ -595,17 +613,6 @@
     group.tasks.forEach(function (task, i) {
       items.appendChild(buildTask(task, i));
     });
-
-    if (group.hidden) {
-      var more = el("div", "more");
-      more.appendChild(
-        el("span", null, "+" + group.hidden + " more " + group.name.toLowerCase())
-      );
-      more.appendChild(
-        el("small", null, "shown in the classic app")
-      );
-      items.appendChild(more);
-    }
 
     node.appendChild(items);
     return node;

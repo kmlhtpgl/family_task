@@ -249,13 +249,10 @@ body {
   stroke-width: 2;
 }
 
-/* There is no arc__fill any more. It ran from the left edge to today to answer
-   "how far through the week are we", which needs future days on the strip to
-   mean anything. The strip is today and the two days behind it, so today is
-   always the rightmost node and the fill covered the whole track every time --
-   a picture of progress that never moved. The track and the per-day discs carry
-   the same information honestly. Kept as a note because the gradient in
-   board.js is still there for the track's future use. */
+/* There is no arc__fill any more. It ran from the left edge to today, but each
+   disc already carries that day's own completion percentage, so a bar along the
+   track would sum a week into one number and imply a trend the individual days
+   do not show. The per-day discs are the honest version of that. */
 
 .arc__halo {
   fill: none;
@@ -279,7 +276,11 @@ body {
   transition: fill var(--dur) var(--ease), stroke var(--dur) var(--ease);
 }
 
-.arc__node--today .arc__disc {
+/* The day being browsed gets the big bright disc. It is the day a tap acts on,
+   so it is the one the wall should point at. This used to be the real today,
+   which meant browsing back to Monday left the selected day as an ordinary node
+   and lit up the day you were not on. */
+.arc__node--selected .arc__disc {
   fill: var(--accent);
   stroke: oklch(0.9 0.12 232);
   stroke-width: 2.5;
@@ -290,21 +291,27 @@ body {
   stroke: var(--hairline);
 }
 
-/* The day being browsed, as a ring around the node.
-   Deliberately not a fill: a selected past day would otherwise look identical to
-   today, and a big accent disc on Monday is how the wall ended up labelling
-   Monday as today. The ring reads on an empty day too, where a fill would
-   vanish into the surface. */
-.arc__node--selected .arc__disc {
-  stroke: var(--accent);
-  stroke-width: 3.5;
+/* An empty day that is also the selected one still needs the fill, otherwise
+   selecting a day with nothing on it gives the one node on the strip that does
+   not look selected. Declared after --empty so it wins the same specificity. */
+.arc__node--selected.arc__node--empty .arc__disc {
+  fill: var(--accent);
+  stroke: oklch(0.9 0.12 232);
 }
 
-/* Today wins the fill; the ring goes round it so the selected day is still
-   marked when today and the selection are the same node. */
+/* The real today, when it is not the selected day, is a thin bright ring on a
+   normal-size disc. A ring rather than a second fill so the two never compete:
+   one big bright disc, one outlined one, readable from across a room. When
+   today *is* the selected day it is already the bright disc and this only
+   thickens the stroke. */
+.arc__node--today .arc__disc {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
 .arc__node--today.arc__node--selected .arc__disc {
   stroke: oklch(0.9 0.12 232);
-  stroke-width: 4;
+  stroke-width: 3.5;
 }
 
 .arc__pct {
@@ -316,14 +323,20 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.arc__node--today .arc__pct {
-  /* Dark on the bright today node; the one inverted pair on the board. */
+.arc__node--selected .arc__pct {
+  /* Dark on the bright selected disc; the one inverted pair on the board. */
   fill: var(--surface-0);
 }
 
 .arc__node--empty .arc__pct {
   fill: var(--faint);
   font-weight: 500;
+}
+
+/* An empty selected day still has a bright disc under it, so it keeps the dark
+   figure rather than the faint one used for the other empty days. */
+.arc__node--selected.arc__node--empty .arc__pct {
+  fill: var(--surface-0);
 }
 
 .arc__day {
@@ -338,6 +351,14 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* The real today, in full brightness, whether or not it is the day being
+   browsed. The ring on the disc already says "today"; the name under it has to
+   survive being read from across the room, and the two flags are separate days
+   as soon as you browse. */
+.arc__day--today {
+  fill: var(--muted);
+}
+
 .arc__num {
   fill: var(--muted);
   font-size: 13px;
@@ -346,7 +367,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.arc__node--today .arc__num {
+.arc__num--today {
   fill: var(--text);
 }
 
