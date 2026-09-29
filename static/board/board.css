@@ -249,14 +249,13 @@ body {
   stroke-width: 2;
 }
 
-.arc__fill {
-  fill: none;
-  stroke: url(#arc-grad);
-  stroke-width: 3;
-  stroke-linecap: round;
-  /* Drawn from today outwards, so the stroke grows as the day fills. */
-  transition: stroke-dashoffset var(--dur) var(--ease-out);
-}
+/* There is no arc__fill any more. It ran from the left edge to today to answer
+   "how far through the week are we", which needs future days on the strip to
+   mean anything. The strip is today and the two days behind it, so today is
+   always the rightmost node and the fill covered the whole track every time --
+   a picture of progress that never moved. The track and the per-day discs carry
+   the same information honestly. Kept as a note because the gradient in
+   board.js is still there for the track's future use. */
 
 .arc__halo {
   fill: none;
@@ -289,6 +288,23 @@ body {
 .arc__node--empty .arc__disc {
   fill: var(--surface-0);
   stroke: var(--hairline);
+}
+
+/* The day being browsed, as a ring around the node.
+   Deliberately not a fill: a selected past day would otherwise look identical to
+   today, and a big accent disc on Monday is how the wall ended up labelling
+   Monday as today. The ring reads on an empty day too, where a fill would
+   vanish into the surface. */
+.arc__node--selected .arc__disc {
+  stroke: var(--accent);
+  stroke-width: 3.5;
+}
+
+/* Today wins the fill; the ring goes round it so the selected day is still
+   marked when today and the selection are the same node. */
+.arc__node--today.arc__node--selected .arc__disc {
+  stroke: oklch(0.9 0.12 232);
+  stroke-width: 4;
 }
 
 .arc__pct {

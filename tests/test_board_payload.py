@@ -28,43 +28,100 @@ def test_payload_is_json_serialisable():
     json.dumps(payload())  # must not raise
 
 
-def test_arc_offers_a_whole_week_to_choose_from():
-    """Seven cells: three days back through three days ahead.
+def test_the_strip_offers_today_and_the_two_days_before_it():
+    """Three cells, and no future ones.
 
-    The picker showed three days, so "what was on Saturday" had no answer on a
-    board whose whole job is answering that from across a room.
+    The strip ran three days either side, so a child could walk forward onto
+    Tuesday while the real date was Sunday. Every task there is not yet due, and
+    `can_mark_done` refuses those, so the day was all locked rows: an
+    inviting, tappable-looking row that said no when touched. A picker that
+    leads nowhere is worse than a picker that stops.
+
+    Two days back is what the board is actually for: recording what was done
+    and fixing a mis-click. The rest of the week is the classic app's job.
     """
     arc = payload()["arc"]
-    assert len(arc) == 7
-    assert [d["is_today"] for d in arc].count(True) == 1
-    assert [d["is_past"] for d in arc] == [True] * 3 + [False] * 4
-    assert [d["is_future"] for d in arc] == [False] * 4 + [True] * 3
-    # Anchored on today, so it is the middle cell and the arc is contiguous.
-    assert arc[3]["date"] == date.today().isoformat()
+    today = date.today()
+
+    assert len(arc) == 3
     assert [d["date"] for d in arc] == [
-        (date.today() + timedelta(days=n)).isoformat() for n in range(-3, 4)
+        (today + timedelta(days=n)).isoformat() for n in range(-2, 1)
     ]
-    assert [d["is_real_today"] for d in arc].count(True) == 1
+    assert [d["is_past"] for d in arc] == [True, True, False]
+    # Nothing on the strip is in the future, so nothing on it can be locked.
+    assert not any(d["is_future"] for d in arc)
+    # Anchored on today, which is the rightmost cell.
+    assert arc[-1]["date"] == today.isoformat()
+
+
+def test_the_real_today_is_not_moved_by_browsing_back():
+    """Today stays today however far back the strip is scrolled.
+
+    `is_today` and `is_selected` were one flag, so selecting yesterday enlarged
+    yesterday, filled the arc up to yesterday, and captioned it "Today" while
+    the real today sat next to it unlabelled. The wall was pointing at the
+    wrong day while naming it the right one.
+    """
+    yesterday = date.today() - timedelta(days=1)
+    result = build_board_payload(sample_data(), on_date=yesterday)
+    arc = result["arc"]
+
+    assert [d["is_today"] for d in arc] == [False, False, True]
+    assert [d["is_selected"] for d in arc] == [False, True, False]
+    # The day being browsed is announced separately from the real one.
+    assert result["is_selected_today"] is False
+    assert result["today"] == date.today().isoformat()
+    # Exactly one of each, so the canvas cannot end up with two "today" discs.
+    assert [d["is_today"] for d in arc].count(True) == 1
+    assert [d["is_selected"] for d in arc].count(True) == 1
+
+
+def test_browsing_today_marks_today_as_both():
+    """The common case has to stay unambiguous rather than double-marked."""
+    arc = payload()["arc"]
+    today_cell = next(d for d in arc if d["is_today"])
+    assert today_cell["is_selected"] is True
+    assert payload()["is_selected_today"] is True
+
+
+def test_every_day_on_the_strip_can_honestly_be_ticked_on():
+    """The point of the new bound: nothing on the strip is a trap.
+
+    Any day the board offers has to have at least one tickable row, or the day
+    is a dead end. A future day had rows and none of them were allowed.
+    """
+    result = build_board_payload(sample_data(), on_date=date.today())
+    for cell in result["arc"]:
+        lane_rows = [
+            t
+            for lane in result["lanes"]
+            for group in lane["groups"]
+            for t in group["tasks"]
+            if t["due"] == cell["date"]
+        ]
+        # Fixture task 1 is due today and tickable; the strip is small enough
+        # that every cell either has work or is genuinely empty.
+        if lane_rows:
+            assert any(t["action"] == "complete" for t in lane_rows), cell["date"]
+        assert not any(t["lock"] == "future" for t in lane_rows), cell["date"]
 
 
 def test_only_the_days_around_today_are_called_yesterday_or_tomorrow():
-    """A seven-day strip has four days that are neither.
+    """Relative names stay off the days they do not describe.
 
     The old three-case expression returned "Tomorrow" for every future offset
     and "Yesterday" for every past one, so a wider strip would have called
-    Saturday "Tomorrow" and Monday "Yesterday".
+    Saturday "Tomorrow" and Monday "Yesterday". Only the adjacent days get a
+    relative name; the rest fall back to the weekday.
     """
     arc = payload()["arc"]
     by_date = {d["date"]: d for d in arc}
     today = date.today()
     assert by_date[(today - timedelta(days=1)).isoformat()]["relative"] == "Yesterday"
     assert by_date[today.isoformat()]["relative"] == "Today"
-    assert by_date[(today + timedelta(days=1)).isoformat()]["relative"] == "Tomorrow"
-    for offset in (-3, -2, 2, 3):
-        cell = by_date[(today + timedelta(days=offset)).isoformat()]
-        assert cell["relative"] is None
-        # The canvas falls back to the weekday, so the cell is still named.
-        assert cell["label"]
+    assert by_date[(today - timedelta(days=2)).isoformat()]["relative"] is None
+    # The canvas falls back to the weekday, so the cell is still named.
+    assert by_date[(today - timedelta(days=2)).isoformat()]["label"]
 
 
 def test_arc_measures_each_day_against_itself():
@@ -127,14 +184,89 @@ def test_arc_marks_an_empty_day_empty_rather_than_complete():
     assert all(d["total"] == 0 and d["done"] == 0 and d["open"] == 0 for d in arc)
 
 
-def test_future_day_counts_only_what_is_due_then():
-    arc = payload()["arc"]
-    tomorrow = next(d for d in arc if d["is_future"])
-    # Fixture task 2 is due tomorrow and still open, so nothing is done.
-    assert tomorrow["total"] == 1
-    assert tomorrow["open"] == 1
-    assert tomorrow["done"] == 0
-    assert tomorrow["ratio"] == 0
+def test_a_future_dated_view_does_not_unlock_a_task_that_is_not_due_yet():
+    """The tick rule is asked about *now*, whoever is looking.
+
+    The rule used to be evaluated against the day being viewed, so a payload
+    built for a future day reported a not-yet-due task as tickable. The strip no
+    longer offers a future day, which hides the path, but the payload is a public
+    function and the board page is not its only caller: anything rendering a
+    future day would have gotten rows that offer a tick the write path refuses.
+
+    So the rule is pinned to the real today here rather than to the day in the
+    argument, and this test fails if that ever drifts back.
+    """
+    tomorrow = date.today() + timedelta(days=1)
+    result = build_board_payload(sample_data(), on_date=tomorrow)
+    rows = [
+        t
+        for lane in result["lanes"]
+        for group in lane["groups"]
+        for t in group["tasks"]
+    ]
+    not_yet_due = [t for t in rows if t["due"] == tomorrow.isoformat()]
+
+    # Fixture task 2 is due tomorrow. Whether or not a future view lists it, it
+    # cannot be tickable while the real date is still today.
+    assert not_yet_due
+    for row in not_yet_due:
+        assert row["lock"] == "future", row
+        assert row["action"] is None, row
+
+
+def test_every_day_the_board_offers_agrees_with_the_write_path():
+    """The row and the write must ask the rule the same question.
+
+    The payload decides whether a row shows a tick and `complete_task` decides
+    independently whether to honour it. If they ever ask about different days,
+    one of them is lying to a child, and the board offers actions it will then
+    refuse -- which is the bug this suite exists to keep out.
+
+    Compared against `can_mark_done` rather than by calling `complete_task`,
+    because the rule is the whole question here: this is a check that the
+    payload asks it, not a test of the write, and doing a write to ask it would
+    mean a test that can only pass by touching a database.
+    """
+    from utils.task_helpers import can_mark_done
+
+    checked = 0
+    for offset in (-2, -1, 0):
+        day = date.today() + timedelta(days=offset)
+        data = sample_data()
+        result = build_board_payload(data, on_date=day)
+        by_id = {t["id"]: t for t in data["tasks"]}
+        for lane in result["lanes"]:
+            for group in lane["groups"]:
+                for row in group["tasks"]:
+                    # The same call the write path makes, on the real today.
+                    allowed, reason = can_mark_done(by_id[row["id"]])
+                    assert (row["lock"] is None) == allowed, (
+                        f"row {row['id']} on {day}: payload says lock={row['lock']!r}, "
+                        f"the rule says {allowed} ({reason})"
+                    )
+                    if row["action"] == "complete":
+                        assert allowed, f"row {row['id']} offers a tick the rule refuses"
+                        checked += 1
+    # If this ever asserts over nothing, the fixture no longer exercises the
+    # rule and the test is passing for the wrong reason.
+    assert checked > 0
+
+
+def test_tomorrows_tasks_are_counted_but_never_listed():
+    """A not-yet-due task is real work, and it is not today's problem.
+
+    The strip no longer reaches tomorrow, but the lane still counts it: the child
+    should be able to see that Friday is filling up, without Friday's rows
+    cluttering today. So the count has to include it while the listing leaves it
+    out, and the total has to stay honest about the difference.
+    """
+    result = build_board_payload(sample_data(), on_date=date.today())
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    # Fixture task 2 is due tomorrow and still open.
+    assert not any(d["date"] == tomorrow for d in result["arc"])
+    lane = result["lanes"][0]
+    listed = {t["id"] for group in lane["groups"] for t in group["tasks"]}
+    assert 2 not in listed
 
 
 def test_people_carry_kids_then_parents_with_stable_accents():
@@ -656,7 +788,7 @@ def test_totals_progress_is_none_on_an_empty_day():
 
 def test_a_day_with_no_data_still_renders_every_cell():
     empty = build_board_payload({**sample_data(), "tasks": []}, on_date=date.today())
-    assert len(empty["arc"]) == 7
+    assert len(empty["arc"]) == 3
     # One lane per person, kids and parents, all empty. A person whose lane is
     # clear still belongs on the board; the board must not quietly drop them
     # because they finished.
@@ -689,7 +821,7 @@ def test_missing_tables_do_not_explode():
     assert result["people"] == []
     assert result["lanes"] == []
     assert result["totals"]["overdue"] == 0
-    assert len(result["arc"]) == 7
+    assert len(result["arc"]) == 3
 
 
 def test_overdue_days_is_sent_so_the_canvas_can_explain_the_rule():

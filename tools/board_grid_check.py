@@ -108,6 +108,74 @@ def open_a_lane(page):
     return frame, None
 
 
+ARC_MEASURE = """() => {
+  const nodes = Array.from(document.querySelectorAll('.arc__node'));
+  return {
+    total: nodes.length,
+    today: nodes.filter(function (n) { return n.classList.contains('arc__node--today'); }).length,
+    selected: nodes.filter(function (n) { return n.classList.contains('arc__node--selected'); }).length,
+    both: nodes.filter(function (n) {
+      return n.classList.contains('arc__node--today') && n.classList.contains('arc__node--selected');
+    }).length,
+    // The big disc is the one drawn at the larger radius, so "which day is
+    // drawn as today" is read off the radius rather than off the class the
+    // canvas sets, which would only prove the canvas agrees with itself.
+    discRadii: nodes.map(function (n) {
+      const d = n.querySelector('.arc__disc');
+      return d ? d.getAttribute('r') : null;
+    }),
+    labels: nodes.map(function (n) { return n.getAttribute('aria-label'); }),
+    fills: document.querySelectorAll('.arc__fill').length,
+  };
+}"""
+
+
+def check_arc(page, label):
+    """The strip has to be three days, with today and the selection apart.
+
+    Read from the rendered DOM, including the disc radius, because the bug this
+    guards was a day drawn large and captioned "Today" while the real today sat
+    beside it. The classes alone would not have caught it.
+    """
+    frame = board_frame(page)
+    if frame is None:
+        raise SystemExit(f"{label}: no board frame")
+    arc = frame.evaluate(ARC_MEASURE)
+
+    problems = []
+    print(
+        f"    arc nodes={arc['total']} today={arc['today']} "
+        f"selected={arc['selected']} both={arc['both']} radii={arc['discRadii']}"
+    )
+    for text in arc["labels"]:
+        print(f"        {text}")
+    if arc["total"] != 3:
+        problems.append(f"{arc['total']} day cells, want 3 (today and the two before)")
+    if arc["today"] != 1:
+        problems.append(f"{arc['today']} day(s) drawn as today, want exactly 1")
+    if arc["selected"] != 1:
+        problems.append(f"{arc['selected']} day(s) drawn as selected, want exactly 1")
+    if arc["both"] != 1:
+        problems.append(
+            f"{arc['both']} day(s) drawn as both today and selected, want 1 -- "
+            "browsing today marks the same day twice"
+        )
+    if len({r for r in arc["discRadii"] if r}) < 2:
+        problems.append("every day is drawn the same size, so today is not emphasised")
+    if arc["fills"]:
+        problems.append(
+            f"{arc['fills']} progress fill(s) drawn, want 0 -- with today as the "
+            "rightmost cell it covers the whole track and means nothing"
+        )
+    # The real today must be the emphasised one, on the default view. Browsing
+    # back is what used to move the emphasis onto the wrong day.
+    if arc["both"] != 1 or arc["discRadii"][-1] is None:
+        problems.append("could not confirm today is the rightmost cell")
+    for problem in problems:
+        print(f"    FAIL {problem}")
+    return not problems
+
+
 def check(page, label, expect_tracks, expect_two_up):
     frame, who = open_a_lane(page)
     if frame is None:
@@ -205,6 +273,7 @@ def main():
                         print(f"    retrying after settle failed: {type(exc).__name__}")
                         page.wait_for_timeout(3000)
                 ok = check(page, label, tracks, two_up) and ok
+                ok = check_arc(page, label) and ok
                 if errors:
                     print(f"    FAIL page errors: {errors}")
                     ok = False

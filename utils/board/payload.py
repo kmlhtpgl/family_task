@@ -27,11 +27,14 @@ from utils.task_helpers import (
 # on a wall without turning into a month strip nobody can scan from across a room.
 ARC_PAST = 3
 ARC_FUTURE = 3
-# The picker offers a full week, the same span the accounting horizon already
-# covers. It showed three days, which made "what was on Saturday" unanswerable
-# on a board whose whole job is answering that from across a room.
-DISPLAY_ARC_PAST = 3
-DISPLAY_ARC_FUTURE = 3
+# The picker offers the real today and the two days before it, and nothing else.
+# It showed three either side, which let a child walk onto a future day where
+# every task reads as live but none of them can honestly be ticked -- a row that
+# looks tickable and refuses is worse than not being offered. Two days back is
+# enough to record what was done and to correct a mis-click; the rest of the
+# week is the classic app's job.
+DISPLAY_ARC_PAST = 2
+DISPLAY_ARC_FUTURE = 0
 
 # Curated, not hashed. A wall display is looked at by name, so a person's colour
 # has to be the same every render and recognisable at a distance.
@@ -88,9 +91,24 @@ def initials(name: str) -> str:
     return (parts[0][0] + parts[-1][0]).upper()
 
 
-def _task_entry(task, on_date: date) -> dict:
-    """One task, with the tick rule already decided."""
-    allowed, reason = can_mark_done(task, on_date=on_date)
+def _task_entry(task, on_date: date, rule_date: date) -> dict:
+    """One task, with the tick rule already decided.
+
+    `on_date` is the day being looked at and decides what the row is *about*:
+    whether it reads as late, and which day it belongs to. `rule_date` decides
+    whether it may be *ticked*, and is always the real today.
+
+    Those used to be the same day, which meant the board asked a question on
+    yesterday's behalf using tomorrow's rules. Browsing to a future day, a task
+    due then passed the rule -- it was not late, and it was not in the past --
+    so the row rendered a live tick that the write path then refused with "Not
+    due yet". The wall offered an action and withdrew it on contact.
+
+    Asking the real question -- may this be ticked *now* -- keeps the row and
+    the write in agreement, and it is the honest one: you cannot tick tomorrow's
+    chores today by looking at tomorrow.
+    """
+    allowed, reason = can_mark_done(task, on_date=rule_date)
     due = task.get("due_date")
     return {
         "id": task.get("id"),
@@ -184,13 +202,17 @@ def _sort_key(entry: dict) -> tuple:
     return (text.casefold(), text, 0, task_id)
 
 
-def _bucket(tasks, on_date: date) -> dict:
+def _bucket(tasks, on_date: date, rule_date: date | None = None) -> dict:
     """Split one person's open tasks by when they are pressing.
 
     "anytime" holds tasks with no due date. They are dropped from the day
     counts by definition, but `can_mark_done` has always allowed them, so hiding
     them from the board would make live work look like it does not exist.
+
+    `rule_date` is the real today and only reaches `_task_entry`; the splitting
+    itself is all relative to the day being looked at.
     """
+    rule_date = rule_date or on_date
     out = {
         "overdue": [],
         "today": [],
@@ -216,16 +238,16 @@ def _bucket(tasks, on_date: date) -> dict:
         due = task.get("due_date")
         if task.get("status") == "Done":
             if task.get("completed_date") == today:
-                out["done"].append(_task_entry(task, on_date))
+                out["done"].append(_task_entry(task, on_date, rule_date))
             continue
         if is_task_overdue(task):
-            out["overdue"].append(_task_entry(task, on_date))
+            out["overdue"].append(_task_entry(task, on_date, rule_date))
         elif not due:
-            out["anytime"].append(_task_entry(task, on_date))
+            out["anytime"].append(_task_entry(task, on_date, rule_date))
         elif due <= today:
-            out["today"].append(_task_entry(task, on_date))
+            out["today"].append(_task_entry(task, on_date, rule_date))
         elif due <= horizon:
-            out["later"].append(_task_entry(task, on_date))
+            out["later"].append(_task_entry(task, on_date, rule_date))
         else:
             out["scheduled"] += 1
     return out
@@ -259,8 +281,14 @@ def build_arc(tasks, on_date: date, anchor_date: date | None = None) -> list[dic
                 "date": iso,
                 "label": WEEKDAYS[day.weekday()],
                 "day": day.day,
-                "is_today": day == on_date,
-                "is_real_today": day == anchor_date,
+                # Two flags, because "today" and "the day you are looking at"
+                # are two different days as soon as you browse back. They used to
+                # share one, so selecting yesterday enlarged Monday, filled the
+                # arc up to Monday, and called Monday "Today" -- while the real
+                # Tuesday sat beside it unlabelled. The wall was pointing at the
+                # wrong day and calling it the right one.
+                "is_today": day == anchor_date,
+                "is_selected": day == on_date,
                 "relative": RELATIVE_LABELS.get(offset),
                 "is_past": offset < 0,
                 "is_future": offset > 0,
@@ -341,11 +369,18 @@ def build_people(data, tasks, on_date: date) -> list[dict]:
     return people
 
 
-def _build_lane(kind: str, person: dict, tasks: list, on_date: date, labels: dict) -> dict:
+def _build_lane(
+    kind: str,
+    person: dict,
+    tasks: list,
+    on_date: date,
+    labels: dict,
+    rule_date: date | None = None,
+) -> dict:
     """One person's column of work, for a child or a parent alike."""
     owner = "kid_id" if kind == "kid" else "parent_id"
     own = [t for t in tasks if t.get(owner) == person["id"]]
-    buckets = _bucket(own, on_date)
+    buckets = _bucket(own, on_date, rule_date)
     name = person.get("name")
     return {
         "kind": kind,
@@ -412,10 +447,10 @@ def build_board_payload(
     # to the everyone view. Identity is (kind, id) rather than id alone: the two
     # tables number independently, so kid 1 and parent 1 are different people.
     lanes = [
-        _build_lane("kid", kid, visible_tasks, on_date, group_labels)
+        _build_lane("kid", kid, visible_tasks, on_date, group_labels, rule_date=real_today)
         for kid in data.get("kids", [])
     ] + [
-        _build_lane("parent", parent, visible_tasks, on_date, group_labels)
+        _build_lane("parent", parent, visible_tasks, on_date, group_labels, rule_date=real_today)
         for parent in data.get("parents", [])
     ]
 

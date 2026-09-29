@@ -23,6 +23,7 @@ import pytest
 import streamlit as st
 
 from tests.fixtures import sample_data
+from utils.board.payload import build_board_payload
 from utils.board.actions import COMPLETE, REOPEN, apply_action, complete_task, reopen_task
 
 
@@ -47,13 +48,21 @@ def _task(data, task_id):
     return next(t for t in data["tasks"] if t["id"] == task_id)
 
 
-def _completion_update():
-    today = dt.date.today()
-    year, week, _ = today.isocalendar()
+def _completion_update(on_date=None):
+    """The row a completion is expected to write.
+
+    The week is unpadded to match `current_week_key`, which is what the weekly
+    point totals compare against. These tests ran for months agreeing on that by
+    accident: the only weeks where padding matters are the first nine, and no
+    test fixed a date in one, so "W05" against a "W5" would have gone unnoticed
+    until January -- and it would have cost a child their points.
+    """
+    day = on_date or dt.date.today()
+    year, week, _ = day.isocalendar()
     return {
         "status": "Done",
-        "completed_date": today.isoformat(),
-        "completed_week": f"{year}-W{week:02d}",
+        "completed_date": day.isoformat(),
+        "completed_week": f"{year}-W{week}",
     }
 
 
@@ -106,7 +115,7 @@ def test_a_task_finished_late_reports_no_points(data, store):
             "due_date": (dt.date.today() - dt.timedelta(days=9)).isoformat(),
             "points": 20, "status": "Done",
             "completed_date": dt.date.today().isoformat(),
-            "completed_week": f"{dt.date.today().isocalendar()[0]}-W{dt.date.today().isocalendar()[1]:02d}",
+            "completed_week": _completion_update()["completed_week"],
             "repeat_type": "once", "created_at": dt.date.today().isoformat(),
         }
     )
@@ -115,11 +124,106 @@ def test_a_task_finished_late_reports_no_points(data, store):
     assert result["points"] == 0
 
 
+# ── The day the tick is booked to ────────────────────────────────────────────
+
+
+def test_a_tick_is_booked_to_the_day_being_looked_at(data, store):
+    """Recording yesterday's chore must not file it under today.
+
+    The board browses back two days so a job done yesterday can be recorded at
+    all. Booking that to the real today put the task in the "Done" group of a
+    different day to the one being looked at: it vanished off the wall in front
+    of the child and the day's total never moved. From across a room, a task
+    that leaves when you tick it looks like a board that has lost it.
+    """
+    yesterday = dt.date.today() - dt.timedelta(days=1)
+    result = complete_task(data, 1, on_date=yesterday)
+
+    assert result["ok"] is True
+    assert store.recorded("update_task") == [
+        {"task_id": 1, "updates": _completion_update(yesterday)}
+    ]
+    assert result["date"] == yesterday.isoformat()
+
+
+def test_the_week_key_follows_the_day_being_booked(data, store):
+    """A different day can be a different week, and the points are looked up by it.
+
+    The week number is not decoration: the weekly totals sum over tasks whose
+    `completed_week` equals the current one, so booking to the browsed day has to
+    write that day's week or the points get counted in a week nobody is reading.
+    """
+    last_week = dt.date.today() - dt.timedelta(days=7)
+    result = complete_task(data, 1, on_date=last_week)
+
+    assert result["ok"] is True
+    written = store.recorded("update_task")[0]["updates"]
+    assert written["completed_week"] == _completion_update(last_week)["completed_week"]
+    assert written["completed_week"] != _completion_update()["completed_week"]
+
+
+def test_a_tick_with_no_day_in_front_of_it_books_today(data, store):
+    """The default keeps the board usable outside the page.
+
+    A caller with no board in front of it -- an import, a test, anything reusing
+    this -- should get the old behaviour rather than a TypeError.
+    """
+    complete_task(data, 1)
+    assert store.recorded("update_task") == [
+        {"task_id": 1, "updates": _completion_update()}
+    ]
+
+
+def test_the_confirmation_says_which_day_was_booked(data, store):
+    """A tap is the only place a child is told what it did.
+
+    Two messages both reading "Read a book. 10 points." could have come from two
+    different days, which is the confusion the day-aware write exists to remove.
+    """
+    yesterday = dt.date.today() - dt.timedelta(days=1)
+    result = complete_task(data, 1, on_date=yesterday)
+
+    named = f"{yesterday:%a} {yesterday.day}"
+    assert named in result["message"]
+    assert "done for" in result["message"]
+
+
+def test_the_day_named_is_short_enough_to_read_on_a_tablet(data, store):
+    """A full written date wraps a confirmation on the board's own width."""
+    yesterday = dt.date.today() - dt.timedelta(days=1)
+    result = complete_task(data, 1, on_date=yesterday)
+    message = result["message"]
+
+    assert f"{yesterday:%B}" not in message
+    assert message.count("\n") == 0
+    assert len(message) < 60
+
+
 # ── Refused ─────────────────────────────────────────────────────────────────
 
 
 def test_a_future_task_cannot_be_completed(data, store):
     result = complete_task(data, 2)
+    assert result["ok"] is False
+    assert result["lock"] == "future"
+    assert store.recorded("update_task") == []
+
+
+def test_browsing_to_a_future_day_does_not_unlock_a_future_task(data, store):
+    """The tick rule is a fact about now, not about the day on screen.
+
+    The board used to ask this question using the day being looked at, so
+    browsing forward made a not-yet-due task pass: the row rendered a live tick
+    and the write then refused it with "Not due yet". The wall offered an action
+    and withdrew it on contact.
+
+    `on_date` here is the day the child is *looking* at. It must not become a
+    licence to tick a chore early -- you cannot do tomorrow's washing today by
+    navigating to tomorrow.
+    """
+    tomorrow = dt.date.today() + dt.timedelta(days=1)
+    result = complete_task(data, 2, on_date=tomorrow)
+
     assert result["ok"] is False
     assert result["lock"] == "future"
     assert store.recorded("update_task") == []
@@ -160,6 +264,69 @@ def test_the_lock_in_the_payload_is_not_what_decides(data, store):
     assert store.recorded("update_task") == []
 
 
+def test_apply_action_books_the_completion_to_the_browsed_day(data, store, session):
+    """The day travels through the action channel, not just the direct call.
+
+    `complete_task` booking to the browsed day is only worth anything if the page
+    passes that day in. This is the seam where it was dropped: `apply_action` took
+    no day, read the real one, and every tick through the board went to today.
+    """
+    yesterday = dt.date.today() - dt.timedelta(days=1)
+    result = apply_action(
+        data, {"verb": COMPLETE, "task_id": 1, "seq": 1}, on_date=yesterday
+    )
+
+    assert result["ok"] is True
+    assert store.recorded("update_task") == [
+        {"task_id": 1, "updates": _completion_update(yesterday)}
+    ]
+
+
+def test_apply_action_still_refuses_a_future_task_on_a_future_day(data, store, session):
+    """The rule is not something the caller can talk its way past.
+
+    The page now hands `apply_action` a day, so the day is an input to a write
+    for the first time. Passing a future one must not become a licence to tick
+    early -- that is the difference between a date and a permission.
+    """
+    tomorrow = dt.date.today() + dt.timedelta(days=1)
+    result = apply_action(
+        data, {"verb": COMPLETE, "task_id": 2, "seq": 1}, on_date=tomorrow
+    )
+
+    assert result["ok"] is False
+    assert result["lock"] == "future"
+    assert store.recorded("update_task") == []
+
+
+def test_apply_action_with_no_day_books_today(data, store, session):
+    """A caller that does not know about days keeps the old behaviour."""
+    result = apply_action(data, {"verb": COMPLETE, "task_id": 1, "seq": 1})
+
+    assert result["ok"] is True
+    assert store.recorded("update_task") == [
+        {"task_id": 1, "updates": _completion_update()}
+    ]
+
+
+def test_undo_is_never_told_which_day_to_book(data, store, session):
+    """Only a completion books a date.
+
+    An undo clears the completion rather than recording one, so the day on screen
+    is not an input to it. Handing it a date would invite somebody to later make
+    undo *set* a date, which is how a reopened task ends up stuck in a Done group.
+    """
+    yesterday = dt.date.today() - dt.timedelta(days=1)
+    result = apply_action(
+        data, {"verb": REOPEN, "task_id": 4, "seq": 1}, on_date=yesterday
+    )
+
+    assert result["ok"] is True
+    written = store.recorded("update_task")[0]["updates"]
+    assert written["completed_date"] is None
+    assert written["completed_week"] is None
+
+
 # ── Undo ────────────────────────────────────────────────────────────────────
 
 
@@ -176,6 +343,62 @@ def test_reopening_clears_the_completion(data, store):
             },
         }
     ]
+
+
+def test_a_past_day_tick_leaves_the_task_in_the_browsed_day_done_group(data, store):
+    """The whole reason for the fix, as one behaviour end to end.
+
+    Tick a task while browsing yesterday and the day's Done group has to gain it
+    and today's has to stay as it was. Before, the tick was written to today:
+    today's total jumped by one the child was not looking at, yesterday's did not
+    move, and the row they had just tapped disappeared from the board in front
+    of them. On a wall that reads as the board losing track of a job.
+    """
+    yesterday = dt.date.today() - dt.timedelta(days=1)
+    # The task is due yesterday, so it belongs to that day's lane and group.
+    # `store.data` rather than `data`: the stub applies the write to the copy
+    # the next render reads, which is what makes the assertion about the board
+    # rather than about the function's return value.
+    _task(store.data, 1)["due_date"] = yesterday.isoformat()
+
+    before = build_board_payload(store.data, on_date=yesterday)
+    assert 1 not in [t["id"] for t in _done(before, kid=1)]
+
+    complete_task(store.data, 1, on_date=yesterday)
+
+    after = build_board_payload(store.data, on_date=yesterday)
+    assert 1 in [t["id"] for t in _done(after, kid=1)]
+    # And today's Done group is untouched: the work was booked to yesterday.
+    today_after = build_board_payload(store.data, on_date=dt.date.today())
+    assert 1 not in [t["id"] for t in _done(today_after, kid=1)]
+
+
+def _done(payload, kid):
+    return [
+        t
+        for lane in payload["lanes"]
+        if lane["person_id"] == kid
+        for group in lane["groups"]
+        if group["key"] == "done"
+        for t in group["tasks"]
+    ]
+
+
+def test_undoing_from_a_past_day_returns_the_task_to_that_day(data, store):
+    """A wrong tick has to be undoable from where it was made.
+
+    The child taps something by mistake on Monday, goes back to Monday to fix it,
+    and the task reappears in Monday's list. If undo dropped the completion
+    without booking it anywhere, the task would fall out of every day at once and
+    be unreachable from the board entirely.
+    """
+    result = reopen_task(data, 4)
+    assert result["ok"] is True
+    written = store.recorded("update_task")[0]["updates"]
+    assert written["status"] == "Backlog"
+    assert written["completed_date"] is None
+    # The due date is untouched, so the task returns to the day it belongs to.
+    assert "due_date" not in written
 
 
 def test_reopening_is_never_gated_by_the_tick_rules(data, store):
@@ -373,3 +596,34 @@ def test_reopen_is_a_known_verb(data):
     from utils.board.actions import VERBS
 
     assert set(VERBS) == {COMPLETE, REOPEN}
+
+
+def test_the_page_passes_the_day_it_rendered_the_row_for():
+    """The JS half of the day-aware write, asserted on the source.
+
+    The page computes `on_date` to build the payload and then, previously, threw
+    it away and called `apply_action(data, action)`. Tests on the function would
+    have kept passing forever: `complete_task` books to the day it is *given*,
+    and the page was giving it none. So the call site itself has to be checked.
+    """
+    source = (Path(__file__).resolve().parent.parent / "app_pages" / "board.py").read_text()
+    assert "apply_action(data, action, on_date=on_date)" in source, (
+        "the board must hand the write the day it rendered the row for"
+    )
+
+
+def test_the_canvas_uses_today_and_the_selection_as_separate_facts():
+    """The arc has two ideas of "the day", and they are not the same day.
+
+    One flag drove the enlarged disc, the progress fill and the caption at once,
+    so browsing to yesterday made the wall call Monday "Today". Reading
+    `is_today` for today and `is_selected` for the ring is what keeps the
+    emphasis and the browsing in step; a single flag would be a one-word change
+    away from the bug coming straight back.
+    """
+    source = (Path(__file__).resolve().parent.parent / "static" / "board" / "board.js").read_text()
+    assert "day.is_today" in source, "today must still be marked as today"
+    assert "day.is_selected" in source, "the browsed day must be marked separately"
+    # The fill was driven by the selected day, which made it mean "how far back
+    # you have scrolled" rather than "how far through the week we are".
+    assert "arc__fill" not in source, "the progress fill went with the future days"

@@ -240,26 +240,6 @@
       "aria-hidden": "true",
     });
 
-    var defs = svg("defs");
-    var grad = svg("linearGradient", {
-      id: "arc-grad",
-      x1: "0",
-      x2: "1",
-      y1: "0",
-      y2: "0",
-    });
-    [
-      ["0%", "oklch(0.72 0.19 22)"],
-      ["50%", "oklch(0.78 0.16 232)"],
-      ["100%", "oklch(0.5 0.02 265)"],
-    ].forEach(function (stop) {
-      var s = svg("stop", { offset: stop[0] });
-      s.setAttribute("stop-color", stop[1]);
-      grad.appendChild(s);
-    });
-    defs.appendChild(grad);
-    node.appendChild(defs);
-
     var n = arc.length;
     var pad = 46;
     var usable = W - pad * 2;
@@ -294,28 +274,23 @@
     });
     node.appendChild(svg("path", { class: "arc__track", d: pathThrough(all) }));
 
-    /* The fill runs from the left edge to today, so a glance at the arc tells
-       you how far through the week the colour has got. */
-    var todayIndex = all.filter(function (i) {
-      return arc[i].is_today;
-    })[0];
-    if (todayIndex != null && todayIndex > 0) {
-      var fill = svg("path", { class: "arc__fill", d: pathThrough(all.slice(0, todayIndex + 1)) });
-      node.appendChild(fill);
-      var len = fill.getTotalLength();
-      fill.style.strokeDasharray = len;
-      fill.style.strokeDashoffset = len;
-      /* Force layout so the transition has a starting value to animate from. */
-      void fill.getBoundingClientRect();
-      fill.style.strokeDashoffset = "0";
-    }
+    /* There is no progress fill here, and there should not be. It ran from the
+       left edge to today to answer "how far through the week are we", which only
+       means something when future days are on the strip. The strip is today and
+       the two days behind it, so today is always the rightmost node and the fill
+       would cover the whole track every single time -- a picture of progress
+       that never moves. Three discs, today the big one, tell the truth instead. */
 
     arc.forEach(function (day, i) {
       var p = pointAt(i);
+      /* Today and the selected day are different flags on purpose. Browsing
+         back to Monday used to light Monday up as today, which made the wall
+         point at the wrong day while calling it the right one. */
       var g = svg("g", {
         class:
           "arc__node" +
           (day.is_today ? " arc__node--today" : "") +
+          (day.is_selected ? " arc__node--selected" : "") +
           (!day.total ? " arc__node--empty" : ""),
         transform: "translate(" + p.x + " " + p.y + ")",
       });
@@ -339,7 +314,12 @@
 
       g.setAttribute("role", "button");
       g.setAttribute("tabindex", "0");
-      g.setAttribute("aria-label", (day.relative || day.label) + " " + day.day);
+      /* Spoken as "Today", "Yesterday", or "Monday 28", so the two days are
+         never announced the same way. */
+      g.setAttribute(
+        "aria-label",
+        (day.relative ? day.relative + ", " : "") + day.label + " " + day.day
+      );
       g.addEventListener("click", function () {
         send("select_day", { date: day.date });
       });

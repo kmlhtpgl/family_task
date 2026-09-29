@@ -138,7 +138,10 @@ def board_page(refetch):
         mark_handled(action)
         st.rerun()
 
-    result = apply_action(data, action)
+    # The day being browsed is passed in rather than read again here, so the
+    # row a tap was rendered for and the day the write is booked to cannot be
+    # two different days: `on_date` is what built this very payload.
+    result = apply_action(data, action, on_date=on_date)
 
     # Only a real write needs a repaint. A refusal, or an action Streamlit
     # replayed, has nothing new to show, and rerunning for those would cost a

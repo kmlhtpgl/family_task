@@ -8,6 +8,14 @@ concrete:
   finished on or after its due date, and no more than OVERDUE_DAYS after it.
   Duplicating that rule in JavaScript would let the board drift away from the
   classic app the moment the rule changes.
+* A tick is booked to the day the board is *showing*, not the day the tap
+  happened. The board browses back two days so a job done yesterday can be
+  recorded, and booking it to today filed it under the wrong day: the task left
+  the "Done" group of the day being looked at and reappeared under today's,
+  which on a wall read as the board losing track of it. The payload already
+  decided the row was tickable for that day, so the write follows it there.
+  `app_pages/admin.py` books a Done task to the date it was assigned for, for
+  the same reason.
 * The payload already carries a `lock` per task, so the canvas can render a
   locked task honestly. It is a *display* of the rule, never a substitute for
   applying it. A browser that ignores `lock` gets no further than this module.
@@ -22,6 +30,7 @@ concrete:
 from datetime import date
 
 from utils import db_helpers
+from utils.board.payload import WEEKDAYS
 from utils.task_helpers import can_mark_done, get_effective_points
 
 COMPLETE = "complete"
@@ -71,8 +80,29 @@ def _write(task_id, updates) -> str | None:
     return None
 
 
-def complete_task(data: dict, task_id) -> dict:
-    """Mark a task Done, if the app's rules allow it right now."""
+def _day_label(day: date) -> str:
+    """How a day is named when a tick has to say which one it booked to.
+
+    Weekday and day number, no month: the board sits under a clock that already
+    shows the real date, so this only has to distinguish one day from another in
+    a line of text. "Mon 28" reads at a glance; "Monday 28 September 2026"
+    wraps on a tablet.
+    """
+    return f"{WEEKDAYS[day.weekday()]} {day.day}"
+
+
+def complete_task(data: dict, task_id, on_date: date | None = None) -> dict:
+    """Mark a task Done, if the app's rules allow it right now.
+
+    `on_date` is the day the board is showing, and it is what gets written.
+    Defaults to the real today so a caller with no board in front of it -- the
+    tests, and anything reusing this outside the page -- behaves as before.
+
+    The tick *rule* is deliberately not taken from `on_date`. Whether a task may
+    be completed is a fact about now: you cannot tick tomorrow's chores early by
+    browsing to tomorrow. The payload applies the same rule against the real
+    today so the row and the write cannot disagree about the same task.
+    """
     task = _find(data, task_id)
     if task is None:
         return {"ok": False, "task_id": task_id, "message": "That task no longer exists."}
@@ -96,11 +126,15 @@ def complete_task(data: dict, task_id) -> dict:
             "message": LOCK_MESSAGES.get(reason, "That task can't be completed now."),
         }
 
-    today = date.today()
-    year, week_num, _ = today.isocalendar()
+    booked = on_date or date.today()
+    year, week_num, _ = booked.isocalendar()
     updates = {
         "status": "Done",
-        "completed_date": today.isoformat(),
+        "completed_date": booked.isoformat(),
+        # Unpadded, to match `current_week_key`. The weekly point totals compare
+        # this string for equality, so "W05" against a "W5" that week would
+        # quietly award nothing -- and the only weeks where the two differ are
+        # the first few of January, which is exactly when nobody would look.
         "completed_week": f"{year}-W{week_num}",
     }
     failure = _write(task_id, updates)
@@ -115,16 +149,20 @@ def complete_task(data: dict, task_id) -> dict:
     # The points shown have to be the ones that will be awarded, which means
     # measuring after the write, not before it.
     awarded = get_effective_points({**task, **updates})
+    if awarded == 0:
+        detail = "0 points: it was overdue."
+    else:
+        detail = f"{awarded} points."
     return {
         "ok": True,
         "task_id": task_id,
         "points": awarded,
         "zero_points": awarded == 0,
-        "message": (
-            f"{task.get('title')} done, but 0 points: it was overdue."
-            if awarded == 0
-            else f"{task.get('title')} done. {awarded} points."
-        ),
+        "date": booked.isoformat(),
+        # The day is named because this is the only place a tap says what it
+        # did. Without it, booking yesterday's work looked identical to booking
+        # today's, which is the confusion the day-aware write exists to remove.
+        "message": f"{task.get('title')} done for {_day_label(booked)}. {detail}",
     }
 
 
@@ -167,8 +205,15 @@ def reopen_task(data: dict, task_id) -> dict:
 VERBS = {COMPLETE: complete_task, REOPEN: reopen_task}
 
 
-def apply_action(data: dict, action: dict | None) -> dict | None:
-    """Run one board action, or do nothing when there is not a new one."""
+def apply_action(data: dict, action: dict | None, on_date: date | None = None) -> dict | None:
+    """Run one board action, or do nothing when there is not a new one.
+
+    `on_date` is the day the board is showing. It is passed through rather than
+    read from session state so the action layer stays free of Streamlit, and so
+    a tick cannot pick up a different day from the one the row was rendered
+    for: the caller already worked the date out to build the payload, and the
+    two cannot disagree.
+    """
     from utils.board.bridge import is_new, mark_handled
 
     if not is_new(action):
@@ -176,11 +221,14 @@ def apply_action(data: dict, action: dict | None) -> dict | None:
 
     verb = action.get("verb")
     handler = VERBS.get(verb)
-    result = (
-        handler(data, action.get("task_id"))
-        if handler
-        else {"ok": False, "message": f"Unknown action {verb!r}."}
-    )
+    if handler is None:
+        result = {"ok": False, "message": f"Unknown action {verb!r}."}
+    elif verb == COMPLETE:
+        # Only a completion books a date. Undoing clears one, so the day being
+        # looked at is not an input to it.
+        result = handler(data, action.get("task_id"), on_date=on_date)
+    else:
+        result = handler(data, action.get("task_id"))
     # Marked only after the write is attempted, so a failed action is not
     # silently swallowed on the next rerun.
     mark_handled(action)
