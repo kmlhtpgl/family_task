@@ -23,6 +23,8 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 from shoot import free_port, kill, settle, start_app  # noqa: E402
+from utils.board.payload import DISPLAY_ARC_PAST  # noqa: E402
+from utils.task_helpers import OVERDUE_DAYS  # noqa: E402
 
 
 MEASURE = """() => {
@@ -413,62 +415,89 @@ FUTURE_ROWS = """() => {
 
 
 def check_past_day(page, label):
-    """A past day is a record: listed, finished, and not undoable.
+    """Past days inside the tick window are live; the ones past it are records.
 
-    Browsing back used to put a live reopen tick on every finished chore. That
-    row sat under a heading reading "Done", and tapping it rewrote a week whose
-    points had already been counted. Checked on the rendered board rather than
-    the payload, because the thing that invites the tap is the tick and the
-    button role on the row, not a field in some JSON.
+    Undo used to be the real today alone, on the grounds that reopening from a
+    past day rewrites a week whose points have already been counted. But the
+    tick window is two days back as well, so a chore could be *finished* from
+    two days ago and not *corrected* from there -- the wall offered a live tick
+    on the real today for work the same day would have accepted. Today and the
+    days behind it inside the window are now live both ways; the oldest day on
+    the strip stays a record.
+
+    Checked on the rendered board rather than the payload, because the thing that
+    invites the tap is the tick and the button role on the row.
     """
     frame = board_frame(page)
     if frame is None:
         raise SystemExit(f"{label}: no board frame")
 
-    here = frame.evaluate(SELECT_A_PAST_DAY)
-    if not here:
-        print("    (no past day with work on it; undo check skipped)")
-        return True
+    ok = True
+    for back in range(1, DISPLAY_ARC_PAST + 1):
+        live_expected = back <= OVERDUE_DAYS
+        here = frame.evaluate(SELECT_PAST_DAY, back)
+        if not here:
+            print(f"    (no day {back} back on the strip; skipped)")
+            continue
 
-    frame.wait_for_timeout(1200)
-    rows = frame.evaluate(DONE_ROWS)
-    problems = []
-    print(
-        f"    past day {here}: done rows={rows['done']} reopenTicks={rows['reopen']} "
-        f"locked={rows['locked']} live={rows['live']} chips={sorted(set(rows['chips']))}"
-    )
-    if rows["done"] == 0:
-        print("    (that day has no finished work; nothing to undo)")
-        return True
-    if rows["reopen"]:
-        problems.append(
-            f"{rows['reopen']} reopen tick(s) on a past day -- a past day is a "
-            "record, only the real today can be undone"
+        frame.wait_for_timeout(1200)
+        rows = frame.evaluate(DONE_ROWS)
+        verdict = "live" if live_expected else "a record"
+        print(
+            f"    {back} day(s) back, {here}: done rows={rows['done']} "
+            f"reopenTicks={rows['reopen']} locked={rows['locked']} "
+            f"live={rows['live']} chips={sorted(set(rows['chips']))} -- {verdict}"
         )
-    if rows["live"]:
-        problems.append(f"{rows['live']} row(s) on a past day are clickable")
-    # A finished chore captioned "Past due" reads as work still owing.
-    if any("Past due" in chip for chip in rows["chips"]):
-        problems.append(
-            f"a finished chore is captioned {sorted(set(rows['chips']))} -- the "
-            "tick rule's lock does not apply to work that is already done"
-        )
-    for problem in problems:
-        print(f"    FAIL {problem}")
-    return not problems
+
+        problems = []
+        if rows["done"] == 0:
+            print("    (that day has no finished work; nothing to undo)")
+            continue
+        if live_expected:
+            if not rows["reopen"]:
+                problems.append(
+                    f"{back} day(s) back is inside the {OVERDUE_DAYS}-day window, so a "
+                    "finished chore there should offer undo"
+                )
+            if not rows["live"]:
+                problems.append(
+                    f"{back} day(s) back: finished rows are not clickable inside the window"
+                )
+        else:
+            if rows["reopen"]:
+                problems.append(
+                    f"{rows['reopen']} reopen tick(s) {back} day(s) back -- that is "
+                    f"outside the {OVERDUE_DAYS}-day window and is a record"
+                )
+            if rows["live"]:
+                problems.append(
+                    f"{rows['live']} row(s) {back} day(s) back are clickable, outside the window"
+                )
+        # A finished chore captioned "Past due" reads as work still owing.
+        if any("Past due" in chip for chip in rows["chips"]):
+            problems.append(
+                f"a finished chore is captioned {sorted(set(rows['chips']))} -- the "
+                "tick rule's lock does not apply to work that is already done"
+            )
+        for problem in problems:
+            print(f"    FAIL {problem}")
+        ok = ok and not problems
+
+    return ok
 
 
-# Walk left from the selected day to the nearest past cell, which is where the
-# finished rows a child can see actually are.
-SELECT_A_PAST_DAY = """() => {
+# Walk back from the *real today* cell, not from whatever is selected, so each
+# probe is a fixed number of days back however many times this runs.
+SELECT_PAST_DAY = """(back) => {
   const nodes = Array.from(document.querySelectorAll('.arc__node'));
-  const here = nodes.findIndex(function (n) {
-    return n.classList.contains('arc__node--selected');
+  const today = nodes.findIndex(function (n) {
+    return n.classList.contains('arc__node--today');
   });
-  const back = nodes.slice(0, here);
-  if (!back.length) return null;
-  back[back.length - 1].dispatchEvent(new MouseEvent('click', {bubbles: true}));
-  return back[back.length - 1].getAttribute('aria-label');
+  if (today < 0) return null;
+  const target = nodes[today - back];
+  if (!target) return null;
+  target.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+  return target.getAttribute('aria-label');
 }"""
 
 

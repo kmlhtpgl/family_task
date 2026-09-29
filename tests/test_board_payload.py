@@ -1069,47 +1069,116 @@ def test_a_completed_task_belongs_to_its_due_day_and_not_to_its_finish_day():
     assert entry["lock"] == "overdue"
 
 
-def test_only_the_real_today_offers_undo():
-    """Undo is the real today's business. A past day is a record.
+def _finished_task_on(day, task_id=901):
+    """A chore due, and finished, on `day`."""
+    year, week_num, _ = day.isocalendar()
+    return {
+        "id": task_id,
+        "title": "Chore",
+        "kid_id": 1,
+        "parent_id": None,
+        "due_date": day.isoformat(),
+        "points": 10,
+        "status": "Done",
+        "repeat_type": "once",
+        "created_at": day.isoformat(),
+        "completed_date": day.isoformat(),
+        "completed_week": f"{year}-W{week_num}",
+    }
 
-    Every other cell on the strip used to offer a reopen tick, so browsing back
-    to Saturday put a live row under a heading reading "Done" -- and a tap there
-    rewrote a week whose points had already been counted.
+
+def _action_for(task_id, data, on_date):
+    """The action the payload offers for one task on one day, or None if absent."""
+    result = build_board_payload(data, on_date=on_date, compact=True)
+    rows = [
+        t
+        for lane in result["lanes"]
+        for g in lane["groups"]
+        for t in g["tasks"]
+        if t["id"] == task_id
+    ]
+    return rows[0]["action"] if rows else None
+
+
+def test_undo_is_offered_for_today_and_the_two_days_before_it():
+    """Today, yesterday and the day before are live; anything else is a record.
+
+    Undo was the real today alone, on the grounds that a past day is history and
+    reopening from there rewrites a week whose points have been banked. But the
+    tick window is `OVERDUE_DAYS`, which is also two days back: a chore could be
+    *finished* from two days ago but not *corrected* from there, so the wall
+    showed a record under a day the family was still allowed to work in. The
+    window is now one window, read from the same constant on both sides.
     """
     today = date.today()
-    data = sample_data()
-    task = next(t for t in data["tasks"] if t["id"] == 1)  # due today
-    finished = {**task, "status": "Done", "completed_date": today.isoformat()}
-    patched = {**data, "tasks": [finished if t["id"] == 1 else t for t in data["tasks"]]}
+    base = sample_data()
 
     for offset in range(-DISPLAY_ARC_PAST, DISPLAY_ARC_FUTURE + 1):
         day = today + timedelta(days=offset)
-        result = build_board_payload(patched, on_date=day, compact=True)
-        rows = [
-            t
-            for lane in result["lanes"]
-            for g in lane["groups"]
-            for t in g["tasks"]
-            if t["id"] == 1
-        ]
-        if offset != 0:
-            # Off today the task is not even on this day, so nothing to assert.
-            if not rows:
-                continue
-            assert rows[0]["action"] is None, (
-                f"{day} offers {rows[0]['action']!r} for a finished task -- only "
-                "the real today may be undone"
-            )
-    # Sanity: it really is undoable today, or the loop above passes for nothing.
-    on_today = build_board_payload(patched, on_date=today, compact=True)
-    entry = next(
-        t
-        for lane in on_today["lanes"]
-        for g in lane["groups"]
-        for t in g["tasks"]
-        if t["id"] == 1
-    )
-    assert entry["action"] == "reopen"
+        data = {**base, "tasks": [_finished_task_on(day)] + base["tasks"]}
+        action = _action_for(901, data, day)
+
+        if -OVERDUE_DAYS <= offset <= 0:
+            assert action == "reopen", f"{day} should offer undo, offered {action!r}"
+        else:
+            # Further back than the window, or ahead of today: look, but do not touch.
+            assert action is None, f"{day} should be a record, offered {action!r}"
+
+
+def test_an_open_task_can_still_be_finished_from_a_past_day():
+    """The 'done' half of the ask: the tick itself, not just the undo.
+
+    A chore due yesterday is inside the window, so browsing back to it and
+    ticking it books the completion to yesterday -- which is the day the board
+    is showing, not the day of the tap.
+    """
+    today = date.today()
+    base = sample_data()
+
+    for offset in range(-OVERDUE_DAYS, 1):
+        day = today + timedelta(days=offset)
+        open_task = {
+            "id": 902,
+            "title": "Set the table",
+            "kid_id": 1,
+            "parent_id": None,
+            "due_date": day.isoformat(),
+            "points": 10,
+            "status": "Backlog",
+            "repeat_type": "once",
+            "created_at": day.isoformat(),
+            "completed_date": None,
+            "completed_week": None,
+        }
+        data = {**base, "tasks": [open_task] + base["tasks"]}
+        assert _action_for(902, data, day) == "complete", f"{day} should offer a tick"
+
+
+def test_an_open_task_from_a_past_day_does_not_leak_onto_another_day():
+    """A task belongs to its own day. The wider undo window does not move that.
+
+    Offering yesterday's chore on today's board would file it under the wrong
+    day, and ticking it there would book the completion to today.
+    """
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+    base = sample_data()
+    open_task = {
+        "id": 902,
+        "title": "Set the table",
+        "kid_id": 1,
+        "parent_id": None,
+        "due_date": yesterday.isoformat(),
+        "points": 10,
+        "status": "Backlog",
+        "repeat_type": "once",
+        "created_at": yesterday.isoformat(),
+        "completed_date": None,
+        "completed_week": None,
+    }
+    data = {**base, "tasks": [open_task] + base["tasks"]}
+
+    assert _action_for(902, data, today) is None
 
 
 def test_a_task_finished_today_stays_on_the_board_to_be_undone():
@@ -1224,9 +1293,9 @@ def test_a_finished_task_is_never_offered_a_tick_to_earn_points_again():
     entry = group(lane, "done")["tasks"][0]
     assert entry["finished"] is True
     assert entry["lock"] is None, "the tick rule does allow this date"
-    # Not a tick to earn points again, and not an undo either: yesterday is a
-    # record. Only the real today carries a verb for a finished task.
-    assert entry["action"] is None
+    # The verb is the undo, never a fresh tick: re-awarding points for work
+    # already banked is the failure this test exists to catch.
+    assert entry["action"] == "reopen"
 
 
 def test_the_action_verb_is_stated_not_inferred():

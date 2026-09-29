@@ -90,6 +90,25 @@ def initials(name: str) -> str:
     return (parts[0][0] + parts[-1][0]).upper()
 
 
+def _undoable(on_date: date, rule_date: date) -> bool:
+    """Whether a finished task on the day being looked at may be reopened.
+
+    The real today and the OVERDUE_DAYS days before it are one window, and it is
+    the window `can_mark_done` already lets work be completed in. Undo is scoped
+    to the same days so the two cannot disagree: a chore you are allowed to
+    finish from a given day, you are also allowed to correct from that day.
+
+    This is deliberately the same `OVERDUE_DAYS` constant rather than a second
+    number. Undo used to be the real today alone, which meant a chore finished
+    from two days ago could not be undone from the day it was finished on --
+    the wall showed it as a record while the very tick that created it was
+    still inside the window a child could use on the real today.
+
+    Days further back than the window, and days ahead of it, stay read-only.
+    """
+    return 0 <= (rule_date - on_date).days <= OVERDUE_DAYS
+
+
 def _task_entry(task, on_date: date, rule_date: date) -> dict:
     """One task, with the tick rule already decided.
 
@@ -113,11 +132,10 @@ def _task_entry(task, on_date: date, rule_date: date) -> dict:
     # What a click on this row should ask for. Stated here so the canvas never
     # infers it from the status and cannot offer the wrong verb.
     #
-    # Undo belongs to the real today and nowhere else. A past day is a record:
-    # the points from those chores were counted in that week's total already, so
-    # reopening from there rewrites a week that has been banked. It also read as
-    # a live row sitting under a heading that says "Done", which is a
-    # contradiction on the one screen a child is looking at.
+    # Undo belongs to today and the days before it inside the tick window; see
+    # `_undoable`. Further back than that, a day is a record: the points from
+    # those chores were counted in that week's total already, so reopening from
+    # there rewrites a week that has been banked.
     #
     # This does not consult `allowed` on purpose. can_mark_done gates earning
     # points, not correcting a mistake, so a chore too far overdue to earn
@@ -125,7 +143,7 @@ def _task_entry(task, on_date: date, rule_date: date) -> dict:
     # than folded into the tick below, because a finished task that fell through
     # would be offered "complete" on any day it happened to be inside the window.
     if finished:
-        action = "reopen" if on_date == rule_date else None
+        action = "reopen" if _undoable(on_date, rule_date) else None
     else:
         action = "complete" if allowed else None
     return {
