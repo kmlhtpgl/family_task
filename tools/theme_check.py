@@ -1,26 +1,28 @@
-"""Verify the Day/Night/Auto switch in a real browser.
+"""Verify the Board's Day/Night/Auto control in a real browser.
 
     python tools/theme_check.py
 
-The switch crosses three boundaries at once -- browser storage, a component
-message, and a Streamlit rerun -- and every one of them can break without an
-exception. The failure is also invisible in a screenshot of a single page: the
-page paints correctly from localStorage while the control above it still shows
-the default, and nothing looks wrong until somebody tries to change it.
+The control lives inside the Board frame, writes a localStorage key, and the app
+document follows that key through the browser's `storage` event. Every boundary
+can break without an exception, and a screenshot of one page cannot catch it: the
+Board paints correctly while the app chrome around it stays in the other mode, or
+the choice is forgotten on the next visit.
 
-So this drives the real thing and asserts the parts that no unit test can reach:
+So this drives the real thing and asserts the parts no unit test can reach:
 
 - a device with no saved choice starts on Night, the default
-- pressing Day paints the page, moves the control, and persists to localStorage
-- a *fresh page* on that same device starts on Day with the control already on
-  Day -- the regression this tool exists for, because that is the case the whole
-  component exists to fix
-- the Board frame follows, and a change from the Board reaches both documents
+- pressing Day on the Board paints the Board, the app document, and persists
+- a *fresh page* on that same device starts on Day with the Board's control
+  already on Day -- the case that proves the choice is remembered, not just
+  applied once
+- a classic page follows the saved mode and carries no control of its own
+- pressing Night on the Board returns everything to Night
 
 It reads and clicks only; it never writes to the database behind the app.
 """
 
 import sys
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -33,26 +35,21 @@ THEME_KEY = "family-task-theme"
 
 STATE = """() => {
   const de = document.documentElement;
-  const active = document.querySelector(
-    '[data-testid="stBaseButton-segmented_controlActive"]'
-  );
   let board = null;
-  for (let i = 0; i < window.frames.length; i++) {
+  let control = null;
+  for (const f of document.querySelectorAll('iframe')) {
     try {
-      const d = window.frames[i].document;
-      if (d && d.querySelector('.board')) {
+      const d = f.contentDocument;
+      if (d && d.getElementById('board')) {
         board = d.documentElement.getAttribute('data-theme');
+        const active = d.querySelector('.head__mode-opt[aria-pressed="true"]');
+        control = active ? active.textContent.trim() : null;
       }
     } catch (e) { /* not the board frame */ }
   }
   let stored = null;
   try { stored = window.localStorage.getItem(%r); } catch (e) { stored = 'ERR'; }
-  return {
-    mode: de.getAttribute('data-mode'),
-    control: active ? active.textContent.trim() : null,
-    board: board,
-    stored: stored,
-  };
+  return { mode: de.getAttribute('data-mode'), control: control, board: board, stored: stored };
 }""" % THEME_KEY
 
 
@@ -60,14 +57,33 @@ def read(page):
     return page.evaluate(STATE)
 
 
-def click(page, label):
-    page.click(f'[data-testid="stButtonGroup"] button:has-text("{label}")')
-    settle(page)
-    page.wait_for_timeout(1000)
+def board_frame(page, timeout=20_000):
+    """The board's own frame, not the kiosk iframe that comes first."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        for frame in page.frames:
+            if frame == page.main_frame:
+                continue
+            try:
+                if frame.evaluate("() => !!document.getElementById('board')"):
+                    return frame
+            except Exception:
+                pass
+        page.wait_for_timeout(250)
+    raise SystemExit("no board frame found; is the board shell serving?")
+
+
+def press(page, preference):
+    """Click one of the Board's three mode buttons."""
+    frame = board_frame(page)
+    frame.locator('.head__mode-opt[data-pref="%s"]' % preference).click()
+    page.wait_for_timeout(600)
 
 
 def expect(problems, label, got, **want):
-    detail = " ".join(f"{k}={got.get(k)!r}" for k in ("mode", "control", "board", "stored"))
+    detail = " ".join(
+        f"{k}={got.get(k)!r}" for k in ("mode", "control", "board", "stored")
+    )
     print(f"    {label:24s} {detail}")
     for key, value in want.items():
         if got.get(key) != value:
@@ -78,7 +94,7 @@ def main():
     port = free_port()
     proc = None
     try:
-        proc = start_app(port, env_overrides={"FAMILY_TASK_CLASSIC": "1"})
+        proc = start_app(port)
         from playwright.sync_api import sync_playwright
 
         problems = []
@@ -90,46 +106,54 @@ def main():
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(f"http://127.0.0.1:{port}", wait_until="domcontentloaded")
-            settle(page)
-            page.wait_for_timeout(1200)
-            expect(problems, "fresh device", read(page), mode="night", control="Night")
+            settle(page, timeout=40_000)
+            page.wait_for_timeout(1500)
+            expect(
+                problems, "fresh device", read(page),
+                mode="night", control="Night", board="night",
+            )
 
-            click(page, "Day")
+            press(page, "day")
             expect(
                 problems, "after pressing Day", read(page),
-                mode="day", control="Day", stored="day",
+                mode="day", control="Day", board="day", stored="day",
             )
 
             # The point of the whole exercise: a new page on a Day device must
-            # show Day in the control on its own, without anybody pressing
-            # anything. This is what the localStorage component is for.
+            # come up in Day, with the Board's control already showing Day,
+            # without anybody pressing anything.
             fresh = context.new_page()
             fresh.on("pageerror", lambda e: errors.append(str(e)))
             fresh.goto(f"http://127.0.0.1:{port}", wait_until="domcontentloaded")
-            settle(fresh)
+            settle(fresh, timeout=40_000)
             fresh.wait_for_timeout(1500)
             expect(
                 problems, "reopened on day", read(fresh),
-                mode="day", control="Day", stored="day",
+                mode="day", control="Day", board="day", stored="day",
             )
 
-            nav = fresh.query_selector('button:has-text("Board")')
-            if nav is None:
-                problems.append("no Board button in the nav row")
+            # A classic page has no control of its own but still follows the
+            # saved mode. This is the "one setting, every page" half.
+            parents = fresh.query_selector('button:has-text("Parents")')
+            if parents is None:
+                problems.append("no Parents button in the nav row")
             else:
-                nav.click()
-                fresh.wait_for_timeout(2600)
-                expect(
-                    problems, "Board follows day", read(fresh),
-                    mode="day", control="Day", board="day",
-                )
-
-                click(fresh, "Night")
+                parents.click()
+                settle(fresh, timeout=40_000)
                 fresh.wait_for_timeout(1200)
-                expect(
-                    problems, "Board changes to night", read(fresh),
-                    mode="night", control="Night", board="night", stored="night",
-                )
+                expect(problems, "classic page follows", read(fresh), mode="day")
+
+                back = fresh.query_selector('button:has-text("Board")')
+                if back is None:
+                    problems.append("no Board button in the nav row")
+                else:
+                    back.click()
+                    fresh.wait_for_timeout(2600)
+                    press(fresh, "night")
+                    expect(
+                        problems, "Board back to night", read(fresh),
+                        mode="night", control="Night", board="night", stored="night",
+                    )
 
             if errors:
                 problems.append(f"page errors: {errors[:3]}")

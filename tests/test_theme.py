@@ -1,15 +1,15 @@
 """The mode switch is three things that have to agree, and none are obvious.
 
-A preference is stored per device, resolved into a mode, painted on the app
-document and on the Board frame, and reported back to Python through a component.
-Each boundary is a place where the feature can half-work: the page goes light
-while the control stays on night, or the Board follows a mode the app does not,
-or "auto" means one thing in one document and another in the other.
+A preference is stored per device, resolved into a mode, and painted on both the
+app document and the Board frame. The Board owns the control; the app document
+never has one and instead follows the shared key through the browser's `storage`
+event. Each boundary is a place where the feature can half-work: the page goes
+light while the Board stays dark, or "auto" means one thing in one document and
+another in the other.
 
-The browser tools drive the whole path. These tests pin the parts that would
-otherwise drift silently between files: the two clocks, the shared key, and the
-rule that decides when a report from the browser is allowed to change the
-session.
+These tests pin the parts that would otherwise drift silently between files: the
+two clocks, the shared key, and the shape of the one control that writes it. The
+browser tools drive the whole path.
 """
 
 import re
@@ -21,7 +21,7 @@ from utils import theme
 
 REPO = Path(__file__).resolve().parent.parent
 BOARD_JS = REPO / "static" / "board" / "board.js"
-THEME_HTML = REPO / "static" / "theme" / "index.html"
+NAV_PY = REPO / "utils" / "nav.py"
 
 
 # ── Auto is one rule, in two languages ───────────────────────────────────────
@@ -75,96 +75,71 @@ def test_the_board_resolves_auto_by_the_same_clock():
     assert '? stored' in js and '"night"' in js
 
 
-def test_the_component_directory_is_where_the_bridge_expects_it():
-    """declare_component fails at import if the path has no index.html."""
-    assert THEME_HTML.exists(), THEME_HTML
-    assert THEME_HTML.parent == theme.THEME_DIR
+# ── The app document paints itself, with no component in the loop ────────────
 
 
-def test_the_reporting_frame_speaks_the_component_protocol():
-    """A frame that misses the handshake is loaded and never heard."""
-    html = THEME_HTML.read_text()
-    assert theme.THEME_KEY in html
-    assert "streamlit:componentReady" in html
-    assert "streamlit:setComponentValue" in html
-    assert "streamlit:render" in html
-    assert "data-mode" in html, "the frame has to be able to repaint the app document"
+def test_the_app_paints_from_storage_before_it_is_told_anything():
+    """Order is the whole trick: the script runs and paints on its own.
 
-
-def test_the_app_paints_before_it_is_told_anything():
-    """Order is the whole trick: the node and script run without the component.
-
-    If the script depended on the component having loaded, the page would open
-    on the stylesheet default and swap once the frame arrived -- a flash of night
-    on a light screen, which is the thing the early paint exists to avoid.
+    Python cannot read localStorage, so there is no value for it to publish and
+    nothing for the script to wait for. If it depended on a message, the page
+    would open on the stylesheet default and swap once the message arrived -- a
+    flash of night on a light screen, which is the thing the early paint exists
+    to avoid.
     """
     source = theme._apply_source()
     assert "data-mode" in source
-    assert theme.THEME_NODE_ID in source
-    # It decides a mode, it does not decide a colour.
-    assert "oklch" not in source
+    assert theme.THEME_KEY in source
+    assert "localStorage" in source
+    assert "oklch" not in source, "it decides a mode, it does not decide a colour"
 
 
-# ── Adopting a report without letting a stale one undo a press ────────────────
+def test_the_app_follows_the_board_by_storage_event():
+    """The two documents share one key, and the browser is the channel.
 
-
-@pytest.fixture
-def session(monkeypatch):
-    state: dict = {}
-    monkeypatch.setattr(theme.st, "session_state", state)
-    return state
-
-
-def test_a_reported_preference_becomes_the_session(session):
-    theme._adopt("day")
-    assert session[theme.STATE_KEY] == "day"
-    assert session[theme.SEEN_KEY] == "day"
-
-
-def test_nothing_reported_changes_nothing(session):
-    theme._adopt(None)
-    theme._adopt("banana")
-    assert theme.STATE_KEY not in session
-
-
-def test_a_repeat_report_is_ignored(session):
-    """The frame echoes a press back, and that echo must not be re-adopted.
-
-    The component's value lags a render, so after a press it briefly still holds
-    the previous answer. Adopting only a *change* is what stops that stale value
-    from flicking the screen back to where it was.
+    The Board's control writing the key has to reach the app document without a
+    reload, or changing the mode on the Board leaves the host chrome in the
+    other lighting. The `storage` event is the browser's own notification and
+    costs nothing.
     """
-    theme._adopt("day")
-    session[theme.STATE_KEY] = "night"          # a press
-    theme._adopt("day")                          # the lagging report arrives
-    assert session[theme.STATE_KEY] == "night", "a stale report undid a press"
+    source = theme._apply_source()
+    assert '"storage"' in source
+    assert "addEventListener" in source
 
 
-def test_a_new_report_after_a_press_is_taken(session):
-    theme._adopt("day")
-    session[theme.STATE_KEY] = "night"          # a press
-    theme._adopt("night")                        # the frame catches up
-    assert session[theme.STATE_KEY] == "night"
-    assert session[theme.SEEN_KEY] == "night"
+def test_python_does_not_pretend_to_hold_the_preference():
+    """The whole component bridge is gone, not left half-standing.
 
-
-def test_current_falls_back_to_the_default(session):
-    assert theme.current() == theme.DEFAULT_PREFERENCE
-
-
-def test_current_keeps_the_session_value(session):
-    session[theme.STATE_KEY] = "auto"
-    assert theme.current() == "auto"
-
-
-def test_the_control_cannot_be_cleared():
-    """A second tap on the lit option must not empty the control.
-
-    segmented_control deselects on a repeat tap unless required, and a cleared
-    control would fall back to the default -- pressing Day while on Day would
-    darken the room.
+    It existed to feed a Streamlit control its value, and that control is on the
+    Board now, written in JavaScript. A session key or a reporter frame left
+    behind would be a second, stale source of truth for one setting.
     """
-    import inspect
+    for gone in ("render_switch", "_adopt", "current", "THEME_NODE_ID", "STATE_KEY"):
+        assert not hasattr(theme, gone), f"theme.{gone} is dead weight"
 
-    source = inspect.getsource(theme.render_switch)
-    assert "required=True" in source
+
+# ── The control lives on the Board, and nowhere else ─────────────────────────
+
+
+def test_the_board_owns_the_mode_control():
+    js = BOARD_JS.read_text()
+    assert "head__mode" in js, "the control was moved off the Board"
+    assert "setPreference" in js
+    assert "window.localStorage.setItem(THEME_KEY" in js, (
+        "the Board draws a control that does not persist the choice"
+    )
+
+
+def test_the_control_offers_exactly_the_known_preferences():
+    js = BOARD_JS.read_text()
+    block = re.search(r"var THEME_OPTIONS = \[(.*?)\];", js, re.DOTALL)
+    assert block, "no THEME_OPTIONS list in board.js"
+    values = re.findall(r'\["([a-z]+)"', block.group(1))
+    assert values == list(theme.PREFERENCES)
+
+
+def test_the_nav_no_longer_carries_the_switch():
+    """One control, on the Board. The nav is not a second place to set it."""
+    source = NAV_PY.read_text()
+    assert "render_switch" not in source
+    assert "from utils import theme" not in source

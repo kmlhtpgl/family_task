@@ -304,37 +304,34 @@ def test_board_index_is_minimal_and_painted_by_script():
 
 
 def test_the_canvas_asks_rather_than_writes():
-    """The frame's only way to change anything is the action channel.
+    """The frame's only way to change server state is the action channel.
 
     There is no database in the browser, and a tick is a question sent to Python
     rather than a fact asserted here. If a second channel ever appears -- a
     fetch, a form post, an optimistic local write -- this is what catches it.
 
-    localStorage is now allowed, for exactly one thing, and the shape of the
-    allowance matters more than the fact of it. The display mode is a per-device
-    preference with no server state behind it, and the frame and the app document
-    have to agree on it or the app is white around a night Board. The frame
-    therefore only ever *reads* it: it holds no copy of anything the server owns,
-    it takes the mode from the key the app writes, and it follows changes through
-    the browser's own `storage` event. So the write verbs are still banned
-    outright, and the one read is pinned to the key utils/theme.py owns.
+    localStorage is allowed for exactly one thing: the display mode. It is a
+    per-device preference with no server state behind it, and the Board is where
+    it is set, so the frame both reads and writes that one key. The allowance is
+    pinned to the key utils/theme.py owns and to `setItem`; every other verb is
+    still banned, and no other key may be touched.
     """
     js = BOARD_JS.read_text()
     assert "fetch(" not in js, "the canvas is talking to something other than the host"
     assert "XMLHttpRequest" not in js
-    for verb in ("setItem", "removeItem", "clear"):
+    for verb in ("removeItem", "clear"):
         assert f"localStorage.{verb}" not in js, (
-            f"the canvas is writing to localStorage ({verb}); it holds no state of its own"
+            f"the canvas is using localStorage.{verb}; it holds no state of its own"
         )
 
     from utils import theme
 
-    keys = set(re.findall(r'localStorage\.getItem\(\s*([A-Za-z_$][\w$]*)', js))
+    keys = set(re.findall(r'localStorage\.\w+\(\s*([A-Za-z_$][\w$]*)', js))
     assert keys == {"THEME_KEY"}, (
-        f"the canvas reads localStorage keys {sorted(keys)}; it should read only the "
-        f"mode key, and get it from utils/theme.py rather than hard-coding the string"
+        f"the canvas touches localStorage keys {sorted(keys)}; only the mode key is "
+        f"allowed, and it must come from utils/theme.py rather than a hard-coded string"
     )
-    # And the key it reads is the one the app writes.
+    # And the key it reads and writes is the one the app reads.
     assert f'var THEME_KEY = "{theme.THEME_KEY}"' in js, (
         "board.js's key is not utils/theme.THEME_KEY; the frame and the app would "
         "read different keys and the Board would not follow the mode"

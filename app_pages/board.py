@@ -102,23 +102,16 @@ def board_page(refetch):
         on_date = real_today
     st.session_state[SELECTED_DATE_KEY] = on_date.isoformat()
     payload = build_board_payload(data, on_date=on_date, flash=pop_flash(), compact=True)
-    totals = payload["totals"]
 
     # Two compact rows, not three, and both rendered before the component
     # because the frame measures how much room the host left above it. The flag
     # is the board's identity and the nav row is how you reach the rest of the
     # app; every pixel of chrome is a pixel of board, and a wall tablet is
     # watched from across the room.
-    # "open today" is the count for the day on the board, so browsing to another
-    # day has to rename it. The flag sits above the canvas and is the first
-    # thing read from across a room.
-    day_word = "today" if payload["is_selected_today"] else payload["selected_label"]
     st.markdown(
         '<div class="board-flag">'
         '<span class="board-flag__dot"></span>'
-        "<b>Board</b> "
-        f"<span>{totals['open_today']} open {day_word} · "
-        f"{totals['overdue']} past due</span>"
+        "<b>Board</b>"
         "</div>",
         unsafe_allow_html=True,
     )

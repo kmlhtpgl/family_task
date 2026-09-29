@@ -203,6 +203,7 @@
     startClock(clock);
     when.appendChild(clock);
     when.appendChild(el("div", "head__date", payload.today_label));
+    when.appendChild(buildModeControl());
     head.appendChild(when);
 
     var right = el("div", "head__arc");
@@ -756,6 +757,11 @@
   var THEME_KEY = "family-task-theme";
   var DAY_FROM = 7;
   var DAY_TO = 19;
+  var THEME_OPTIONS = [
+    ["day", "Day"],
+    ["night", "Night"],
+    ["auto", "Auto"],
+  ];
 
   function readPreference() {
     try {
@@ -781,6 +787,52 @@
     if (document.documentElement.getAttribute("data-theme") !== next) {
       document.documentElement.setAttribute("data-theme", next);
     }
+    markModeControl();
+  }
+
+  /* ── The Day / Night / Auto control ───────────────────────────────────────
+     The one thing on the Board that writes the shared key rather than reading
+     it. It is on the Board alone because that is the screen that is looked at
+     most and left running on a wall, and it is tiny because the Board is read
+     from across a room and this is not what anybody is there to read.
+
+     Writing localStorage is enough to reach every other page: the app document
+     is a different document, so the browser fires a `storage` event in it and
+     its own copy of the painter repaints. Nothing here has to know the host
+     document exists. */
+  function setPreference(preference) {
+    try {
+      window.localStorage.setItem(THEME_KEY, preference);
+    } catch (e) {
+      /* Private browsing, or storage turned off: the choice still applies to
+         this frame, it just will not be remembered on the next load. */
+    }
+    applyTheme();
+  }
+
+  function markModeControl() {
+    var preference = readPreference();
+    var options = document.querySelectorAll(".head__mode-opt");
+    for (var i = 0; i < options.length; i++) {
+      var on = options[i].getAttribute("data-pref") === preference;
+      options[i].setAttribute("aria-pressed", on ? "true" : "false");
+    }
+  }
+
+  function buildModeControl() {
+    var wrap = el("div", "head__mode");
+    var preference = readPreference();
+    THEME_OPTIONS.forEach(function (option) {
+      var btn = el("button", "head__mode-opt", option[1]);
+      btn.type = "button";
+      btn.setAttribute("data-pref", option[0]);
+      btn.setAttribute("aria-pressed", option[0] === preference ? "true" : "false");
+      btn.addEventListener("click", function () {
+        setPreference(option[0]);
+      });
+      wrap.appendChild(btn);
+    });
+    return wrap;
   }
 
   /* A minute is the smallest interval that can be wrong for long enough to

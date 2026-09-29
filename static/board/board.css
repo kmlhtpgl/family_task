@@ -261,6 +261,44 @@ body {
   color: var(--muted);
 }
 
+/* The Day / Night / Auto control. Deliberately the smallest thing on the Board:
+   it sits under the clock and date because that is where the eye already goes
+   for "now", and it is a wall display's own setting, not something anyone reads
+   from across the room. It is here rather than in the host chrome because the
+   Board is the page that is left running. */
+.head__mode {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.head__mode-opt {
+  appearance: none;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--faint);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.head__mode-opt:hover {
+  color: var(--muted);
+  border-color: var(--hairline-strong);
+}
+
+.head__mode-opt[aria-pressed="true"] {
+  background: var(--surface-3);
+  border-color: var(--surface-3);
+  color: var(--text);
+}
+
 .head__arc {
   min-width: 0;
 }
