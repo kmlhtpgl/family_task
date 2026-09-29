@@ -380,17 +380,17 @@ def check_future_day(page, label):
     return not problems
 
 
-# Click the first future cell in the strip. Returns its aria-label so the
-# failure message names the day that was tested.
+# Click the first future cell in the strip, found by walking right from the
+# real today rather than from the selection. The selection may already have been
+# moved onto a past day by the check that runs before this one, and stepping one
+# cell to its right would then land on today and prove nothing. Returns the
+# cell's aria-label so the failure message names the day that was tested.
 SELECT_A_FUTURE_DAY = """() => {
   const nodes = Array.from(document.querySelectorAll('.arc__node'));
-  // The selected day is the only one that is a button-shaped highlight; the
-  // future ones are found by walking right from it, since the flag that marks
-  // them is on the payload side.
-  const here = nodes.findIndex(function (n) {
-    return n.classList.contains('arc__node--selected');
+  const today = nodes.findIndex(function (n) {
+    return n.classList.contains('arc__node--today');
   });
-  const forward = nodes.slice(here + 1);
+  const forward = nodes.slice(today + 1);
   if (!forward.length) return null;
   forward[0].dispatchEvent(new MouseEvent('click', {bubbles: true}));
   return forward[0].getAttribute('aria-label');
@@ -407,6 +407,82 @@ FUTURE_ROWS = """() => {
     labels: rows.map(function (r) {
       const chip = r.querySelector('.task__lock');
       return chip ? chip.textContent : '';
+    }),
+  };
+}"""
+
+
+def check_past_day(page, label):
+    """A past day is a record: listed, finished, and not undoable.
+
+    Browsing back used to put a live reopen tick on every finished chore. That
+    row sat under a heading reading "Done", and tapping it rewrote a week whose
+    points had already been counted. Checked on the rendered board rather than
+    the payload, because the thing that invites the tap is the tick and the
+    button role on the row, not a field in some JSON.
+    """
+    frame = board_frame(page)
+    if frame is None:
+        raise SystemExit(f"{label}: no board frame")
+
+    here = frame.evaluate(SELECT_A_PAST_DAY)
+    if not here:
+        print("    (no past day with work on it; undo check skipped)")
+        return True
+
+    frame.wait_for_timeout(1200)
+    rows = frame.evaluate(DONE_ROWS)
+    problems = []
+    print(
+        f"    past day {here}: done rows={rows['done']} reopenTicks={rows['reopen']} "
+        f"locked={rows['locked']} live={rows['live']} chips={sorted(set(rows['chips']))}"
+    )
+    if rows["done"] == 0:
+        print("    (that day has no finished work; nothing to undo)")
+        return True
+    if rows["reopen"]:
+        problems.append(
+            f"{rows['reopen']} reopen tick(s) on a past day -- a past day is a "
+            "record, only the real today can be undone"
+        )
+    if rows["live"]:
+        problems.append(f"{rows['live']} row(s) on a past day are clickable")
+    # A finished chore captioned "Past due" reads as work still owing.
+    if any("Past due" in chip for chip in rows["chips"]):
+        problems.append(
+            f"a finished chore is captioned {sorted(set(rows['chips']))} -- the "
+            "tick rule's lock does not apply to work that is already done"
+        )
+    for problem in problems:
+        print(f"    FAIL {problem}")
+    return not problems
+
+
+# Walk left from the selected day to the nearest past cell, which is where the
+# finished rows a child can see actually are.
+SELECT_A_PAST_DAY = """() => {
+  const nodes = Array.from(document.querySelectorAll('.arc__node'));
+  const here = nodes.findIndex(function (n) {
+    return n.classList.contains('arc__node--selected');
+  });
+  const back = nodes.slice(0, here);
+  if (!back.length) return null;
+  back[back.length - 1].dispatchEvent(new MouseEvent('click', {bubbles: true}));
+  return back[back.length - 1].getAttribute('aria-label');
+}"""
+
+
+DONE_ROWS = """() => {
+  const groups = Array.from(document.querySelectorAll('.group--done'));
+  const rows = Array.from(document.querySelectorAll('.group--done .task'));
+  return {
+    done: rows.length,
+    reopen: rows.filter(function (r) { return r.querySelector('.task__tick--reopen'); }).length,
+    live: rows.filter(function (r) { return r.classList.contains('task--live'); }).length,
+    locked: rows.filter(function (r) { return r.classList.contains('task--locked'); }).length,
+    chips: rows.map(function (r) {
+      const c = r.querySelector('.task__lock');
+      return c ? c.textContent : '';
     }),
   };
 }"""
@@ -457,8 +533,9 @@ def main():
                         page.wait_for_timeout(3000)
                 ok = check(page, label, tracks, two_up) and ok
                 ok = check_arc(page, label) and ok
-                # Run last: it navigates to another day, so it would leave the
-                # two layout checks looking at a locked future day instead.
+                # Both navigate to another day, so they run last: they would
+                # otherwise leave the layout checks looking at a read-only day.
+                ok = check_past_day(page, label) and ok
                 ok = check_future_day(page, label) and ok
                 if errors:
                     print(f"    FAIL page errors: {errors}")

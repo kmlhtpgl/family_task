@@ -109,29 +109,45 @@ def _task_entry(task, on_date: date, rule_date: date) -> dict:
     """
     allowed, reason = can_mark_done(task, on_date=rule_date)
     due = task.get("due_date")
+    finished = task.get("status") == "Done"
+    # What a click on this row should ask for. Stated here so the canvas never
+    # infers it from the status and cannot offer the wrong verb.
+    #
+    # Undo belongs to the real today and nowhere else. A past day is a record:
+    # the points from those chores were counted in that week's total already, so
+    # reopening from there rewrites a week that has been banked. It also read as
+    # a live row sitting under a heading that says "Done", which is a
+    # contradiction on the one screen a child is looking at.
+    #
+    # This does not consult `allowed` on purpose. can_mark_done gates earning
+    # points, not correcting a mistake, so a chore too far overdue to earn
+    # anything is still undoable today. Worked out as a separate branch rather
+    # than folded into the tick below, because a finished task that fell through
+    # would be offered "complete" on any day it happened to be inside the window.
+    if finished:
+        action = "reopen" if on_date == rule_date else None
+    else:
+        action = "complete" if allowed else None
     return {
         "id": task.get("id"),
         "title": task.get("title"),
         "points": task.get("points", 0),
         "effective_points": get_effective_points(task),
         "status": task.get("status"),
+        # Said outright rather than left for the canvas to read off `status`.
+        # A finished task is not "late" and not "past due", whatever the tick
+        # rule says about its date, and captioned "Past due" under a heading
+        # that says "Done" reads as work that is still outstanding.
+        "finished": finished,
         "due": due,
         "overdue": is_task_overdue(task),
         # Due in the past but still inside the tick window: tickable, but it is
         # behind. Distinct from `overdue`, which means the window has passed.
-        "late": bool(due and due < on_date.isoformat() and task.get("status") != "Done"),
+        "late": bool(due and due < on_date.isoformat() and not finished),
         # None when the task may be ticked. "future" / "overdue" otherwise, so
         # the canvas can explain a locked task instead of just greying it out.
         "lock": None if allowed else reason,
-        # What a click on this row should ask for. Stated here so the canvas
-        # never infers it from the status and cannot offer the wrong verb. A
-        # completed task is always reopenable: undoing a mis-click must not be
-        # gated by the same rule that gates earning points.
-        "action": (
-            "reopen"
-            if task.get("status") == "Done"
-            else ("complete" if allowed else None)
-        ),
+        "action": action,
     }
 
 

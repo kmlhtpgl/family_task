@@ -621,7 +621,11 @@
   function buildTask(task, i) {
     var row = el("div", "task rise");
     row.style.animationDelay = Math.min(i, 6) * 40 + "ms";
-    if (task.lock) row.classList.add("task--locked");
+    /* A finished task is not late and not past due, so it gets neither the
+       locked styling nor the chip, even though the tick rule still reports a
+       lock for its date. The group heading already says "Done"; adding "Past
+       due" to a chore that was finished made it look like work still owing. */
+    if (task.lock && !task.finished) row.classList.add("task--locked");
     if (task.effective_points < (task.points || 0)) {
       row.classList.add("task--worthless");
     }
@@ -662,7 +666,7 @@
 
     row.appendChild(el("div", "task__title", task.title));
 
-    if (task.lock) {
+    if (task.lock && !task.finished) {
       var chip = el(
         "span",
         "task__lock task__lock--" + task.lock,

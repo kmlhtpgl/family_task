@@ -16,7 +16,7 @@ from utils.board.payload import (
     build_board_payload,
     initials,
 )
-from utils.task_helpers import OVERDUE_DAYS
+from utils.task_helpers import OVERDUE_DAYS, can_mark_done
 
 
 def payload(today=None):
@@ -1030,15 +1030,13 @@ def test_a_day_is_named_after_itself_once_it_is_not_today():
             assert lane_names["done"] == "Done"
 
 
-def test_a_completed_task_belongs_to_its_due_day_for_undo():
-    """A task stays in its own day, and undo brings it back there.
+def test_a_completed_task_belongs_to_its_due_day_and_not_to_its_finish_day():
+    """A task stays in its own day, and a past day is a record.
 
-    The previous behaviour pulled finished tasks in by completion date, which
-    filed a chore due the 27th under the 29th. Undoing it from the 29th then
-    returned it to the 27th, where nobody was looking. The simple rule is:
-    the task is only ever on the day it was due. Keying the Done group on the
-    due date means the group shows work that is *for* that day, and the task is
-    in the same place it will return to if undone.
+    Finished tasks used to be pulled in by completion date, which filed a chore
+    due the 27th under the 29th. Keying the group on the due date puts each task
+    on the one day it belongs to. And that day, being in the past, is read-only:
+    the row is there to say what was done, not to be undone from.
     """
     today = date.today()
     saturday = today + timedelta(days=2)
@@ -1055,15 +1053,63 @@ def test_a_completed_task_belongs_to_its_due_day_for_undo():
     # Finishing it on Saturday does not move it there.
     assert done is None
 
-    # Instead, it appears on its due day in the Done group.
-    due_date = task["due_date"]
-    due_day = date.fromisoformat(due_date)
+    # Instead, it appears on its due day in the Done group, listed and finished.
+    due_day = date.fromisoformat(task["due_date"])
     result_due = build_board_payload(data, on_date=due_day, compact=True)
     lane_due = next(l for l in result_due["lanes"] if l["key"] == "kid:3")
     done_due = next((g for g in lane_due["groups"] if g["key"] == "done"), None)
     assert done_due is not None
-    assert any(t["title"] == "Water the plants" for t in done_due["tasks"])
-    assert all(t["action"] == "reopen" for t in done_due["tasks"])
+    entry = next(t for t in done_due["tasks"] if t["title"] == "Water the plants")
+    assert entry["finished"] is True
+    # Read-only: a past day is a record of the week, and those points are
+    # already counted in its total. Reopening from here rewrites a banked week.
+    assert entry["action"] is None
+    # And it is not captioned as owing, which is what the tick rule's lock
+    # would otherwise say about a chore that is already finished.
+    assert entry["lock"] == "overdue"
+
+
+def test_only_the_real_today_offers_undo():
+    """Undo is the real today's business. A past day is a record.
+
+    Every other cell on the strip used to offer a reopen tick, so browsing back
+    to Saturday put a live row under a heading reading "Done" -- and a tap there
+    rewrote a week whose points had already been counted.
+    """
+    today = date.today()
+    data = sample_data()
+    task = next(t for t in data["tasks"] if t["id"] == 1)  # due today
+    finished = {**task, "status": "Done", "completed_date": today.isoformat()}
+    patched = {**data, "tasks": [finished if t["id"] == 1 else t for t in data["tasks"]]}
+
+    for offset in range(-DISPLAY_ARC_PAST, DISPLAY_ARC_FUTURE + 1):
+        day = today + timedelta(days=offset)
+        result = build_board_payload(patched, on_date=day, compact=True)
+        rows = [
+            t
+            for lane in result["lanes"]
+            for g in lane["groups"]
+            for t in g["tasks"]
+            if t["id"] == 1
+        ]
+        if offset != 0:
+            # Off today the task is not even on this day, so nothing to assert.
+            if not rows:
+                continue
+            assert rows[0]["action"] is None, (
+                f"{day} offers {rows[0]['action']!r} for a finished task -- only "
+                "the real today may be undone"
+            )
+    # Sanity: it really is undoable today, or the loop above passes for nothing.
+    on_today = build_board_payload(patched, on_date=today, compact=True)
+    entry = next(
+        t
+        for lane in on_today["lanes"]
+        for g in lane["groups"]
+        for t in g["tasks"]
+        if t["id"] == 1
+    )
+    assert entry["action"] == "reopen"
 
 
 def test_a_task_finished_today_stays_on_the_board_to_be_undone():
@@ -1153,29 +1199,34 @@ def test_a_task_is_only_ever_on_its_own_due_day():
         assert 3 not in listed, day.isoformat()
 
 
-def test_a_finished_task_offers_undo_even_when_it_cannot_be_completed():
-    """can_mark_done would refuse a task this overdue, and it must refuse a
-    finished one too -- but the row still has to be clickable, or the only way
-    to undo is the database.
+def test_a_finished_task_is_never_offered_a_tick_to_earn_points_again():
+    """A finished row is never a "complete" row, whatever the date rule says.
 
-    The task is viewed on its own due date, because that is the only day it now
-    appears on: it was finished late, and finishing it late does not move it.
+    Undo used to be offered on any day, and was built by falling through to the
+    tick for anything that was not done. That fallback is gone, and this is the
+    case that would have caught it: a chore finished and inside the overdue
+    window, so the tick rule *allows* it. Folding the two branches together
+    would hand it a "complete" tick and re-award points for work already banked.
     """
     data = sample_data()
     task = next(t for t in data["tasks"] if t["id"] == 3)  # five days overdue
     task["status"] = "Done"
-    # Finished yesterday: this is the late-finish case that used to be pulled
-    # into whatever day it was completed on.
-    task["completed_date"] = (date.today() - timedelta(days=1)).isoformat()
+    task["completed_date"] = date.today().isoformat()
 
-    due_day = date.fromisoformat(task["due_date"])
-    result = build_board_payload(data, on_date=due_day, compact=True)
+    # Asked about a day where the tick rule does allow it, to make the point.
+    yesterday = date.today() - timedelta(days=1)
+    task["due_date"] = yesterday.isoformat()
+    allowed, _ = can_mark_done(task)
+    assert allowed, "this test is not exercising what it claims"
+
+    result = build_board_payload(data, on_date=yesterday, compact=True)
     lane = next(l for l in result["lanes"] if l["key"] == "kid:3")
     entry = group(lane, "done")["tasks"][0]
-    assert entry["action"] == "reopen"
-    # The lock is irrelevant to undo: can_mark_done is a gate on earning points,
-    # not on correcting a mistake.
-    assert entry["lock"] == "overdue"
+    assert entry["finished"] is True
+    assert entry["lock"] is None, "the tick rule does allow this date"
+    # Not a tick to earn points again, and not an undo either: yesterday is a
+    # record. Only the real today carries a verb for a finished task.
+    assert entry["action"] is None
 
 
 def test_the_action_verb_is_stated_not_inferred():
