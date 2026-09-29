@@ -5,6 +5,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from utils.db_helpers import get_all_data
 from utils.styles import apply_custom_styles
+from utils import theme
 from utils.kiosk_helpers import get_kiosk_bootstrap, KIOSK_IFRAME_HTML
 from utils.admin_helpers import load_admin_password
 from app_pages.kids_profiles import kids_profiles_page
@@ -31,8 +32,17 @@ st.set_page_config(
 
 # One stylesheet for the whole app, mounted before anything renders so every
 # page below inherits the same design. There is no theme argument: the Board's
-# palette is the only one (utils/styles.py).
+# palette is the only one (utils/styles.py), and it carries both modes -- the
+# choice between them is one attribute on <html>, not a second stylesheet.
 apply_custom_styles()
+
+# The mode, and the script that applies and remembers it. Here rather than in
+# the nav because the Board is the page that most needs it unconditionally -- it
+# is the one left running on a wall -- and the nav is not rendered until the
+# shell has decided which page it is on. The Board's own frame reads the same
+# localStorage key, so a mode change reaches it without a remount and without
+# touching the kiosk or the adhan underneath.
+theme.boot()
 
 st.markdown("""<div class="family-bg"></div>""", unsafe_allow_html=True)
 

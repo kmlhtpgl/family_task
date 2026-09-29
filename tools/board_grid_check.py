@@ -517,6 +517,67 @@ DONE_ROWS = """() => {
 }"""
 
 
+def check_people_colours(page, label, want_lightness):
+    """Every person has to keep their own colour, in this mode.
+
+    A contrast check cannot see this failure. The Board builds each person's
+    colour in the browser as `oklch(calc(var(--person-lightness) + lift) ...)`,
+    so if that composition is unsupported -- or if the token is renamed -- the
+    declaration is dropped, every person falls back to the shared accent, and
+    each one is still perfectly legible. The wall just stops telling anybody
+    apart, which is the only thing the colours are for.
+    """
+    frame = board_frame(page)
+    if frame is None:
+        raise SystemExit(f"{label}: no board frame")
+    got = frame.evaluate(PERSON_COLOURS)
+
+    points = [c for c in got["points"] if c]
+    problems = []
+    print(f"    theme={got['theme']} person-lightness={got['lightness']}")
+    for i, colour in enumerate(points):
+        print(f"        [{i}] {colour}")
+
+    # Lightness, read back out of the painted colour, is the token plus lift.
+    import re as _re
+
+    lights = []
+    for colour in points:
+        m = _re.match(r"oklch\(([0-9.]+)", colour)
+        if m:
+            lights.append(float(m.group(1)))
+    if not lights:
+        problems.append("no person colour resolved to an oklch() value")
+    elif abs(max(lights) - want_lightness) > 0.12 or abs(min(lights) - want_lightness) > 0.12:
+        problems.append(
+            f"person lightness spans {min(lights):.2f}..{max(lights):.2f}, "
+            f"expected to sit near {want_lightness} -- the mode's base is not reaching them"
+        )
+    # The point of the six: they have to be six, not one repeated.
+    accents_only = [c for c in points if c != got["accent"]]
+    if len(set(accents_only)) < 2:
+        problems.append(
+            f"{len(accents_only)} person colours are all {accents_only[:1]} -- they "
+            "have collapsed onto the shared accent"
+        )
+    for problem in problems:
+        print(f"    FAIL {problem}")
+    return not problems
+
+
+PERSON_COLOURS = """() => {
+  const de = document.documentElement;
+  return {
+    theme: de.getAttribute('data-theme'),
+    lightness: getComputedStyle(de).getPropertyValue('--person-lightness').trim(),
+    accent: getComputedStyle(de).getPropertyValue('--accent').trim(),
+    points: Array.from(document.querySelectorAll('.person__points')).map(function (n) {
+      return getComputedStyle(n).color;
+    }),
+  };
+}"""
+
+
 def main():
     port = free_port()
     proc = None
@@ -570,6 +631,21 @@ def main():
                     print(f"    FAIL page errors: {errors}")
                     ok = False
                 page.close()
+
+            # Day mode, once, at the wall size. The layout is a function of width
+            # and not of lighting, so the seven-viewport sweep above does not need
+            # repeating in both modes -- but the person colours are recomposed per
+            # mode in the browser, and that path exists nowhere else.
+            print("  day 1280x800")
+            day = browser.new_page(viewport={"width": 1280, "height": 800})
+            day.add_init_script(
+                "try { localStorage.setItem('family-task-theme', 'day'); } catch (e) {}"
+            )
+            day.goto(f"http://127.0.0.1:{port}", wait_until="domcontentloaded")
+            settle(day)
+            day.wait_for_timeout(1200)
+            ok = check_people_colours(day, "day 1280x800", 0.45) and ok
+            day.close()
             browser.close()
         print("PASS" if ok else "FAILED")
         return 0 if ok else 1

@@ -9,6 +9,8 @@ in it.
 """
 import streamlit as st
 
+from utils import theme
+
 PAGES = (
     ("board", "", "Board"),
     ("parents", "", "Parents"),
@@ -35,6 +37,12 @@ def render_nav(active: str) -> None:
         # stylesheet target these buttons without leaking pill styling onto
         # every other button that happens to sit in a column.
         st.markdown('<div class="nav-scope"></div>', unsafe_allow_html=True)
+        # Day / Night / Auto, in the nav because the nav is the one thing on
+        # every page -- and the Board is the page most likely to need it
+        # changed, from a phone, across a room. It sits above the buttons
+        # rather than in the grid because nine columns already fill 390px and a
+        # tenth would be too narrow to tap.
+        theme.render_switch()
         cols = st.columns(len(PAGES), gap="small")
         for col, (page_key, icon, label) in zip(cols, PAGES):
             btn_type = "primary" if page_key == active else "secondary"

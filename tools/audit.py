@@ -80,6 +80,13 @@ JS_MEASURE = r"""
     return {rgb: [d[0], d[1], d[2]], a: d[3] / 255};
   };
   const over = (fg, bg) => fg.rgb.map((c, i) => c * fg.a + bg[i] * (1 - fg.a));
+  const relLum = (rgb) => {
+    const ch = (c) => {
+      c /= 255;
+      return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * ch(rgb[0]) + 0.7152 * ch(rgb[1]) + 0.0722 * ch(rgb[2]);
+  };
   const effectiveBg = (el) => {
     let node = el;
     while (node && node !== document.documentElement) {
@@ -194,12 +201,68 @@ JS_MEASURE = r"""
     }
   }
 
+  // ── Dark islands ────────────────────────────────────────────────────────
+  // An element whose background is far darker than the page it sits on. Day mode
+  // is what makes this measurable: on a dark page an unstyled dark widget is
+  // invisible, and a whole class of "we never styled this" bugs can hide in a
+  // stylesheet for years. On a light page each one is a black box in the middle
+  // of the form.
+  const ISLAND_DELTA = 0.35;
+  // A filled primary button is *supposed* to contrast with the page -- it is the
+  // accent, and the accent is dark in day mode and bright in night mode. Counting
+  // it as a failure would mean this check could only ever pass in one mode.
+  const intentional = (el) => !!el.closest(
+    '[data-testid="stBaseButton-primary"],'
+    + ' [data-testid="stBaseButton-primaryFormSubmit"],'
+    + ' [data-testid="stBaseButton-secondaryFormSubmit"],'
+    + ' .kiosk-screensaver, .adhan'
+  );
+  const pageL = (function () {
+    const c = parseRGB(getComputedStyle(document.body).backgroundColor);
+    return c && c.a > 0.95 ? relLum(c.rgb) : 1;
+  })();
+  const islands = [];
+  for (const el of all) {
+    if (!visible(el)) continue;
+    if (transient(el) || intentional(el)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8) continue;
+    const c = parseRGB(getComputedStyle(el).backgroundColor);
+    if (!c || c.a < 0.03) continue;
+    // Composite over what is actually behind it before judging the lighting. A
+    // tinted panel is a common Streamlit shape -- an info alert is rgba(...,0.2)
+    // -- and its raw colour is nearly black while the panel on screen is nearly
+    // white. Reading the raw value reports a dark box that is not there.
+    const composited = over(c, effectiveBg(el.parentElement || el));
+    const l = relLum(composited);
+    const dark = pageL - l;
+    if (dark <= ISLAND_DELTA && l - pageL <= ISLAND_DELTA) continue;
+    const chain = [];
+    for (let n = el; n && n !== document.body && chain.length < 3; n = n.parentElement) {
+      const tid = n.getAttribute('data-testid');
+      const kind = n.getAttribute('kind');
+      const bw = n.getAttribute('data-baseweb');
+      const bits = [tid ? 'testid=' + tid : '', kind ? 'kind=' + kind : '', bw ? 'baseweb=' + bw : '']
+        .filter(Boolean).join(' ');
+      chain.push(n.tagName.toLowerCase() + (bits ? '[' + bits + ']' : ''));
+    }
+    islands.push({
+      bg: getComputedStyle(el).backgroundColor,
+      lum: Math.round(l * 100) / 100,
+      pageLum: Math.round(pageL * 100) / 100,
+      box: {w: Math.round(r.width), h: Math.round(r.height)},
+      chain: chain.join(' < '),
+    });
+  }
+
   return {
     viewport: {w: de.clientWidth, h: de.clientHeight},
     docHeight: de.scrollHeight,
     overflowX: overflow,
     overflowing: wide.slice(0, 20),
     scrollers,
+    islands: islands.slice(0, 25),
+    mode: de.getAttribute('data-mode') || de.getAttribute('data-theme') || '',
     textCount: texts.length,
     texts,
     fontFamily: getComputedStyle(document.body).fontFamily,
@@ -299,15 +362,34 @@ def check_type_scale(measurement):
     return []
 
 
+def check_no_islands(measurement):
+    """Nothing on the page should be a different lighting from the page.
+
+    The check that day mode made necessary, and it earns its place in night mode
+    too: an element that only looks right under one lighting was never styled,
+    and on a dark page that is invisible. Reported as a chain rather than a
+    selector because the element itself usually has no usable hook -- it is the
+    Streamlit wrapper three levels above the thing you would want to name.
+    """
+    problems = []
+    for island in measurement.get("islands", []):
+        problems.append(
+            f"{island['chain']} is {island['bg']} (lum {island['lum']}) on a page at "
+            f"{island['pageLum']}, {island['box']['w']}x{island['box']['h']}"
+        )
+    return problems
+
+
 CHECKS = {
     "contrast": check_contrast,
     "no-horizontal-overflow": check_nothing_overflows_horizontally,
     "no-clipped-text": check_nothing_clips_its_own_text,
+    "no-islands": check_no_islands,
     "type-scale": check_type_scale,
 }
 
 
-def audit(route="board", view="kiosk", out=None):
+def audit(route="board", view="kiosk", out=None, mode="night"):
     from playwright.sync_api import sync_playwright
 
     width, height = VIEWS[view]
@@ -326,6 +408,18 @@ def audit(route="board", view="kiosk", out=None):
         with sync_playwright() as pw:
             browser = pw.chromium.launch()
             page = browser.new_page(viewport={"width": width, "height": height})
+            if mode != "night":
+                # The mode is set the way a user sets it -- in the browser's own
+                # storage, before the app loads -- rather than by writing
+                # data-mode onto <html> from the test. That is the only version
+                # of this that measures the feature: the app's script reads the
+                # key and paints both documents, so a run exercises the real path
+                # including the Board frame, and a regression in the plumbing
+                # fails the check instead of being papered over by the test.
+                page.add_init_script(
+                    "try { localStorage.setItem('family-task-theme', %r); } catch (e) {}"
+                    % mode
+                )
             page.goto(base, wait_until="domcontentloaded")
             settle(page)
 
@@ -357,9 +451,20 @@ def audit(route="board", view="kiosk", out=None):
                         raise SystemExit(
                             "admin is locked; set FAMILY_TASK_ADMIN_PASSWORD to audit it"
                         )
+                # Streamlit animates widget colours, and getComputedStyle reports
+                # the animated value, so measuring the instant a page settles
+                # reads the *previous* mode's colours and reports a page full of
+                # islands that are not there. Half a second is longer than the
+                # transition and short enough not to matter.
+                page.wait_for_timeout(600)
                 measurement = page.evaluate(JS_MEASURE)
 
-            report[route] = {"view": view, "measurement": measurement, "checks": {}}
+            report[route] = {
+                "view": view,
+                "mode": mode,
+                "measurement": measurement,
+                "checks": {},
+            }
             for name, fn in CHECKS.items():
                 report[route]["checks"][name] = fn(measurement)
             browser.close()
@@ -376,15 +481,22 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--route", default="board", choices=["board", *ROUTES])
     ap.add_argument("--view", default="kiosk", choices=list(VIEWS))
+    ap.add_argument(
+        "--mode",
+        default="night",
+        choices=["night", "day", "auto"],
+        help="which mode to audit; set in localStorage before the app loads",
+    )
     ap.add_argument("--json")
     ap.add_argument("--show-text", action="store_true", help="print every text node")
     args = ap.parse_args()
 
-    report = audit(args.route, args.view, args.json)
+    report = audit(args.route, args.view, args.json, args.mode)
     entry = report[args.route]
     m = entry["measurement"]
 
     print(f"\n{args.route} @ {args.view}  ({m['viewport']['w']}x{m['viewport']['h']})")
+    print(f"  mode           {m.get('mode') or '(unresolved)'} (asked for {args.mode})")
     print(f"  body font      {m['fontFamily']}")
     print(f"  text nodes     {m['textCount']}")
     print(f"  doc height     {m['docHeight']}px")

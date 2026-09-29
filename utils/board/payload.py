@@ -38,13 +38,26 @@ DISPLAY_ARC_FUTURE = 3
 
 # Curated, not hashed. A wall display is looked at by name, so a person's colour
 # has to be the same every render and recognisable at a distance.
-ACCENTS = [
-    "oklch(0.72 0.17 232)",
-    "oklch(0.76 0.16 62)",
-    "oklch(0.72 0.18 330)",
-    "oklch(0.74 0.15 150)",
-    "oklch(0.71 0.16 292)",
-    "oklch(0.78 0.14 96)",
+#
+# A colour is sent as the numbers that are an identity, not as a finished
+# oklch() string, because lightness is lighting rather than identity and is left
+# to the Board's --person-lightness token. At the night base the six come out
+# vivid on a dark wall; the same values on a near-white one sit between 2.08:1
+# and 2.59:1, so every lane label and flag becomes illegible in daylight and
+# nothing catches it. Holding the base in one stylesheet line is what lets one
+# person be both recognisable and legible in both modes.
+#
+# `lift` is the small per-person offset on top of that base. It is kept because
+# these six are not only differently hued: a couple of them are neighbours on the
+# wheel, and the difference in lightness is what keeps them tellable apart at
+# distance. They are set so that the night values come out exactly as before.
+ACCENT_HUES = [
+    {"chroma": 0.17, "hue": 232, "lift": -0.01},
+    {"chroma": 0.16, "hue": 62, "lift": 0.03},
+    {"chroma": 0.18, "hue": 330, "lift": -0.01},
+    {"chroma": 0.15, "hue": 150, "lift": 0.01},
+    {"chroma": 0.16, "hue": 292, "lift": -0.02},
+    {"chroma": 0.14, "hue": 96, "lift": 0.05},
 ]
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -379,7 +392,7 @@ def build_people(data, tasks, on_date: date) -> list[dict]:
                 "initials": initials(kid.get("name")),
                 "meta": f"age {kid.get('age')}" if kid.get("age") else "",
                 "photo": kid.get("photo_path"),
-                "accent": ACCENTS[index % len(ACCENTS)],
+                "accent": dict(ACCENT_HUES[index % len(ACCENT_HUES)]),
                 "weekly_points": get_weekly_points_for_kid(data, kid["id"]),
                 "total_points": get_total_points_for_kid(data, kid["id"]),
                 "due_today": today_due.get(key, 0),
@@ -399,7 +412,7 @@ def build_people(data, tasks, on_date: date) -> list[dict]:
                 "initials": initials(parent.get("name")),
                 "meta": "",
                 "photo": parent.get("photo_url"),
-                "accent": ACCENTS[index % len(ACCENTS)],
+                "accent": dict(ACCENT_HUES[index % len(ACCENT_HUES)]),
                 "weekly_points": get_weekly_points_for_parent(data, parent["id"]),
                 "total_points": get_total_points_for_parent(data, parent["id"]),
                 "due_today": today_due.get(key, 0),
@@ -456,7 +469,16 @@ def build_board_payload(
     same rules the write path enforces, so the canvas never has to work out what
     is allowed. `tools/spike_check.py` drives the resulting round trip in a
     real browser.
+
+    The mode is deliberately not here. It is a per-device display preference that
+    the frame and the app both read out of the same localStorage key, and putting
+    it in this payload would mean Python had to know the user's choice -- which it
+    cannot, because only the browser can read localStorage. The result would be
+    the app asserting "night" at a tablet that had been left in day mode, on
+    every reload. One source of truth, read by both documents, and the two
+    cannot disagree.
     """
+
     on_date = on_date or date.today()
     tasks = data.get("tasks", [])
     iso = on_date.isoformat()

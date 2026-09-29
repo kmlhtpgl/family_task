@@ -351,6 +351,24 @@
 
   /* ── People rail ────────────────────────────────────────────────────────── */
 
+  /* Only the identity numbers come from the payload. The lightness is left as a
+   * var() plus each person's lift, so it resolves against --person-lightness on
+   * the element, which the stylesheet sets per mode: one person then stays
+   * recognisable in both modes instead of being legible on one wall and invisible
+   * on the other, and a mode change repaints every lane at once with no
+   * re-render. */
+  function setPersonAccent(node, person) {
+    if (!person || !person.accent) return;
+    var a = person.accent;
+    var lift = Number(a.lift) || 0;
+    node.style.setProperty(
+      "--person-accent",
+      "oklch(calc(var(--person-lightness) " +
+        (lift < 0 ? "- " : "+ ") + Math.abs(lift) +
+        ") " + a.chroma + " " + a.hue + ")"
+    );
+  }
+
   function face(person, className) {
     var box = el("div", className || "person__face");
     if (person.photo) {
@@ -394,7 +412,7 @@
     btn.type = "button";
     btn.dataset.key = key;
     if (key === state.selected) btn.setAttribute("aria-current", "true");
-    if (person) btn.style.setProperty("--person-accent", person.accent);
+    if (person) setPersonAccent(btn, person);
 
     btn.appendChild(person ? face(person) : everyoneMark());
 
@@ -480,7 +498,7 @@
       })[0] || {};
       var card = el("div", "mini rise");
       card.style.animationDelay = i * 55 + "ms";
-      card.style.setProperty("--person-accent", person.accent || "var(--accent)");
+      setPersonAccent(card, person);
 
       var head = el("div", "mini__head");
       head.appendChild(face(person, "mini__face"));
@@ -716,6 +734,67 @@
     cachedOverdueDays = payload.overdue_days || 2;
   }
 
+  /* The mode is an attribute on <html>, read out of the same localStorage key
+     the app document uses. Two consequences, both wanted.
+
+     The frame is same-origin with the app -- it already reads the host document
+     for #board-data -- so localStorage is one shared value, not two copies that
+     have to be kept in step over a channel. When the app writes the key, the
+     browser fires a `storage` event in *this* document, so the Board follows a
+     mode change without being remounted. A remount would tear down the audio
+     element the adhan plays through, which is the thing this file is most
+     careful not to do.
+
+     And on boot the frame resolves the mode before it renders anything, so a
+     tablet left on a wall in day mode wakes up in day mode instead of painting
+     a frame of night and recolouring it a moment later. On a display the size of
+     a wall, that flash is not subtle.
+
+     Anything unrecognised falls back to night, because night is what the
+     stylesheet's unscoped :root block already describes. A missing or corrupt
+     value therefore leaves a correct frame rather than an unstyled one. */
+  var THEME_KEY = "family-task-theme";
+  var DAY_FROM = 7;
+  var DAY_TO = 19;
+
+  function readPreference() {
+    try {
+      var stored = window.localStorage.getItem(THEME_KEY);
+      return stored === "day" || stored === "night" || stored === "auto"
+        ? stored
+        : "night";
+    } catch (e) {
+      /* Private browsing, or storage turned off. A frame that cannot remember a
+         preference is still a frame that obeys one. */
+      return "night";
+    }
+  }
+
+  function resolveMode(preference, now) {
+    if (preference === "day" || preference === "night") return preference;
+    var hour = now.getHours();
+    return hour >= DAY_FROM && hour < DAY_TO ? "day" : "night";
+  }
+
+  function applyTheme() {
+    var next = resolveMode(readPreference(), new Date());
+    if (document.documentElement.getAttribute("data-theme") !== next) {
+      document.documentElement.setAttribute("data-theme", next);
+    }
+  }
+
+  /* A minute is the smallest interval that can be wrong for long enough to
+     notice. "auto" only needs to catch the two boundaries, and re-resolving
+     every minute means a tablet left on a wall crosses into night within a
+     minute of sunset without anyone touching it. */
+  function watchTheme() {
+    applyTheme();
+    window.addEventListener("storage", function (event) {
+      if (event.key === THEME_KEY || event.key === null) applyTheme();
+    });
+    window.setInterval(applyTheme, 60000);
+  }
+
   function buildFlash(flash) {
     var toast = el("div", "flash" + (flash.ok ? "" : " flash--bad"), flash.message);
     toast.setAttribute("role", "status");
@@ -838,6 +917,10 @@
     settleHeight();
   });
 
+  /* Theme first, before the first paint. Everything below can be late; a mode
+     that lands after the first frame is a flash on a wall. */
+  watchTheme();
+
   /* Ready first, size second: Streamlit drops a setFrameHeight that arrives
    * before the handshake. */
   post({ type: "streamlit:componentReady", apiVersion: 1 });
@@ -855,5 +938,7 @@
     render: render,
     paint: paint,
     send: send,
+    applyTheme: applyTheme,
+    readPreference: readPreference,
   };
 })();

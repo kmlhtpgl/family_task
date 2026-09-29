@@ -147,9 +147,120 @@ _TOKENS = """
     --shadow-lg: 0 24px 64px oklch(0 0 0 / 0.55);
     --scrim: oklch(0.97 0 0 / 0.04);
 
+    /* The two washes behind the page, from .family-bg in app.py. They are
+     * decoration, not a surface and not text, so nothing measures them -- which
+     * is exactly why they are tokens. A wash is a colour, and a colour left as a
+     * literal is a palette that only exists in the mode it was tuned for: these
+     * two were picked against a dark page and would have read as a stain on a
+     * white one. Their hues sit either side of the accent on purpose, so the
+     * page has some depth behind it that is not the same blue as everything
+     * else. */
+    --bloom-blue: oklch(0.5 0.15 258 / 0.26);
+    --bloom-teal: oklch(0.48 0.14 195 / 0.2);
+
     /* The one place white is still allowed: the travelling sheen on a filling
      * progress bar, which is a highlight and not a surface. */
     --shine: oklch(1 0 0 / 0.22);
+}
+"""
+
+
+# Day mode, and the reason this is a second block of *values* rather than a
+# second set of *names*. Every selector and every semantic in the file above is
+# unchanged: a card is still `--surface-1`, the accent is still `--accent`, and
+# a rule written once still covers both modes. Only the numbers behind the names
+# differ. That is the whole difference between a day mode and a second design,
+# and it is what lets tests/test_one_design.py hold both to one standard instead
+# of letting them drift into two apps that happen to share a repo.
+#
+# The two palettes mirror each other deliberately. Depth still comes from the
+# surface ramp, never from shadows at rest, but the ramp runs the other way:
+# night goes lighter as it rises (0.17 to 0.305) because a bright plane is the
+# most prominent thing on a dark page, and day goes darker as it rises (0.985 to
+# 0.912) for the same reason. A rule that picks --surface-3 to mean "the highest
+# step" therefore means the same thing in both modes.
+#
+# Selector is :root[data-mode="day"], not [data-mode="day"], on purpose. The
+# attribute lands on <html>, so a bare [data-mode="day"] would be the same
+# specificity as the :root block above and would win only by source order. This
+# one wins on specificity, so the mode cannot be undone by the order the two
+# blocks happen to be emitted in.
+_TOKENS_DAY = """
+:root[data-mode="day"] {
+    --surface-0: oklch(0.985 0.002 265);
+    --surface-1: oklch(0.962 0.004 265);
+    --surface-2: oklch(0.940 0.005 265);
+    --surface-3: oklch(0.912 0.006 265);
+
+    /* Borders invert to black at low alpha: the same hairline, drawn with the
+     * ink rather than the light. */
+    --border-subtle: oklch(0.20 0.01 265 / 0.10);
+    --border-default: oklch(0.20 0.01 265 / 0.14);
+    --border-strong: oklch(0.20 0.01 265 / 0.22);
+
+    /* Chroma rises as the neutral darkens, the same progression the Board uses:
+     * a lighter grey needs a little colour in it to read as a colour. */
+    --text-primary: oklch(0.24 0.012 265);
+    --text-secondary: oklch(0.37 0.012 265);
+    --text-tertiary: oklch(0.45 0.012 265);
+
+    /* The accent is a deep cyan here, not the bright one. A saturated hue
+     * carries very little luminance, and --accent is a text colour as often as
+     * it is a fill: the night value on a white surface measures 2.6:1. */
+    --accent: oklch(0.45 0.14 232);
+    /* Darker on hover, deeper pressed: the same inversion the night block
+     * makes, and the same hue held as lightness moves. */
+    --accent-hover: oklch(0.39 0.14 232);
+    --accent-active: oklch(0.52 0.14 232);
+    --accent-subtle: oklch(0.935 0.035 232);
+    --accent-border: oklch(0.78 0.09 232);
+    /* Near-white on the accent, the inversion of the night's near-black. The
+     * accent is a deep cyan by day and near-black on it measures 2.7:1. */
+    --accent-fg: oklch(0.99 0 0);
+    --accent-shadow: oklch(0.45 0.14 232 / 0.30);
+    --on-gradient: oklch(0.99 0 0);
+
+    /* Still one gold. A paler day gold is the same gold in daylight. */
+    --gold: oklch(0.45 0.12 75);
+    --gold-subtle: oklch(0.950 0.040 75);
+    --gold-border: oklch(0.82 0.08 75);
+
+    --success: oklch(0.44 0.13 152);
+    --success-subtle: oklch(0.940 0.040 152);
+    --success-border: oklch(0.80 0.08 152);
+
+    --warning: oklch(0.45 0.12 70);
+    --warning-subtle: oklch(0.950 0.045 80);
+    --warning-border: oklch(0.82 0.08 80);
+
+    --danger: oklch(0.45 0.18 25);
+    --danger-subtle: oklch(0.940 0.045 25);
+    --danger-border: oklch(0.80 0.09 25);
+
+    /* Info is the accent, in both modes. The Board has exactly one accent, and
+     * two of them is how a palette starts looking like a design system nobody
+     * chose. */
+    --info: oklch(0.45 0.14 232);
+    --info-subtle: oklch(0.935 0.035 232);
+    --info-border: oklch(0.78 0.09 232);
+
+    /* Day mode is where shadows are allowed to be shadows, because there is a
+     * paper-coloured surface underneath for them to fall across. They stay off
+     * the resting card, which is still a hairline. */
+    --shadow-xs: 0 1px 2px oklch(0.20 0.02 265 / 0.07);
+    --shadow-sm: 0 2px 8px oklch(0.20 0.02 265 / 0.09);
+    --shadow-md: 0 18px 48px oklch(0.20 0.02 265 / 0.15);
+    --shadow-lg: 0 24px 64px oklch(0.20 0.02 265 / 0.22);
+    --scrim: oklch(0.20 0.01 265 / 0.04);
+
+    /* The two washes behind the page. Inverted, not just faded: on a dark page a
+     * wash is a mid-tone glow on black, and on a light page the same numbers are
+     * a stain. So day is a pale, low-chroma tint carried at a higher alpha --
+     * less pigment, spread the same distance. */
+    --bloom-blue: oklch(0.90 0.055 258 / 0.6);
+    --bloom-teal: oklch(0.92 0.045 195 / 0.55);
+
+    --shine: oklch(1 0 0 / 0.55);
 }
 """
 
@@ -175,6 +286,17 @@ html, body,
     background: var(--surface-0) !important;
     color: var(--text-primary);
 }
+
+/* Scrollbars, the native text-selection handles and any control the browser
+ * draws for itself are themed by the browser, not by us, and it asks this
+ * property rather than our tokens. Without it a Day page keeps a dark scrollbar
+ * down the right edge, which is the kind of seam that makes a mode look
+ * unfinished. Night is the default so the app is correct before any script runs;
+ * the day value has to match the :root[data-mode="day"] selector above, because
+ * CSS inherits `color-scheme` but a bare [data-mode] would not be specific
+ * enough to beat the default it sits beside. */
+html { color-scheme: dark; }
+html[data-mode="day"] { color-scheme: light; }
 
 [data-testid="stAppViewContainer"] .block-container,
 .block-container {
@@ -217,7 +339,7 @@ footer { visibility: hidden; }
     left: -10vw;
     background: radial-gradient(
         circle at 50% 50%,
-        oklch(0.5 0.15 258 / 0.26),
+        var(--bloom-blue),
         transparent 70%
     );
 }
@@ -228,7 +350,7 @@ footer { visibility: hidden; }
     right: -8vw;
     background: radial-gradient(
         circle at 50% 50%,
-        oklch(0.48 0.14 195 / 0.2),
+        var(--bloom-teal),
         transparent 70%
     );
 }
@@ -400,7 +522,12 @@ _NAV_CSS = """
     border-radius: 50%;
     border: 1px solid var(--accent-border);
     background: transparent;
-    box-shadow: 0 0 0 28px var(--accent-subtle), 0 0 0 58px oklch(0.78 0.16 232 / 0.04);
+    box-shadow: 0 0 0 28px var(--accent-subtle),
+        /* The outer ring is the accent at 4%. It was written as a literal, which
+         * pinned it to the night accent: a faint bright cyan is right on black
+         * and invisible on white. Deriving it from the token means it follows
+         * the mode for free, and the two rings stay the same ring. */
+        0 0 0 58px color-mix(in oklch, var(--accent) 4%, transparent);
     filter: none;
 }
 .page-heading__signal {
@@ -1087,6 +1214,20 @@ _COMPONENT_CSS = """
     min-height: 2.3125rem;
     color: var(--text-primary) !important;
 }
+/* The text a select draws for itself, including its placeholder. BaseWeb paints
+ * the placeholder from its own rule at 60% of a near-white, and a rule on the
+ * container cannot reach it because the leaf carries its own colour: in day mode
+ * "Choose options" measured 1.02:1, white on the page. A descendant rule is the
+ * only thing that lands, and the chips have to be re-asserted after it because
+ * they are descendants too and should be the one coloured thing in the control. */
+.stSelectbox [data-baseweb="select"] *,
+[data-testid="stMultiSelect"] [data-baseweb="select"] * {
+    color: var(--text-primary) !important;
+}
+.stMultiSelect [data-baseweb="tag"],
+.stMultiSelect [data-baseweb="tag"] * {
+    color: var(--accent) !important;
+}
 /* ── Dropdowns and the date calendar ──
    These float above the page in a portal, so they inherit nothing from the
    stylesheet's component rules and have to be told what they are. Streamlit
@@ -1736,6 +1877,133 @@ _COMPONENT_CSS = """
 """
 
 # ── Board chrome ─────────────────────────────────────────────────────────────
+# ── Chrome the component rules never reached ────────────────────────────────
+#
+# Everything in here is token-driven and therefore correct in both modes without
+# a word about day or night. That is the point: these were not day-mode bugs.
+# They were elements the stylesheet had never styled at all, which nobody could
+# see because Streamlit's own dark values happened to be the right colour for a
+# dark page. A second palette is what exposed them -- and the honest reading is
+# that the day mode is not a second design, it is a second lighting, and anything
+# that only looked right under one lighting was never styled.
+#
+# Each entry below was found by tools/audit.py's island check in day mode, which
+# reports every element whose background is far darker than the page it is on.
+
+_CHROME_CSS = """
+/* The header is a full-width bar painted from the theme's background. On a dark
+ * page it is invisible; on a light page it is a dark stripe across the top of
+ * every page. The page colour is the right answer in both, and it is what the
+ * rest of the app already assumes. */
+[data-testid="stHeader"] {
+    background: var(--surface-0) !important;
+}
+[data-testid="stToolbar"] {
+    background: var(--surface-0) !important;
+}
+
+/* The segmented control. Streamlit renders st.segmented_control as a row of
+ * <button kind="..."> inside a button-group, and the rules in _COMPONENT_CSS
+ * were written for the <label> elements it used to render instead -- so the
+ * container was styled and the segments inside it were not, leaving Streamlit's
+ * near-black default on the page. The kind attribute is the stable hook: it is
+ * part of the element's contract rather than an emotion class name that changes
+ * with every Streamlit release. */
+[data-baseweb="button-group"] [kind="segmented_control"] {
+    background: var(--surface-1) !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--radius-sm) !important;
+    font-weight: var(--weight-medium) !important;
+}
+[data-baseweb="button-group"] [kind="segmented_control"]:hover {
+    background: var(--surface-2) !important;
+    color: var(--text-primary) !important;
+}
+[data-baseweb="button-group"] [kind="segmented_controlActive"],
+[data-baseweb="button-group"] [kind="segmented_controlActive"]:hover {
+    background: var(--accent-subtle) !important;
+    color: var(--accent) !important;
+    border-color: var(--accent-border) !important;
+    font-weight: var(--weight-semibold) !important;
+}
+[data-baseweb="button-group"] [kind="segmented_control"] p,
+[data-baseweb="button-group"] [kind="segmented_controlActive"] p {
+    color: inherit !important;
+    font-size: 0.8125rem !important;
+}
+
+/* The radio's own dot. The label around it was styled in _COMPONENT_CSS and the
+ * dot was not, so a selected radio drew Streamlit's theme-primary circle next to
+ * a label painted from our tokens. The dot is a div whose depth inside the label
+ * differs depending on whether it is checked, so both are covered by painting
+ * every descendant of the mark rather than guessing at a child index. */
+.stRadio [data-baseweb="radio"] div {
+    background: var(--surface-0) !important;
+    border-color: var(--border-strong) !important;
+}
+.stRadio label[data-checked="true"] [data-baseweb="radio"] div,
+.stRadio [data-baseweb="radio"] div:has(svg) {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+}
+
+/* The box around a text field. _COMPONENT_CSS styles the <input> itself, but
+ * Streamlit draws the field on a wrapper and the input sits on top of it, so on
+ * a light page the light input sat inside a dark box. Number, date and time
+ * fields share the same wrapper, which is why one rule covers all of them. */
+[data-testid="stTextInputRootElement"],
+[data-testid="stTextAreaRootElement"],
+[data-baseweb="input"],
+[data-baseweb="base-input"] {
+    background: var(--surface-1) !important;
+    border-color: var(--border-default) !important;
+}
+[data-testid="stTextInputRootElement"] input,
+[data-testid="stTextAreaRootElement"] textarea {
+    background: transparent !important;
+}
+/* The select box's own frame, and the chevron in it. stMultiSelect draws the
+ * same widget with a different testid, so it is named here too rather than
+ * being left as a dark dropdown on a light page. */
+.stSelectbox [data-baseweb="select"] > div,
+.stSelectbox [data-baseweb="select"],
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] {
+    background: var(--surface-1) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-default) !important;
+}
+.stSelectbox svg,
+[data-testid="stMultiSelect"] svg {
+    color: var(--text-secondary) !important;
+    fill: var(--text-secondary) !important;
+}
+
+/* The tick inside a checked checkbox. The box is filled from --accent by the
+ * rules above, but the glyph inside it is painted separately and kept the theme's
+ * primary colour -- so on a light page a white box held a night-cyan tick. It is
+ * a mark on a filled surface, so it takes the label colour, not a second one. */
+.stCheckbox [data-baseweb="checkbox"] span {
+    background: transparent !important;
+}
+.stCheckbox [data-baseweb="checkbox"] svg {
+    fill: var(--accent-fg) !important;
+    color: var(--accent-fg) !important;
+}
+
+/* The material icon Streamlit draws beside an alert, an expander or a metric
+ * takes its colour from the theme's primary colour, so it stayed the night
+ * accent while everything around it went to day. */
+[data-testid^="stIconMaterial"] {
+    color: var(--accent) !important;
+}
+[data-testid="stAlert"] svg {
+    fill: currentColor !important;
+}
+"""
+
+
 # The Board's host-side furniture: the flag above the canvas and the full-bleed
 # layout the canvas needs. It used to be a style block inside app.py's board
 # branch, which meant the Board's colours were written twice -- once here in
@@ -2118,10 +2386,21 @@ def _build_css() -> str:
         (
             _FONT_IMPORT,
             _SHARED_TOKENS,
+            # Both palettes are in every stylesheet, always. Selecting a mode is a
+            # single attribute on <html> and nothing else, so flipping it costs a
+            # style recalculation instead of a rerun, a remount, or a second copy
+            # of the rules. The consequence to keep in mind is that --surface-1
+            # and friends are not a single value any more: they are a pair that
+            # depends on the mode in force. Anything reading them at runtime has
+            # to ask which mode it is in, which is why the mode also travels in
+            # the Board payload and why the one-design test reads a palette per
+            # mode rather than one for the file.
             _TOKENS,
+            _TOKENS_DAY,
             _BASE_CSS,
             _NAV_CSS,
             _COMPONENT_CSS,
+            _CHROME_CSS,
             _BOARD_CSS,
             _KIOSK_CSS,
             _RESPONSIVE_CSS,

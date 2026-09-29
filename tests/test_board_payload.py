@@ -329,10 +329,18 @@ def test_people_carry_kids_then_parents_with_stable_accents():
     people = payload()["people"]
     assert [p["kind"] for p in people] == ["kid"] * 3 + ["parent"] * 2
     assert [p["id"] for p in people] == [1, 2, 3, 1, 2]
-    accents = [p["accent"] for p in people]
-    assert len(set(accents)) == len(accents), "accents must be distinguishable"
+    # An accent is an identity, so it is the hue that has to be distinct and
+    # stable. It is not a finished colour: the lightness is the Board's mode and
+    # arrives from the stylesheet, so the same person is a different colour in
+    # daylight without being a different person. Comparing the whole dict to a
+    # string is what the old shape allowed and this one does not.
+    identities = [(p["accent"]["chroma"], p["accent"]["hue"]) for p in people]
+    assert len(set(identities)) == len(identities), "accents must be distinguishable"
+    assert "oklch" not in str(people[0]["accent"]), "the payload must not bake in a lightness"
     # Same input, same colours: a wall display is recognised by colour.
-    assert accents == [p["accent"] for p in payload()["people"]]
+    assert identities == [
+        (p["accent"]["chroma"], p["accent"]["hue"]) for p in payload()["people"]
+    ]
 
 
 def test_names_are_whitespace_normalised():

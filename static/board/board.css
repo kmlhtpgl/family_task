@@ -32,6 +32,14 @@
   --warn: oklch(0.84 0.15 82);
   --late: oklch(0.72 0.19 22);
 
+  /* Lightness for the six per-person colours. Separate from --accent because
+   * these are held at a higher lightness than any UI accent: they carry a lane's
+   * identity across the whole wall, and the same six hues at accent lightness
+   * stop being tellable apart at a distance. It is a token, not a constant in
+   * the payload, so day mode can drop it far enough to read on a white Board
+   * while keeping every hue exactly where it was. */
+  --person-lightness: 0.73;
+
   --hairline: oklch(0.97 0 0 / 0.09);
   --hairline-strong: oklch(0.97 0 0 / 0.16);
 
@@ -46,6 +54,50 @@
   --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
   color-scheme: dark;
+}
+
+/* Day mode. Same shape as the app's day palette and, where the two files share a
+ * name, the same value -- tests/test_one_design.py compares every token below
+ * against utils/styles.py in both modes, so a drift here fails the build rather
+ * than shipping a light Board next to a dark app.
+ *
+ * The surface ramp is inverted rather than simply lightened. The floor of a wall
+ * board in a lit room is near-white and depth still comes from elevation, so the
+ * ramp runs the other way: night goes lighter as it rises (0.17 to 0.305) and day
+ * goes darker (0.985 to 0.912). A rule that means --surface-3 by "the highest
+ * step" means the same thing in both.
+ *
+ * Every accent darkens for daylight. A saturated hue carries very little
+ * luminance, so the bright night values would be recognisably cyan, green, amber
+ * and red on a near-white surface and completely illegible. Measured, not
+ * guessed: the day's --faint on --surface-3 is 5.76:1 and the night file's own
+ * floor is 4.64:1, so day is not a token-for-token flip. */
+[data-theme="day"] {
+  --surface-0: oklch(0.985 0.002 265);
+  --surface-1: oklch(0.962 0.004 265);
+  --surface-2: oklch(0.940 0.005 265);
+  --surface-3: oklch(0.912 0.006 265);
+
+  --text: oklch(0.24 0.012 265);
+  --muted: oklch(0.37 0.012 265);
+  --faint: oklch(0.45 0.012 265);
+
+  --accent: oklch(0.45 0.14 232);
+  --good: oklch(0.44 0.13 152);
+  --warn: oklch(0.45 0.12 70);
+  --late: oklch(0.45 0.18 25);
+
+  /* The six per-person colours, on a base matching the day accent. The hue and
+   * chroma are unchanged, so these are still the same six people -- only the
+   * lighting moved, which is the whole difference between a wall that is read in
+   * daylight and one that is read at night. */
+  --person-lightness: 0.45;
+
+  /* Borders invert to black at low alpha: the same hairline, drawn in ink. */
+  --hairline: oklch(0.20 0.01 265 / 0.10);
+  --hairline-strong: oklch(0.20 0.01 265 / 0.22);
+
+  color-scheme: light;
 }
 
 * {

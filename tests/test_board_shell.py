@@ -275,12 +275,21 @@ def test_board_frame_does_not_depend_on_the_host_stylesheet():
 
 
 def test_board_css_and_js_never_reach_for_the_host_layer():
+    """Neither file may depend on the host's stylesheet.
+
+    Comments are stripped before checking, because a comment cannot be a
+    dependency. This started as a list of two allowed phrases -- the header
+    comments in both files talk about utils/styles.py by name, and the test
+    failed every time either file was reworded. Pinning prose meant the next
+    person to explain themselves in a comment had to edit a test, which is how a
+    guard like this quietly gets switched off. The dependency is in the code.
+    """
     for path in (BOARD_CSS, BOARD_JS):
         source = path.read_text()
+        source = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        source = re.sub(r"^\s*//.*$", "", source, flags=re.MULTILINE)
         assert "@import" not in source
-        assert "utils/" not in source.replace(
-            "utils/styles.py -- 1,500 lines of it,", ""
-        ).replace("utils/styles.py cannot", "")
+        assert "utils/" not in source
 
 
 def test_board_index_is_minimal_and_painted_by_script():
@@ -300,11 +309,36 @@ def test_the_canvas_asks_rather_than_writes():
     There is no database in the browser, and a tick is a question sent to Python
     rather than a fact asserted here. If a second channel ever appears -- a
     fetch, a form post, an optimistic local write -- this is what catches it.
+
+    localStorage is now allowed, for exactly one thing, and the shape of the
+    allowance matters more than the fact of it. The display mode is a per-device
+    preference with no server state behind it, and the frame and the app document
+    have to agree on it or the app is white around a night Board. The frame
+    therefore only ever *reads* it: it holds no copy of anything the server owns,
+    it takes the mode from the key the app writes, and it follows changes through
+    the browser's own `storage` event. So the write verbs are still banned
+    outright, and the one read is pinned to the key utils/theme.py owns.
     """
     js = BOARD_JS.read_text()
     assert "fetch(" not in js, "the canvas is talking to something other than the host"
     assert "XMLHttpRequest" not in js
-    assert "localStorage" not in js
+    for verb in ("setItem", "removeItem", "clear"):
+        assert f"localStorage.{verb}" not in js, (
+            f"the canvas is writing to localStorage ({verb}); it holds no state of its own"
+        )
+
+    from utils import theme
+
+    keys = set(re.findall(r'localStorage\.getItem\(\s*([A-Za-z_$][\w$]*)', js))
+    assert keys == {"THEME_KEY"}, (
+        f"the canvas reads localStorage keys {sorted(keys)}; it should read only the "
+        f"mode key, and get it from utils/theme.py rather than hard-coding the string"
+    )
+    # And the key it reads is the one the app writes.
+    assert f'var THEME_KEY = "{theme.THEME_KEY}"' in js, (
+        "board.js's key is not utils/theme.THEME_KEY; the frame and the app would "
+        "read different keys and the Board would not follow the mode"
+    )
     # The two verbs the payload is allowed to ask for, and nothing else.
     verbs = set(re.findall(r'send\(\s*"([a-z]+)"', js))
     assert not verbs, f"hard-coded verbs in the canvas: {verbs}"
@@ -343,3 +377,21 @@ def test_js_only_sets_variables_the_stylesheet_uses():
     css = BOARD_CSS.read_text()
     for name in set(re.findall(r"setProperty\(\"(--[a-z0-9-]+)\"", js)):
         assert f"var({name}" in css, f"{name} is set from JS but never used"
+
+
+def test_js_only_reads_variables_the_stylesheet_defines():
+    """And the third direction: a var() the JS composes has to exist too.
+
+    setPersonAccent builds `oklch(calc(var(--person-lightness) + ...) ...)` as a
+    string and hands it to the browser, so the variable it depends on never
+    appears in the stylesheet next to the property it sets. If that name is ever
+    typo'd or the token is renamed, the person accents resolve to nothing -- the
+    browser drops the declaration and the lanes lose their colours, silently,
+    in a file no CSS parser in this suite reads.
+    """
+    js = BOARD_JS.read_text()
+    css = BOARD_CSS.read_text()
+    defined = set(re.findall(r"(--[a-z0-9-]+)\s*:", css))
+    used = set(re.findall(r"var\((--[a-z0-9-]+)", js))
+    missing = used - defined
+    assert not missing, f"JS reads CSS variables that are not defined: {sorted(missing)}"
